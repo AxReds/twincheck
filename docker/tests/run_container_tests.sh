@@ -106,7 +106,10 @@ check "wizard locked after use" bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_
 login() { curl -s -c "$CJ" -b "$CJ" "${H[@]}" -d "{\"username\":\"$1\",\"password\":\"$2\"}" http://127.0.0.1:7777/api/login; }
 CSRF="$(login admin "$APW" | json "d['csrf']")"
 check "admin login" test -n "$CSRF"
-check "session cookie HttpOnly + SameSite=Strict, no Secure" bash -c "curl -s -D - -o /dev/null ${H[*]} -d '{\"username\":\"admin\",\"password\":\"$APW\"}' http://127.0.0.1:7777/api/login | grep -i '^set-cookie: tc_session' | grep -q 'HttpOnly' && ! curl -s -D - -o /dev/null ${H[*]} -d '{\"username\":\"admin\",\"password\":\"$APW\"}' http://127.0.0.1:7777/api/login | grep -i '^set-cookie' | grep -qi 'secure'"
+# fresh request (no cookie jar) so only the response headers are inspected
+LOGIN_HDRS="$(curl -s -D - -o /dev/null "${H[@]}" -d "{\"username\":\"admin\",\"password\":\"$APW\"}" http://127.0.0.1:7777/api/login | tr -d '\r')"
+SESSION_SET="$(printf '%s\n' "$LOGIN_HDRS" | grep -i '^set-cookie: tc_session=' || true)"
+check "session cookie HttpOnly + SameSite=Strict, no Secure" bash -c 'grep -q "HttpOnly" <<<"$1" && grep -qi "SameSite=Strict" <<<"$1" && ! grep -qi "secure" <<<"$1"' _ "$SESSION_SET"
 CSRF="$(login admin "$APW" | json "d['csrf']")"
 api() { local m="$1" u="$2"; shift 2; curl -s -b "$CJ" -c "$CJ" "${H[@]}" -H "X-CSRF-Token: $CSRF" -X "$m" "http://127.0.0.1:7777$u" "$@"; }
 check "metrics after login" bash -c "curl -s -b $CJ http://127.0.0.1:7777/api/sysinfo | grep -q ct-host"
@@ -159,11 +162,14 @@ check "no leftover temp/partial files" bash -c "[ -z \"\$(find $WORK/library -na
 CJ="$CJ_SAVE"
 
 echo "== reset-admin-password with the app running"
+CSRF="$(login admin "$APW" | json "d['csrf']")"
+check "admin session valid before the reset" bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_code}' -b $CJ http://127.0.0.1:7777/api/me)\" = 200 ]"
 OUT="$(docker exec "$PROJECT" reset-admin-password --generate 2>&1)"
 NEWADMIN="$(echo "$OUT" | sed -n '3p' | tr -d '[:space:]')"
 check "reset command succeeded" test -n "$NEWADMIN"
 check "old admin session invalidated" bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_code}' -b $CJ http://127.0.0.1:7777/api/me)\" = 401 ]"
-check "new password works" bash -c "curl -s -c $WORK/c2 ${H[*]} -d '{\"username\":\"admin\",\"password\":\"$NEWADMIN\"}' http://127.0.0.1:7777/api/login | grep -q csrf"
+NEWLOGIN="$(curl -s -c "$WORK/c2" "${H[@]}" -d "{\"username\":\"admin\",\"password\":\"$NEWADMIN\"}" http://127.0.0.1:7777/api/login | json "d.get('csrf', '')" 2>/dev/null || true)"
+check "new password works" test -n "$NEWLOGIN"
 check "password never in container logs" bash -c "! docker logs $PROJECT 2>&1 | grep -qF '$NEWADMIN'"
 check "reset fails with a wrong key, nothing modified" bash -c "H1=\$(sha256sum $WORK/state/vault.enc); ! docker exec -e APP_MASTER_KEY=\$(printf '0%.0s' {1..64}) $PROJECT reset-admin-password --generate >/dev/null 2>&1; [ \"\$H1\" = \"\$(sha256sum $WORK/state/vault.enc)\" ]"
 

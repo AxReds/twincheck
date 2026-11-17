@@ -104,7 +104,10 @@ class ASGIApp:
             host = req.headers.get("host", "")
             if origin and origin.split("://", 1)[-1] != host:
                 fail(403, "csrf_origin")
-            if req.session:
+            # Login replaces any current session, so it is protected like an anonymous
+            # request (custom header, which a cross-site form cannot set) instead of
+            # failing when the browser still holds a valid cookie but lost the token.
+            if req.session and req.path != "/api/login":
                 if not secrets.compare_digest(req.headers.get("x-csrf-token", ""), req.session["csrf"]):
                     fail(403, "csrf_token")
             elif req.headers.get("x-requested-with") != "twincheck":
@@ -320,6 +323,7 @@ def login(req: Request):
         time.sleep(0.3)
         fail(401, "bad_credentials")
     core.limiter.success([f"user:{username.lower()}"])
+    core.sessions.drop(req.cookies.get(SESSION_COOKIE))
     token, sess = core.sessions.create(user)
     events.console("LOGIN_OK", username=user["username"], ip=req.client_ip)
     resp = JSONResponse({"ok": True, "csrf": sess["csrf"], "user": common.user_public(user)})

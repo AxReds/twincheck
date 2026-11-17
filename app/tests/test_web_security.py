@@ -92,6 +92,22 @@ class HttpSecurity(unittest.TestCase):
         anon = self.inst.client()
         self.assertEqual(anon.post("/api/login", {"username": "a", "password": "b"}, headers={"x-requested-with": None}).status, 403)
 
+    def test_relogin_with_a_live_session_cookie(self):
+        # a browser that still holds a valid cookie but lost the CSRF token (reload,
+        # second tab) must be able to sign in again; the old session is dropped
+        c = self.inst.client()
+        self.assertEqual(c.login("admin", STRONG).status, 200)
+        old_cookie = dict(c.cookies)
+        r = c.post("/api/login", {"username": "admin", "password": STRONG}, csrf=False)
+        self.assertEqual(r.status, 200, r.text)
+        self.assertIn("csrf", r.json())
+        stale = self.inst.client()
+        stale.cookies = old_cookie
+        self.assertEqual(stale.get("/api/me").status, 401)
+        # the custom header is still required
+        r = c.post("/api/login", {"username": "admin", "password": STRONG}, csrf=False, headers={"x-requested-with": None})
+        self.assertEqual(r.status, 403)
+
     def test_allowed_networks_applies_to_everything(self):
         out = self.inst.client(ip="203.0.113.9")
         for p in ("/", "/api/bootstrap", "/api/setup/check-token", "/static/js/app.js"):
