@@ -11,10 +11,10 @@ permissions:
 jobs:
   translations:
     name: Translations
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Check locale files and hard-coded UI text
@@ -22,7 +22,7 @@ jobs:
 
   tests:
     name: Tests (SQLite + MariaDB)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: translations
     services:
       mariadb:
@@ -34,8 +34,8 @@ jobs:
           --health-cmd="healthcheck.sh --connect --innodb_initialized"
           --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install tools
@@ -52,10 +52,10 @@ jobs:
 
   docker:
     name: Container image and acceptance tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: tests
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Container acceptance tests
         env:
           TWINCHECK_BIG_ROWS: "1000000"
