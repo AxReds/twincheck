@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-hidden="true">
+  <!-- Photo Organizer logo: a folder holding a photo, with a calendar tab. Self-contained, readable on light and dark backgrounds. -->
+  <rect x="2" y="10" width="60" height="48" rx="9" fill="#1f6feb"/>
+  <path d="M2 19a9 9 0 0 1 9-9h14l6 6h22a9 9 0 0 1 9 9v2H2z" fill="#0b4fc0"/>
+  <rect x="11" y="23" width="42" height="28" rx="4" fill="#ffffff"/>
+  <circle cx="22" cy="31" r="4" fill="#f5b400"/>
+  <path d="M14 48l11-11 7 7 6-5 12 9z" fill="#2da44e"/>
+  <rect x="40" y="4" width="20" height="18" rx="3" fill="#ffffff" stroke="#0b4fc0" stroke-width="2"/>
+  <rect x="40" y="4" width="20" height="6" rx="3" fill="#e5534b"/>
+  <rect x="44" y="13" width="3" height="3" fill="#0b4fc0"/>
+  <rect x="49" y="13" width="3" height="3" fill="#0b4fc0"/>
+  <rect x="54" y="13" width="3" height="3" fill="#0b4fc0"/>
+  <rect x="44" y="17" width="3" height="3" fill="#0b4fc0"/>
+</svg>
