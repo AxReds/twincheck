@@ -76,6 +76,10 @@ Repository
   container acceptance tests (`docker/tests/run_container_tests.sh`).
 - `.github/workflows/ci.yml`: CI (translations, tests on SQLite + MariaDB,
   container tests).
+- `.github/workflows/release.yml`: on a `v*.*.*` tag builds the amd64 + arm64
+  image, smoke-tests it and publishes it to `ghcr.io/axreds/twincheck`.
+- `docker/portainer-stack.yml`: the same service using the published image;
+  keep it in sync with `docker/docker-compose.yml` (a test checks it).
 
 ## How to work
 

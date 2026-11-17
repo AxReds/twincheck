@@ -57,6 +57,10 @@ docker compose logs app | grep SETUP_TOKEN        # one-time setup token
 
 Open **http://<host>:7777** and follow the wizard.
 
+On a server with **Portainer** you do not need the source code: use the published image
+`ghcr.io/axreds/twincheck` and the stack file `docker/portainer-stack.yml`, as described in
+[docker/README.md](docker/README.md#deploy-with-portainer).
+
 ## Step-by-step usage
 
 1. **Generate the master key** - `docker compose run --rm app generate-key`, paste the line into `.env`

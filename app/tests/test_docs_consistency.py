@@ -64,12 +64,33 @@ class DocsConsistency(unittest.TestCase):
             self.assertRegex(example, rf"(?m)^#?\s*{name}=", f"{name} missing in .env.example")
 
     def test_compose_hardening(self):
-        c = (ROOT / "docker" / "docker-compose.yml").read_text()
-        for needle in ('"${BIND_ADDRESS:-0.0.0.0}:7777:80"', "APP_MASTER_KEY: ${APP_MASTER_KEY:?", "read_only: true", "- ALL",
-                       "no-new-privileges:true", "net.ipv4.ip_unprivileged_port_start: 0", "user: \"${PUID", "/tmp:"):
-            self.assertIn(needle, c)
-        for forbidden in ("privileged: true", "network_mode", "docker.sock", "cap_add", "devices:"):
-            self.assertNotIn(forbidden, c)
+        for name in ("docker-compose.yml", "portainer-stack.yml"):
+            c = (ROOT / "docker" / name).read_text()
+            for needle in ('"${BIND_ADDRESS:-0.0.0.0}:7777:80"', "APP_MASTER_KEY: ${APP_MASTER_KEY:?", "read_only: true", "- ALL",
+                           "no-new-privileges:true", "net.ipv4.ip_unprivileged_port_start: 0", "user: \"${PUID", "/tmp:",
+                           'test: ["CMD", "twincheck-healthcheck"]'):
+                self.assertIn(needle, c, name)
+            for forbidden in ("privileged: true", "network_mode", "docker.sock", "cap_add", "devices:"):
+                self.assertNotIn(forbidden, c, name)
+
+    def test_portainer_stack_matches_compose(self):
+        def env_keys(text):
+            return set(re.findall(r"^\s+([A-Z0-9_]+):", text.split("environment:")[1].split("volumes:")[0], re.M))
+        compose = (ROOT / "docker" / "docker-compose.yml").read_text()
+        stack = (ROOT / "docker" / "portainer-stack.yml").read_text()
+        self.assertEqual(env_keys(stack), env_keys(compose), "same parameters passed to the container")
+        self.assertNotIn("build:", stack, "the stack uses the published image")
+        self.assertRegex(stack, r"(?m)^\s+image: ghcr\.io/[a-z0-9-]+/twincheck:\$\{APP_VERSION:-[0-9.]+\}$")
+        used = set(re.findall(r"\$\{([A-Z0-9_]+)", stack))
+        self.assertLessEqual(used, table_names(ROOT / "docker" / "README.md"), "every stack variable is documented")
+
+    def test_dockerfile_scripts_exist(self):
+        d = (ROOT / "docker" / "Dockerfile").read_text()
+        names = set(re.findall(r"/usr/local/bin/([A-Za-z0-9_.-]+)", d))
+        names |= set(re.findall(r'(?:ENTRYPOINT|CMD) \["(twincheck-[a-z-]+)"', d))
+        self.assertTrue(names)
+        for n in names:
+            self.assertTrue((ROOT / "docker" / "bin" / n).is_file(), f"docker/bin/{n} referenced by the Dockerfile")
         d = (ROOT / "docker" / "Dockerfile").read_text()
         self.assertIn("apk add --no-cache python3 py3-cryptography exiftool ffmpeg", d)
         self.assertIn("PYTHONDONTWRITEBYTECODE=1", d)

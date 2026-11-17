@@ -11,6 +11,7 @@ non-root from the very first process, on a read-only root filesystem, without an
 | `bin/twincheck-entrypoint` | Entry point: `exec`s Python (no shell left running, no `su`, no `chown`). |
 | `bin/generate-key`, `bin/reset-admin-password` | Console commands (`docker compose run --rm app generate-key`, `docker compose exec app reset-admin-password`). |
 | `bin/twincheck-healthcheck` | Healthcheck: `wget` on `http://127.0.0.1:80/healthz` inside the container. |
+| `portainer-stack.yml` | Same service as `docker-compose.yml`, but using the published image instead of building it: for Portainer or any Docker host without the source code. |
 | `docker-compose.test.yml` | Throw-away MariaDB for the test-suite only. |
 | `tests/run_container_tests.sh` | Container acceptance tests (permissions, network, kill/resume, test-suite inside the image). |
 
@@ -236,6 +237,60 @@ session cookies travel unencrypted. Use it on trusted networks; restrict it with
 `BIND_ADDRESS=127.0.0.1` and/or `ALLOWED_NETWORKS`. If you want HTTPS, put your own reverse proxy in
 front of it (Caddy, Traefik, nginx) and set `TRUSTED_PROXIES` to the proxy address; the application
 does not need to know.
+
+## Published image and Portainer
+
+Every version tag (`v1.0.0`, ...) pushed to GitHub runs `.github/workflows/release.yml`: it builds
+the image for **linux/amd64 and linux/arm64**, starts it once with the full hardening and checks
+`/healthz`, then publishes it to the GitHub Container Registry:
+
+| Tag | Content |
+|-----|---------|
+| `ghcr.io/axreds/twincheck:1.0.0` | exact version (use this one on servers) |
+| `ghcr.io/axreds/twincheck:1.0` | latest patch of 1.0 |
+| `ghcr.io/axreds/twincheck:latest` | latest version tag |
+| `ghcr.io/axreds/twincheck:edge` | current `main`, only when the workflow is started by hand |
+
+The first time, open the package page on GitHub (*Packages → twincheck → Package settings*) and set
+the visibility to **Public**, or add a GHCR registry with a read-only token in Portainer.
+
+### Deploy with Portainer
+
+1. On the Docker host create the two folders and give them to the container user:
+   ```sh
+   sudo mkdir -p /srv/twincheck/library /srv/twincheck/state
+   sudo chown -R 1000:1000 /srv/twincheck        # same values as PUID / PGID
+   ```
+   `library` is where the photos are (or will be); `state` holds `vault.enc`, the SQLite
+   database, exports and imports.
+2. Generate the master key once (on the host, or in Portainer with a one-off container):
+   ```sh
+   docker run --rm ghcr.io/axreds/twincheck:1.0.0 generate-key
+   ```
+   Keep the printed `APP_MASTER_KEY=...` line in your password manager.
+3. In Portainer: *Stacks → Add stack*, name `twincheck`, *Web editor*, paste the content of
+   `docker/portainer-stack.yml`.
+4. In *Environment variables → Advanced mode* paste at least:
+   ```
+   APP_MASTER_KEY=<the 64 hex characters>
+   DATA_PATH=/srv/twincheck/library
+   STATE_PATH=/srv/twincheck/state
+   PUID=1000
+   PGID=1000
+   APP_VERSION=1.0.0
+   HOST_LABEL=test-server
+   ```
+   Every other parameter of the table above can be added the same way.
+5. *Deploy the stack*. Then open the container logs and look for `SETUP_TOKEN`: it is the one-time
+   token for the setup wizard at `http://<host>:7777`.
+
+Portainer stores the stack variables, including `APP_MASTER_KEY`, in its own database: protect the
+Portainer instance accordingly, or use `APP_MASTER_KEY_FILE` with a Docker secret (see
+"The master key"). If the host refuses the `sysctls` option, see "Port 80 without root".
+
+**Update:** change `APP_VERSION` in the stack variables and choose *Update the stack* with
+*Re-pull image*. The volumes are kept; a newer database schema is migrated only after the admin
+confirms it in the UI.
 
 ## Container tests
 
