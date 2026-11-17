@@ -21,6 +21,23 @@ def table_names(readme: Path) -> set[str]:
     return {m.group(1) for m in re.finditer(r"^\|\s*`([A-Z0-9_]+)`\s*\|", block, re.M)}
 
 
+def repository_files():
+    """Files that would be committed: tracked plus untracked-but-not-ignored.
+
+    Uses Git when available so local virtualenvs, caches and other ignored
+    paths (e.g. a .venv with pip's cacert.pem) are not reported.  Without Git
+    it walks the tree and skips the usual local-only directories.
+    """
+    import subprocess
+    try:
+        out = subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+                             capture_output=True, check=True).stdout
+        return [ROOT / n for n in out.decode("utf-8").split("\0") if n and (ROOT / n).is_file()]
+    except (OSError, subprocess.CalledProcessError):
+        skip = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", "node_modules"}
+        return [p for p in ROOT.rglob("*") if p.is_file() and not skip.intersection(p.relative_to(ROOT).parts)]
+
+
 @unittest.skipUnless((ROOT / "docker" / "README.md").exists(), "repository files not available (running inside the image)")
 class DocsConsistency(unittest.TestCase):
     def test_required_readmes_exist(self):
@@ -70,9 +87,7 @@ class DocsConsistency(unittest.TestCase):
 
     def test_no_secrets_or_data_committed(self):
         bad_ext = {".jpg", ".jpeg", ".heic", ".mov", ".mp4", ".sqlite3", ".db", ".poarc", ".enc", ".pem", ".key"}
-        for p in ROOT.rglob("*"):
-            if ".git" in p.parts or not p.is_file():
-                continue
+        for p in repository_files():
             self.assertNotIn(p.suffix.lower(), bad_ext, str(p))
             self.assertNotEqual(p.name, ".env", str(p))
         example = (ROOT / ".env.example").read_text()

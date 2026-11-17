@@ -6,6 +6,7 @@ unittest``) and also under pytest.
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import os
 import shutil
@@ -220,17 +221,33 @@ def write(path: Path, data: bytes, mtime: float | None = None):
     return path
 
 
-def jpeg_bytes(seed: int, size=(32, 24)) -> bytes:
-    """A small, valid JPEG without EXIF (Pillow if present, else a fixed minimal JPEG + marker)."""
-    try:
-        import io
-        from PIL import Image
-        img = Image.new("RGB", size, ((seed * 40) % 256, (seed * 90) % 256, (seed * 150) % 256))
-        b = io.BytesIO()
-        img.save(b, "JPEG", quality=80)
-        return b.getvalue()
-    except Exception:
-        return b"\xff\xd8\xff\xe0" + seed.to_bytes(4, "big") * 64 + b"\xff\xd9"
+# A valid 32x24 baseline JFIF JPEG (Pillow, quality 80), embedded so the test
+# images are identical on every host and readable/writable by the real ExifTool.
+_BASE_JPEG = base64.b64decode(
+    "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYW"
+    "ICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgo"
+    "KCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAYACADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcI"
+    "CQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRol"
+    "JicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ip"
+    "qrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAA"
+    "AAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLR"
+    "ChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaX"
+    "mJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEA"
+    "PwDlKKKK8g9MKKKKACiiigAooooA/9k="
+)
+
+
+def jpeg_bytes(seed: int) -> bytes:
+    """A small, valid JPEG without EXIF; ``seed`` makes the bytes unique.
+
+    The seed goes into a COM (comment) segment right after the JFIF APP0
+    segment, so files with different seeds are different files for SHA-256
+    while staying valid JPEGs that ExifTool and ffmpeg accept.
+    """
+    app0_end = 4 + int.from_bytes(_BASE_JPEG[4:6], "big")
+    payload = b"twincheck-test-seed-" + str(seed).encode()
+    com = b"\xff\xfe" + (len(payload) + 2).to_bytes(2, "big") + payload
+    return _BASE_JPEG[:app0_end] + com + _BASE_JPEG[app0_end:]
 
 
 def sample_library(root: Path) -> dict:
