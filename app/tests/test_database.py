@@ -1,7 +1,7 @@
 """Operational database: structure creation/reuse, concurrency, schema versions,
 instance lock, switch with paused jobs, reconciliation, rollback.
 
-MariaDB variants run when PHOTOORG_TEST_MARIADB_HOST is set (see tests/README.md).
+MariaDB variants run when TWINCHECK_TEST_MARIADB_HOST is set (see tests/README.md).
 """
 import json
 import multiprocessing
@@ -33,11 +33,11 @@ def _slow(ctx):
 
 
 def mariadb_params():
-    host = os.environ.get("PHOTOORG_TEST_MARIADB_HOST")
+    host = os.environ.get("TWINCHECK_TEST_MARIADB_HOST")
     if not host:
         return None
-    return {"type": "mariadb", "host": host, "port": int(os.environ.get("PHOTOORG_TEST_MARIADB_PORT", "3306")),
-            "user": os.environ.get("PHOTOORG_TEST_MARIADB_USER", "root"), "password": os.environ.get("PHOTOORG_TEST_MARIADB_PASSWORD", ""),
+    return {"type": "mariadb", "host": host, "port": int(os.environ.get("TWINCHECK_TEST_MARIADB_PORT", "3306")),
+            "user": os.environ.get("TWINCHECK_TEST_MARIADB_USER", "root"), "password": os.environ.get("TWINCHECK_TEST_MARIADB_PASSWORD", ""),
             "database": "twincheck_t_" + secrets.token_hex(4)}
 
 

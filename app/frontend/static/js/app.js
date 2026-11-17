@@ -39,7 +39,7 @@ async function boot() {
   state.locales = await listLocales();
   const b = await get('/api/bootstrap', { allow401: true });
   state.boot = b;
-  const cookieLang = (document.cookie.match(/(?:^|; )po_lang=([^;]+)/) || [])[1];
+  const cookieLang = (document.cookie.match(/(?:^|; )tc_lang=([^;]+)/) || [])[1];
   const preferred = (b.user && b.user.lang) || (cookieLang && decodeURIComponent(cookieLang)) || browserLanguage(state.locales) || b.default_lang || 'en';
   await setLanguage(state.locales.some((l) => l.code === preferred) ? preferred : (b.default_lang || 'en'));
   document.title = t('app.name');

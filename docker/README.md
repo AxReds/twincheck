@@ -179,12 +179,12 @@ GRANT CREATE ON *.* TO 'twincheck'@'%';
 confirmation. `GET_LOCK` (no privilege needed) serialises schema changes and guarantees that only one
 container uses a database. Set `max_allowed_packet` to 16 MB or more for very long rows.
 
-## Migration archive format (`.poarc`)
+## Migration archive format (`.tcarc`)
 
 Technology-independent export of the operational database (never credentials, never vault data):
 
 ```
-"POARC\0\1\n" | scrypt N (4 bytes) | salt (16) | nonce prefix (7)
+"TCARC\0\1\n" | scrypt N (4 bytes) | salt (16) | nonce prefix (7)
 then chunks of 1 MiB: length (4) | final flag (1) | AES-256-GCM(ciphertext + tag)
 plaintext = gzip(NDJSON):
   {"t":"header","format":1,"app_version":…,"schema_version":…,"source_db_id":…,"source_type":…,"created_at":…,"tables":[{name,columns}]}

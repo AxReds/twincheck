@@ -705,7 +705,7 @@
     "error.verification_failed": "Die abschließende Verifizierung ist fehlgeschlagen: Das Ziel ist nicht verwendbar.",
     "error.bad_mode": "Ungültiger Modus.",
     "error.weak_passphrase": "Die Passphrase muss mindestens 12 Zeichen haben.",
-    "error.invalid_archive_name": "Ungültiger Archivname (.poarc).",
+    "error.invalid_archive_name": "Ungültiger Archivname (.tcarc).",
     "error.file_exists": "Eine Datei mit diesem Namen existiert bereits.",
     "error.bad_archive": "Kein gültiges Archiv.",
     "error.bad_passphrase_or_tampered": "Falsche Passphrase oder manipuliertes Archiv.",

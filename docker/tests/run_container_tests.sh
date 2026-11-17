@@ -106,7 +106,7 @@ check "wizard locked after use" bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_
 login() { curl -s -c "$CJ" -b "$CJ" "${H[@]}" -d "{\"username\":\"$1\",\"password\":\"$2\"}" http://127.0.0.1:7777/api/login; }
 CSRF="$(login admin "$APW" | json "d['csrf']")"
 check "admin login" test -n "$CSRF"
-check "session cookie HttpOnly + SameSite=Strict, no Secure" bash -c "curl -s -D - -o /dev/null ${H[*]} -d '{\"username\":\"admin\",\"password\":\"$APW\"}' http://127.0.0.1:7777/api/login | grep -i '^set-cookie: po_session' | grep -q 'HttpOnly' && ! curl -s -D - -o /dev/null ${H[*]} -d '{\"username\":\"admin\",\"password\":\"$APW\"}' http://127.0.0.1:7777/api/login | grep -i '^set-cookie' | grep -qi 'secure'"
+check "session cookie HttpOnly + SameSite=Strict, no Secure" bash -c "curl -s -D - -o /dev/null ${H[*]} -d '{\"username\":\"admin\",\"password\":\"$APW\"}' http://127.0.0.1:7777/api/login | grep -i '^set-cookie: tc_session' | grep -q 'HttpOnly' && ! curl -s -D - -o /dev/null ${H[*]} -d '{\"username\":\"admin\",\"password\":\"$APW\"}' http://127.0.0.1:7777/api/login | grep -i '^set-cookie' | grep -qi 'secure'"
 CSRF="$(login admin "$APW" | json "d['csrf']")"
 api() { local m="$1" u="$2"; shift 2; curl -s -b "$CJ" -c "$CJ" "${H[@]}" -H "X-CSRF-Token: $CSRF" -X "$m" "http://127.0.0.1:7777$u" "$@"; }
 check "metrics after login" bash -c "curl -s -b $CJ http://127.0.0.1:7777/api/sysinfo | grep -q ct-host"
@@ -183,7 +183,7 @@ for i in $(seq 1 60); do docker exec "${PROJECT}-mariadb" mariadb-admin -uroot -
 MIP="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${PROJECT}-mariadb")"
 docker run --rm --user "$CUID:$CGID" --read-only --tmpfs /tmp:rw,size=1g --cap-drop ALL --security-opt no-new-privileges:true \
   -v "$ROOT/app/tests:/opt/twincheck/app/tests:ro" -v "$ROOT/app/tools:/opt/twincheck/app/tools:ro" \
-  -e PHOTOORG_TEST_MARIADB_HOST="$MIP" -e PHOTOORG_TEST_MARIADB_PASSWORD=test-only-password -e PHOTOORG_BIG_ROWS="${PHOTOORG_BIG_ROWS:-1000000}" \
+  -e TWINCHECK_TEST_MARIADB_HOST="$MIP" -e TWINCHECK_TEST_MARIADB_PASSWORD=test-only-password -e TWINCHECK_BIG_ROWS="${TWINCHECK_BIG_ROWS:-1000000}" \
   --entrypoint python3 "$IMG" -B -m unittest discover -s /opt/twincheck/app/tests -v > "$WORK/unittest.log" 2>&1 \
   && ok "unit/integration tests in the container (SQLite + MariaDB, real ExifTool/ffmpeg)" || { ko "unit/integration tests in the container"; tail -40 "$WORK/unittest.log"; }
 grep -E "^Ran |^OK|^FAILED|large dataset" "$WORK/unittest.log" | sed 's/^/   /'

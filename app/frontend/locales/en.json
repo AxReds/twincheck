@@ -706,7 +706,7 @@
     "error.verification_failed": "The final verification failed: the destination is not usable.",
     "error.bad_mode": "Invalid mode.",
     "error.weak_passphrase": "The passphrase must have at least 12 characters.",
-    "error.invalid_archive_name": "Invalid archive name (.poarc).",
+    "error.invalid_archive_name": "Invalid archive name (.tcarc).",
     "error.file_exists": "A file with this name already exists.",
     "error.bad_archive": "Not a valid archive.",
     "error.bad_passphrase_or_tampered": "Wrong passphrase or tampered archive.",

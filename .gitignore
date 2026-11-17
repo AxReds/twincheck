@@ -15,7 +15,7 @@ secrets/
 *.sqlite3-*
 *.sqlite
 *.db
-*.poarc
+*.tcarc
 vault.enc*
 *.instance-lock
 

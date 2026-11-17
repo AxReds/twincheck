@@ -757,7 +757,7 @@
     "error.verification_failed": "فشل التحقق النهائي: الوجهة غير قابلة للاستخدام.",
     "error.bad_mode": "وضع غير صالح.",
     "error.weak_passphrase": "يجب أن تتكون عبارة المرور من 12 حرفًا على الأقل.",
-    "error.invalid_archive_name": "اسم أرشيف غير صالح (.poarc).",
+    "error.invalid_archive_name": "اسم أرشيف غير صالح (.tcarc).",
     "error.file_exists": "يوجد ملف بهذا الاسم مسبقًا.",
     "error.bad_archive": "ليس أرشيفًا صالحًا.",
     "error.bad_passphrase_or_tampered": "عبارة مرور خاطئة أو أرشيف تم العبث به.",

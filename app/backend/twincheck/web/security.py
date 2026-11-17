@@ -9,8 +9,8 @@ import time
 
 from ..config import LOOPBACK
 
-SESSION_COOKIE = "po_session"
-LANG_COOKIE = "po_lang"
+SESSION_COOKIE = "tc_session"
+LANG_COOKIE = "tc_lang"
 
 SECURITY_HEADERS = {
     "content-security-policy": ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; "

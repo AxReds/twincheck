@@ -1,7 +1,7 @@
 """Export / import / direct migration between databases.
 
-SQLite <-> SQLite always; SQLite <-> MariaDB when PHOTOORG_TEST_MARIADB_HOST is set.
-Large dataset size: PHOTOORG_BIG_ROWS (default 200000; use 2000000+ for the
+SQLite <-> SQLite always; SQLite <-> MariaDB when TWINCHECK_TEST_MARIADB_HOST is set.
+Large dataset size: TWINCHECK_BIG_ROWS (default 200000; use 2000000+ for the
 "millions of rows" acceptance run).
 """
 import gzip
@@ -62,7 +62,7 @@ class ArchiveFormat(unittest.TestCase):
     def sqlite(self, name):
         return dbm.make_database({"type": "sqlite", "path": str(self.tmp / name)})
 
-    def export(self, db, name="a.poarc", passphrase=PASS):
+    def export(self, db, name="a.tcarc", passphrase=PASS):
         p = self.tmp / name
         with open(p, "wb") as fh:
             transfer.export_to(db, fh, passphrase)
@@ -87,16 +87,16 @@ class ArchiveFormat(unittest.TestCase):
         self.assertEqual(cm.exception.code, "bad_passphrase_or_tampered")
         b = bytearray(raw)
         b[len(b) // 2] ^= 0x10
-        (self.tmp / "t.poarc").write_bytes(bytes(b))
+        (self.tmp / "t.tcarc").write_bytes(bytes(b))
         with self.assertRaises(transfer.ArchiveError) as cm:
-            transfer.verify_archive(str(self.tmp / "t.poarc"), PASS)
+            transfer.verify_archive(str(self.tmp / "t.tcarc"), PASS)
         self.assertEqual(cm.exception.code, "bad_passphrase_or_tampered")
-        (self.tmp / "trunc.poarc").write_bytes(raw[:-40])
+        (self.tmp / "trunc.tcarc").write_bytes(raw[:-40])
         with self.assertRaises(transfer.ArchiveError):
-            transfer.verify_archive(str(self.tmp / "trunc.poarc"), PASS)
+            transfer.verify_archive(str(self.tmp / "trunc.tcarc"), PASS)
         # archive produced by a newer application version (re-packed with a newer header)
         from twincheck.crypto import StreamEncryptor
-        newer = self.tmp / "newer.poarc"
+        newer = self.tmp / "newer.tcarc"
         with open(newer, "wb") as fh:
             enc = StreamEncryptor(fh, PASS)
             gz = gzip.GzipFile(fileobj=transfer._Writer(enc), mode="wb", mtime=0)
@@ -117,7 +117,7 @@ class ArchiveFormat(unittest.TestCase):
         old = self.sqlite("old.sqlite3")
         create_structure(old, 1)
         fill(old)
-        arc = self.export(old, "old.poarc")
+        arc = self.export(old, "old.tcarc")
         self.assertEqual(transfer.read_header(str(arc), PASS)["schema_version"], 1)
         for params in [{"type": "sqlite", "path": str(self.tmp / "dest.sqlite3")}] + ([mariadb_params()] if mariadb_params() else []):
             with self.subTest(params["type"]):
@@ -152,7 +152,7 @@ class ArchiveFormat(unittest.TestCase):
                 self.assertTrue(any(len(p) > 1900 for p in paths))
                 dbm.prepare(dest)
                 # back again: dest -> archive -> second destination: identical checksums
-                arc2 = self.export(dest, "rt.poarc")
+                arc2 = self.export(dest, "rt.tcarc")
                 dest2 = dbm.make_database({"type": "sqlite", "path": str(self.tmp / f"rt-{params['type']}.sqlite3")})
                 rep2 = transfer.verify_archive(str(arc2), PASS)
                 st2 = transfer.prepare_destination(dest2, CURRENT_VERSION, "tok2", rep2["header"]["source_db_id"])
@@ -298,7 +298,7 @@ class TransferViaUI(unittest.TestCase):
 
 class LargeDataset(unittest.TestCase):
     def test_millions_rows_memory_bounded(self):
-        rows = int(os.environ.get("PHOTOORG_BIG_ROWS", "200000"))
+        rows = int(os.environ.get("TWINCHECK_BIG_ROWS", "200000"))
         inst = Instance()
         try:
             tmp = Path(inst.tmp)
@@ -317,7 +317,7 @@ class LargeDataset(unittest.TestCase):
                     src.executemany("INSERT INTO files (owner_id, cur_path, cur_path_hash, size, sha256) VALUES (?,?,?,?,?)", batch)
             before = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
             t0 = time.time()
-            arc = tmp / "big.poarc"
+            arc = tmp / "big.tcarc"
             with open(arc, "wb") as fh:
                 transfer.export_to(src, fh, PASS)
             rep = transfer.verify_archive(str(arc), PASS)

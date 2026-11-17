@@ -718,7 +718,7 @@
     "error.verification_failed": "A verificação final falhou: o destino não pode ser usado.",
     "error.bad_mode": "Modo inválido.",
     "error.weak_passphrase": "A frase secreta deve ter pelo menos 12 caracteres.",
-    "error.invalid_archive_name": "Nome de arquivo compactado inválido (.poarc).",
+    "error.invalid_archive_name": "Nome de arquivo compactado inválido (.tcarc).",
     "error.file_exists": "Já existe um arquivo com este nome.",
     "error.bad_archive": "Não é um arquivo compactado válido.",
     "error.bad_passphrase_or_tampered": "Frase secreta incorreta ou arquivo adulterado.",

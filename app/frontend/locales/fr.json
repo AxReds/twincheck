@@ -718,7 +718,7 @@
     "error.verification_failed": "La vérification finale a échoué : la destination n'est pas utilisable.",
     "error.bad_mode": "Mode non valide.",
     "error.weak_passphrase": "La phrase secrète doit comporter au moins 12 caractères.",
-    "error.invalid_archive_name": "Nom d'archive non valide (.poarc).",
+    "error.invalid_archive_name": "Nom d'archive non valide (.tcarc).",
     "error.file_exists": "Un fichier portant ce nom existe déjà.",
     "error.bad_archive": "Archive non valide.",
     "error.bad_passphrase_or_tampered": "Phrase secrète incorrecte ou archive altérée.",

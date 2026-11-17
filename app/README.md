@@ -90,12 +90,12 @@ To add a migration: append `MIGRATIONS[n+1]`, bump `CURRENT_VERSION`, add a test
 
 ## Export, import and migration (admin only)
 
-*Administration → Export & migration*. Format: see [`../docker/README.md`](../docker/README.md#migration-archive-format-poarc).
+*Administration → Export & migration*. Format: see [`../docker/README.md`](../docker/README.md#migration-archive-format-tcarc).
 
 * **Export:** choose a passphrase (≥ 12 characters), *Preview* (tables, rows, estimated size and
   time, warnings), confirm. The app enters maintenance mode (no job runs, writes blocked), reads a
   consistent snapshot through a dedicated read-only connection, writes
-  `/state/exports/twincheck-export-<db_id>-<time>.poarc` (downloadable, streamed), then leaves
+  `/state/exports/twincheck-export-<db_id>-<time>.tcarc` (downloadable, streamed), then leaves
   maintenance. The source database is only read.
 * **Import:** upload the archive from the browser (streamed to `/state/imports`) or copy it there,
   choose the destination database (must be **empty**; the structure is created automatically),

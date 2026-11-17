@@ -188,7 +188,7 @@ def frontend_problems(en: dict) -> list[str]:
         problems.append(f"index.html: hard-coded visible text {txt!r}")
     namespaces = {k.split(".", 1)[0] for k in en}
     key_re = re.compile(r"^(" + "|".join(sorted(map(re.escape, namespaces))) + r")\.[a-z0-9_]+(\.[a-z0-9_]+)*\.?$")
-    file_name = re.compile(r"\.(csv|json|svg|js|css|poarc|html|png|jpg)$")
+    file_name = re.compile(r"\.(csv|json|svg|js|css|tcarc|html|png|jpg)$")
     for js in sorted((STATIC / "js").rglob("*.js")):
         src = js.read_text(encoding="utf-8")
         rel = js.relative_to(STATIC)

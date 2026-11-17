@@ -692,7 +692,7 @@
     "error.verification_failed": "最终验证失败：目标不可用。",
     "error.bad_mode": "模式无效。",
     "error.weak_passphrase": "密码短语至少需要 12 个字符。",
-    "error.invalid_archive_name": "归档名称无效（.poarc）。",
+    "error.invalid_archive_name": "归档名称无效（.tcarc）。",
     "error.file_exists": "同名文件已存在。",
     "error.bad_archive": "不是有效的归档。",
     "error.bad_passphrase_or_tampered": "密码短语错误或归档已被篡改。",

@@ -1,7 +1,7 @@
 # Test-only MariaDB used by the test-suite (never for production data).
 #   docker compose -f docker/docker-compose.test.yml up -d
-#   PHOTOORG_TEST_MARIADB_HOST=127.0.0.1 PHOTOORG_TEST_MARIADB_PORT=33306 \
-#   PHOTOORG_TEST_MARIADB_PASSWORD=test-only-password python3 -m unittest discover -s app/tests
+#   TWINCHECK_TEST_MARIADB_HOST=127.0.0.1 TWINCHECK_TEST_MARIADB_PORT=33306 \
+#   TWINCHECK_TEST_MARIADB_PASSWORD=test-only-password python3 -m unittest discover -s app/tests
 name: twincheck-test
 services:
   mariadb:

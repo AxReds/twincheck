@@ -718,7 +718,7 @@
     "error.verification_failed": "La verifica finale non è riuscita: la destinazione non è utilizzabile.",
     "error.bad_mode": "Modalità non valida.",
     "error.weak_passphrase": "La passphrase deve avere almeno 12 caratteri.",
-    "error.invalid_archive_name": "Nome dell'archivio non valido (.poarc).",
+    "error.invalid_archive_name": "Nome dell'archivio non valido (.tcarc).",
     "error.file_exists": "Esiste già un file con questo nome.",
     "error.bad_archive": "Non è un archivio valido.",
     "error.bad_passphrase_or_tampered": "Passphrase errata o archivio manomesso.",

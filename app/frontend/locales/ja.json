@@ -692,7 +692,7 @@
     "error.verification_failed": "最終検証に失敗しました。移行先は使用できません。",
     "error.bad_mode": "無効なモードです。",
     "error.weak_passphrase": "パスフレーズは 12 文字以上必要です。",
-    "error.invalid_archive_name": "無効なアーカイブ名です（.poarc）。",
+    "error.invalid_archive_name": "無効なアーカイブ名です（.tcarc）。",
     "error.file_exists": "この名前のファイルは既に存在します。",
     "error.bad_archive": "有効なアーカイブではありません。",
     "error.bad_passphrase_or_tampered": "パスフレーズが正しくないか、アーカイブが改ざんされています。",

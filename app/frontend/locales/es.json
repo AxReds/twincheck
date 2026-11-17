@@ -718,7 +718,7 @@
     "error.verification_failed": "La verificación final ha fallado: el destino no se puede usar.",
     "error.bad_mode": "Modo no válido.",
     "error.weak_passphrase": "La frase de contraseña debe tener al menos 12 caracteres.",
-    "error.invalid_archive_name": "Nombre de archivo no válido (.poarc).",
+    "error.invalid_archive_name": "Nombre de archivo no válido (.tcarc).",
     "error.file_exists": "Ya existe un archivo con este nombre.",
     "error.bad_archive": "No es un archivo válido.",
     "error.bad_passphrase_or_tampered": "Frase de contraseña incorrecta o archivo manipulado.",

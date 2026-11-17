@@ -86,7 +86,7 @@ class DocsConsistency(unittest.TestCase):
                 self.assertEqual(status if code != "en" else status, expected, f"{readme} {code}")
 
     def test_no_secrets_or_data_committed(self):
-        bad_ext = {".jpg", ".jpeg", ".heic", ".mov", ".mp4", ".sqlite3", ".db", ".poarc", ".enc", ".pem", ".key"}
+        bad_ext = {".jpg", ".jpeg", ".heic", ".mov", ".mp4", ".sqlite3", ".db", ".tcarc", ".enc", ".pem", ".key"}
         for p in repository_files():
             self.assertNotIn(p.suffix.lower(), bad_ext, str(p))
             self.assertNotEqual(p.name, ".env", str(p))

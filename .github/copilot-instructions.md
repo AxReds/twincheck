@@ -82,7 +82,7 @@ Repository
 - Run the tests from the repository root before every commit:
   `python -B -m unittest discover -s app/tests`
   (inside the project virtualenv: `source .venv/bin/activate`).
-- MariaDB tests run only when `PHOTOORG_TEST_MARIADB_HOST` is set; see
+- MariaDB tests run only when `TWINCHECK_TEST_MARIADB_HOST` is set; see
   `app/tests/README.md`.
 - When you add or change an environment parameter, update
   `config.ENV_PARAMS`, `app/backend/README.md`, `docker/README.md` and the
@@ -94,11 +94,3 @@ Repository
   the fake one does not. Test fixtures must not rely on the fake behaviour.
 - Commit messages follow Conventional Commits (`feat:`, `fix:`, `test:`,
   `docs:`, `chore:`, `build:`), one logical change per commit.
-
-## Known leftovers
-
-Some internal identifiers still use the old project name `photoorg`:
-`docker/bin/photoorg-entrypoint`, `docker/bin/photoorg-healthcheck`, the
-`PHOTOORG_*` test variables, the `.poarc` archive extension and the
-`po_session` / `po_lang` cookies. Renaming them must be done consistently
-(code, Dockerfile, compose, READMEs, tests).

@@ -731,7 +731,7 @@
     "error.verification_failed": "Итоговая проверка не пройдена: цель непригодна для использования.",
     "error.bad_mode": "Недопустимый режим.",
     "error.weak_passphrase": "Парольная фраза должна содержать не менее 12 символов.",
-    "error.invalid_archive_name": "Недопустимое имя архива (.poarc).",
+    "error.invalid_archive_name": "Недопустимое имя архива (.tcarc).",
     "error.file_exists": "Файл с таким именем уже существует.",
     "error.bad_archive": "Недопустимый архив.",
     "error.bad_passphrase_or_tampered": "Неверная парольная фраза или архив подделан.",

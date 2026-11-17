@@ -67,7 +67,7 @@ class HttpSecurity(unittest.TestCase):
         c = self.inst.client()
         r = c.login("admin", STRONG)
         self.assertEqual(r.status, 200)
-        cookie = [x for x in c.last_set_cookies if x.startswith("po_session=")][0]
+        cookie = [x for x in c.last_set_cookies if x.startswith("tc_session=")][0]
         self.assertIn("HttpOnly", cookie)
         self.assertIn("SameSite=Strict", cookie)
         self.assertNotIn("Secure", cookie)

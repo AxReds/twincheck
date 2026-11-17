@@ -22,7 +22,7 @@ from .common import fail, need_db, require, user_public
 from .framework import HTTPError, JSONResponse, Request, file_response
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9._-]{3,40}$")
-ARCHIVE_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}\.poarc$")
+ARCHIVE_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}\.tcarc$")
 
 
 def _target_user(req: Request, uid: str) -> dict:

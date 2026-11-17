@@ -69,7 +69,7 @@ export async function transfer(main, state) {
     } else if (mode === 'import') {
       const a = await loadArchives();
       const sel = h('select', {}, a.imports.map((x) => h('option', { value: 'imports:' + x.name }, '/state/imports/' + x.name)), a.exports.map((x) => h('option', { value: 'exports:' + x.name }, '/state/exports/' + x.name)));
-      const file = h('input', { type: 'file', accept: '.poarc' });
+      const file = h('input', { type: 'file', accept: '.tcarc' });
       const prog = h('progress', { max: '100', value: '0', hidden: true });
       const pass = passField();
       const dest = dbForm();

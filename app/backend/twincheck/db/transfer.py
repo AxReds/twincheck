@@ -1,8 +1,8 @@
 """Export, import and direct migration between operational databases.
 
-Archive format (``.poarc``), technology independent::
+Archive format (``.tcarc``), technology independent::
 
-    "POARC\\0\\1\\n" | scrypt N | salt | nonce prefix | AES-256-GCM chunks (last chunk flagged)
+    "TCARC\\0\\1\\n" | scrypt N | salt | nonce prefix | AES-256-GCM chunks (last chunk flagged)
       plaintext = gzip( NDJSON records )
         {"t":"header", format, app_version, schema_version, source_db_id, source_type, created_at, tables:[{name, columns}]}
         {"t":"table", "name": ...}
@@ -519,4 +519,4 @@ def migrate_job(ctx: JobContext) -> dict:
 
 
 def export_name(db_id: str) -> str:
-    return f"twincheck-export-{db_id}-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}.poarc"
+    return f"twincheck-export-{db_id}-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}.tcarc"

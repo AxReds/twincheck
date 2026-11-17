@@ -115,7 +115,7 @@ def decrypt_blob(key: bytes, nonce: bytes, ciphertext: bytes, aad: bytes) -> byt
 
 # --- chunked stream encryption (migration archives) ---------------------------------
 
-STREAM_MAGIC = b"POARC\x00\x01\n"
+STREAM_MAGIC = b"TCARC\x00\x01\n"
 CHUNK = 1024 * 1024
 
 

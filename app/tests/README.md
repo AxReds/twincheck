@@ -27,14 +27,14 @@ container test-suite always uses the real ExifTool.
 
 | Variable | Effect | Default |
 |----------|--------|---------|
-| `PHOTOORG_TEST_MARIADB_HOST` | run the database and transfer tests also on MariaDB at this host | unset (MariaDB skipped) |
-| `PHOTOORG_TEST_MARIADB_PORT` | MariaDB port | `3306` |
-| `PHOTOORG_TEST_MARIADB_USER` | MariaDB user (needs CREATE/DROP DATABASE) | `root` |
-| `PHOTOORG_TEST_MARIADB_PASSWORD` | MariaDB password | empty |
-| `PHOTOORG_BIG_ROWS` | rows of the large-dataset test (use `2000000` for the millions-of-rows run) | `200000` |
-| `PHOTOORG_FAKE_EXIFTOOL` | force the fake ExifTool even if the real one is installed | unset |
+| `TWINCHECK_TEST_MARIADB_HOST` | run the database and transfer tests also on MariaDB at this host | unset (MariaDB skipped) |
+| `TWINCHECK_TEST_MARIADB_PORT` | MariaDB port | `3306` |
+| `TWINCHECK_TEST_MARIADB_USER` | MariaDB user (needs CREATE/DROP DATABASE) | `root` |
+| `TWINCHECK_TEST_MARIADB_PASSWORD` | MariaDB password | empty |
+| `TWINCHECK_BIG_ROWS` | rows of the large-dataset test (use `2000000` for the millions-of-rows run) | `200000` |
+| `TWINCHECK_FAKE_EXIFTOOL` | force the fake ExifTool even if the real one is installed | unset |
 
 MariaDB for tests: `docker compose -f docker/docker-compose.test.yml up -d`, then
-`PHOTOORG_TEST_MARIADB_HOST=127.0.0.1 PHOTOORG_TEST_MARIADB_PORT=33306 PHOTOORG_TEST_MARIADB_PASSWORD=test-only-password python3 -B -m unittest discover -s app/tests`.
+`TWINCHECK_TEST_MARIADB_HOST=127.0.0.1 TWINCHECK_TEST_MARIADB_PORT=33306 TWINCHECK_TEST_MARIADB_PASSWORD=test-only-password python3 -B -m unittest discover -s app/tests`.
 
 Container-level tests (permissions, network, kill/resume): `bash docker/tests/run_container_tests.sh`.

@@ -118,7 +118,7 @@ class Client:
 def exiftool_for_tests(tmpdir: str) -> tuple[str, dict]:
     """Real ExifTool if installed (container test-suite), otherwise the fake one."""
     real = shutil.which("exiftool")
-    if real and not os.environ.get("PHOTOORG_FAKE_EXIFTOOL"):
+    if real and not os.environ.get("TWINCHECK_FAKE_EXIFTOOL"):
         return real, {}
     dst = os.path.join(tmpdir, "fake_exiftool")
     shutil.copy(Path(__file__).with_name("fake_exiftool.py"), dst)
@@ -129,7 +129,7 @@ def exiftool_for_tests(tmpdir: str) -> tuple[str, dict]:
 
 
 def using_fake_exiftool() -> bool:
-    return not shutil.which("exiftool") or bool(os.environ.get("PHOTOORG_FAKE_EXIFTOOL"))
+    return not shutil.which("exiftool") or bool(os.environ.get("TWINCHECK_FAKE_EXIFTOOL"))
 
 
 class Instance:

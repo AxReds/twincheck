@@ -33,7 +33,7 @@ export async function setLanguage(code) {
   meta = data.meta || {};
   document.documentElement.lang = code;
   document.documentElement.dir = meta.dir === 'rtl' ? 'rtl' : 'ltr';
-  document.cookie = 'po_lang=' + encodeURIComponent(code) + '; Path=/; SameSite=Strict; Max-Age=31536000';
+  document.cookie = 'tc_lang=' + encodeURIComponent(code) + '; Path=/; SameSite=Strict; Max-Age=31536000';
   listeners.forEach((fn) => fn(code));
 }
 
