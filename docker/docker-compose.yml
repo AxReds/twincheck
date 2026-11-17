@@ -1,0 +1,58 @@
+# Photo Organizer - start with:  docker compose up -d   (from the repository root, see README)
+name: photo-organizer
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        ALPINE_VERSION: ${ALPINE_VERSION:-3.24}
+        APP_VERSION: ${APP_VERSION:-1.0.0}
+    image: photo-organizer:${APP_VERSION:-1.0.0}
+    container_name: ${CONTAINER_NAME:-photo-organizer}
+    restart: unless-stopped
+    # non-root from the very first process; no privilege changes at runtime
+    user: "${PUID:-1000}:${PGID:-1000}"
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:7777:80"
+    environment:
+      APP_MASTER_KEY: ${APP_MASTER_KEY:?APP_MASTER_KEY missing in .env - generate it with docker compose run --rm app generate-key (see README)}
+      APP_MASTER_KEY_FILE: ${APP_MASTER_KEY_FILE:-}
+      APP_LANG: ${APP_LANG:-en}
+      HOST_LABEL: ${HOST_LABEL:-}
+      ALLOWED_NETWORKS: ${ALLOWED_NETWORKS:-}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      DISK_WARN_FREE_PERCENT: ${DISK_WARN_FREE_PERCENT:-15}
+      DISK_CRIT_FREE_PERCENT: ${DISK_CRIT_FREE_PERCENT:-5}
+      MAX_REQUEST_KB: ${MAX_REQUEST_KB:-1024}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-102400}
+      MARIADB_PASSWORD_FILE: ${MARIADB_PASSWORD_FILE:-}
+      JOB_WORKERS: ${JOB_WORKERS:-2}
+      PREVIEW_CACHE_MAX_MB: ${PREVIEW_CACHE_MAX_MB:-2048}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ${DATA_PATH:-../library}:/data
+      - ${STATE_PATH:-../state}:/state
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=${TMP_SIZE:-512m},mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # the only accommodation for port 80: affects the container's network namespace only
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
+    healthcheck:
+      test: ["CMD", "photoorg-healthcheck"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    stop_grace_period: 60s
+    # optional Docker secret instead of APP_MASTER_KEY (see docker/README.md):
+    # secrets: [photoorg_master_key]
+# secrets:
+#   photoorg_master_key:
+#     file: ./master_key.txt

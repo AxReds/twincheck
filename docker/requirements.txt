@@ -1,0 +1,6 @@
+# Pure-Python runtime dependencies installed in the build stage (no compiler needed).
+# cryptography comes from Alpine (apk py3-cryptography).
+uvicorn==0.54.0
+h11==0.16.0
+click==8.1.8
+PyMySQL==1.1.1
