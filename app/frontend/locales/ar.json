@@ -9,7 +9,7 @@
     ]
   },
   "messages": {
-    "app.name": "Photo Organizer",
+    "app.name": "TwinCheck",
     "common.na": "غير متاح",
     "common.next": "التالي",
     "common.back": "رجوع",
@@ -728,7 +728,7 @@
     "error.not_in_group": "الملف ليس جزءًا من هذه المجموعة.",
     "error.use_transfer_resume": "استأنف هذه المهمة من «التصدير والترحيل».",
     "error.bad_db_type": "نوع قاعدة بيانات غير معروف.",
-    "error.bad_sqlite_name": "اسم ملف غير صالح (مثل photoorg.sqlite3).",
+    "error.bad_sqlite_name": "اسم ملف غير صالح (مثل twincheck.sqlite3).",
     "error.bad_port": "منفذ غير صالح.",
     "error.bad_db_name": "اسم قاعدة بيانات غير صالح.",
     "error.db_params_missing": "المضيف وقاعدة البيانات والمستخدم مطلوبة.",

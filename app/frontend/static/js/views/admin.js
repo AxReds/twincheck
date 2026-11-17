@@ -174,7 +174,7 @@ export async function settings(main, state) {
 
 // --- database -----------------------------------------------------------------------------------------
 export function dbForm(prefill = {}) {
-  const s = { type: prefill.type || 'sqlite', filename: 'photoorg-2.sqlite3', host: '', port: 3306, database: 'photoorg', user: '', password: '' };
+  const s = { type: prefill.type || 'sqlite', filename: 'twincheck-2.sqlite3', host: '', port: 3306, database: 'twincheck', user: '', password: '' };
   const box = h('div', { class: 'form' });
   const inputs = {};
   const render = () => {

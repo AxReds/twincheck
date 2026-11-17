@@ -14,10 +14,10 @@ from pathlib import Path
 
 from helpers import STRONG, Instance, make_user, sample_library, wait_job
 
-from photoorg import jobs as jobs_mod
-from photoorg.db import manager as dbm
-from photoorg.db.engine import DBError
-from photoorg.db.schema import CURRENT_VERSION, columns_at, create_structure, get_meta, set_meta, structure_version
+from twincheck import jobs as jobs_mod
+from twincheck.db import manager as dbm
+from twincheck.db.engine import DBError
+from twincheck.db.schema import CURRENT_VERSION, columns_at, create_structure, get_meta, set_meta, structure_version
 
 
 @jobs_mod.register("test_slow", auto_resume=False, writes_files=True)
@@ -38,7 +38,7 @@ def mariadb_params():
         return None
     return {"type": "mariadb", "host": host, "port": int(os.environ.get("PHOTOORG_TEST_MARIADB_PORT", "3306")),
             "user": os.environ.get("PHOTOORG_TEST_MARIADB_USER", "root"), "password": os.environ.get("PHOTOORG_TEST_MARIADB_PASSWORD", ""),
-            "database": "photoorg_t_" + secrets.token_hex(4)}
+            "database": "twincheck_t_" + secrets.token_hex(4)}
 
 
 def backends(tmp):
@@ -160,7 +160,7 @@ class Structure(unittest.TestCase):
                 db = dbm.make_database(params)
                 try:
                     dbm.prepare(db)
-                    from photoorg.fsutil import path_hash
+                    from twincheck.fsutil import path_hash
                     paths = ["/data/a/Photo.jpg", "/data/a/photo.jpg", "/data/ü/日本/фото 🙂.jpg", "/data/" + "x" * 3000 + "/f.jpg"]
                     for p in paths:
                         db.execute("INSERT INTO files (owner_id, cur_path, cur_path_hash, orig_path, size, sha256) VALUES (?,?,?,?,?,?)",
@@ -211,7 +211,7 @@ class SwitchDatabase(unittest.TestCase):
             self.assertGreater(new_files, 0, "files on disk unknown to the new database are reported, not imported")
             self.assertIn("DB_SWITCHED", [x["event"] for x in a.get("/api/admin/audit").json()["items"]])
             # the old database was not modified except for the paused job
-            old = dbm.make_database({"type": "sqlite", "path": str(inst.state / "photoorg.sqlite3")})
+            old = dbm.make_database({"type": "sqlite", "path": str(inst.state / "twincheck.sqlite3")})
             self.assertEqual(old.query_one("SELECT status FROM jobs WHERE id=?", (slow,))["status"], "paused")
             cp = json.loads(old.query_one("SELECT checkpoint FROM jobs WHERE id=?", (slow,))["checkpoint"])
             old.close()
@@ -269,7 +269,7 @@ class CrashRecovery(unittest.TestCase):
             inst.cleanup()
 
     def test_move_journal_recovery(self):
-        from photoorg.mover import recover
+        from twincheck.mover import recover
         inst = Instance().start()
         try:
             inst.setup()

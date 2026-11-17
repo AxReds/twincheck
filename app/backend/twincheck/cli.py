@@ -156,7 +156,7 @@ def cmd_serve(_args) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    p = argparse.ArgumentParser(prog="photoorg")
+    p = argparse.ArgumentParser(prog="twincheck")
     sub = p.add_subparsers(dest="cmd")
     sub.add_parser("serve")
     sub.add_parser("generate-key")

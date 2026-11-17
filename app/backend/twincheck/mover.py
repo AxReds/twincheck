@@ -66,7 +66,7 @@ def _link_or_rename(src: str, dst: str) -> None:
 
 def _copy_verify(src: str, dst: str, expected: str) -> None:
     d = os.path.dirname(dst)
-    tmp = os.path.join(d, f".photoorg-{secrets.token_hex(6)}.part")
+    tmp = os.path.join(d, f".twincheck-{secrets.token_hex(6)}.part")
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     try:
         with open(src, "rb") as fin, os.fdopen(fd, "wb", closefd=False) as fout:

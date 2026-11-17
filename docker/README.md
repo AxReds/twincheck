@@ -1,6 +1,6 @@
 # Docker deployment
 
-Everything needed to build and run Photo Organizer as **one container with one main process**,
+Everything needed to build and run TwinCheck as **one container with one main process**,
 non-root from the very first process, on a read-only root filesystem, without any capability.
 
 | File | Purpose |
@@ -8,9 +8,9 @@ non-root from the very first process, on a read-only root filesystem, without an
 | `Dockerfile` | Multi-stage build on Alpine. Build stage installs pure-Python wheels; the final stage contains only `python3`, `py3-cryptography`, `exiftool`, `ffmpeg` (from `apk`) and the application. No compiler. |
 | `docker-compose.yml` | The service, with every hardening option. Included by the root `compose.yaml`, so `docker compose up -d` works from the repository root. |
 | `requirements.txt` | Pinned pure-Python dependencies (uvicorn, h11, click, PyMySQL). |
-| `bin/photoorg-entrypoint` | Entry point: `exec`s Python (no shell left running, no `su`, no `chown`). |
+| `bin/twincheck-entrypoint` | Entry point: `exec`s Python (no shell left running, no `su`, no `chown`). |
 | `bin/generate-key`, `bin/reset-admin-password` | Console commands (`docker compose run --rm app generate-key`, `docker compose exec app reset-admin-password`). |
-| `bin/photoorg-healthcheck` | Healthcheck: `wget` on `http://127.0.0.1:80/healthz` inside the container. |
+| `bin/twincheck-healthcheck` | Healthcheck: `wget` on `http://127.0.0.1:80/healthz` inside the container. |
 | `docker-compose.test.yml` | Throw-away MariaDB for the test-suite only. |
 | `tests/run_container_tests.sh` | Container acceptance tests (permissions, network, kill/resume, test-suite inside the image). |
 
@@ -38,7 +38,7 @@ application inside the container.
 | Name | Description | Default | Required | Example | Read by |
 |------|-------------|---------|----------|---------|---------|
 | `APP_MASTER_KEY` | Master key that encrypts `/state/vault.enc`: 32 random bytes as 64 hex characters (or base64), or a passphrase of at least 20 characters (derived with scrypt). Use `file` to read it from `APP_MASTER_KEY_FILE`. Compose refuses to start when it is missing. | none | yes | `APP_MASTER_KEY=3f9c…(64 hex)` | Compose, App |
-| `APP_MASTER_KEY_FILE` | Path *inside the container* of a file holding the key (Docker secret). Used when `APP_MASTER_KEY=file`. | empty | no | `/run/secrets/photoorg_master_key` | App |
+| `APP_MASTER_KEY_FILE` | Path *inside the container* of a file holding the key (Docker secret). Used when `APP_MASTER_KEY=file`. | empty | no | `/run/secrets/twincheck_master_key` | App |
 | `BIND_ADDRESS` | Host address on which port 7777 is published. `127.0.0.1` = only this host. | `0.0.0.0` | no | `127.0.0.1` | Compose |
 | `ALLOWED_NETWORKS` | Comma-separated CIDR list allowed to use the app, enforced server-side on every request (login page and setup wizard included). Empty = no restriction. Loopback is always allowed (healthcheck). | empty | no | `192.168.1.0/24,10.8.0.0/16` | App |
 | `TRUSTED_PROXIES` | CIDR list of your own reverse proxies. Only used to read the real client IP (`X-Forwarded-For`) for login rate limiting; never for `ALLOWED_NETWORKS`. | empty | no | `172.18.0.10/32` | App |
@@ -49,14 +49,14 @@ application inside the container.
 | `PUID` | UID the whole container runs as (`user:`). Must own the library and state folders. Never 0. | `1000` | no | `1026` | Compose |
 | `PGID` | GID the container runs as. | `1000` | no | `100` | Compose |
 | `DATA_PATH` | Host folder mounted on `/data` (photo libraries, read/write). Relative paths are relative to `docker/`. | `../library` | no | `/volume1/photo` | Compose |
-| `STATE_PATH` | Host folder mounted on `/state`. | `../state` | no | `/volume1/docker/photoorg` | Compose |
+| `STATE_PATH` | Host folder mounted on `/state`. | `../state` | no | `/volume1/docker/twincheck` | Compose |
 | `TMP_SIZE` | Size of the `/tmp` tmpfs (ExifTool and ffmpeg temporary files). | `512m` | no | `2g` | Compose |
-| `CONTAINER_NAME` | Container name (also the default host label). | `photo-organizer` | no | `photoorg` | Compose |
+| `CONTAINER_NAME` | Container name (also the default host label). | `twincheck` | no | `twincheck` | Compose |
 | `JOB_WORKERS` | Background jobs running at the same time. | `2` | no | `4` | App |
 | `MAX_REQUEST_KB` | Maximum size of a normal API request body (KiB). | `1024` | no | `2048` | App |
 | `MAX_UPLOAD_MB` | Maximum size of a migration archive uploaded from the browser (MiB). Larger archives: copy them into `/state/imports`. | `102400` | no | `20480` | App |
 | `PREVIEW_CACHE_MAX_MB` | Size of the preview cache in `/state/cache` before old entries are pruned. | `2048` | no | `8192` | App |
-| `MARIADB_PASSWORD_FILE` | File (Docker secret) with the MariaDB password; overrides the password stored in the vault. | empty | no | `/run/secrets/photoorg_mariadb_password` | App |
+| `MARIADB_PASSWORD_FILE` | File (Docker secret) with the MariaDB password; overrides the password stored in the vault. | empty | no | `/run/secrets/twincheck_mariadb_password` | App |
 | `LOG_LEVEL` | Container log level: `DEBUG`, `INFO`, `WARNING`, `ERROR`. | `INFO` | no | `WARNING` | App |
 | `ALPINE_VERSION` | Build arg: Alpine base image version. | `3.24` | no | `3.24` | Compose (build) |
 | `APP_VERSION` | Build arg and image tag. | `1.0.0` | no | `1.0.0` | Compose (build) |
@@ -78,7 +78,7 @@ Parameters that exist only inside the image and are set by the Dockerfile (`DATA
 * **Where it lives:** only in `.env` (or the secret file). Never in `/state`, never in the image,
   never in the repository.
 * **Docker secret instead of `.env`:** put the key in a file (e.g. `docker/master_key.txt`,
-  `chmod 600`), set `APP_MASTER_KEY=file` and `APP_MASTER_KEY_FILE=/run/secrets/photoorg_master_key`
+  `chmod 600`), set `APP_MASTER_KEY=file` and `APP_MASTER_KEY_FILE=/run/secrets/twincheck_master_key`
   in `.env`, and uncomment the `secrets:` blocks in `docker-compose.yml`.
 * **Missing key:** Compose stops with `APP_MASTER_KEY missing in .env`. **Wrong key:** the container
   logs `VAULT_DECRYPT_FAILED` and exits without modifying anything.
@@ -169,10 +169,10 @@ InnoDB; paths use a binary collation (case-sensitive).
 Required privileges for the application user:
 
 ```sql
-CREATE USER 'photoorg'@'%' IDENTIFIED BY '…';
-GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP ON photoorg.* TO 'photoorg'@'%';
+CREATE USER 'twincheck'@'%' IDENTIFIED BY '…';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP ON twincheck.* TO 'twincheck'@'%';
 -- only if the application must create the database itself:
-GRANT CREATE ON *.* TO 'photoorg'@'%';
+GRANT CREATE ON *.* TO 'twincheck'@'%';
 ```
 
 `DROP` is used only to empty a destination left half-way by a failed migration, after your
@@ -199,7 +199,7 @@ and the last one is flagged, so tampering, reordering and truncation are detecte
 
 ## Healthcheck
 
-`photoorg-healthcheck` runs `wget -q http://127.0.0.1:80/healthz` inside the container every 30 s
+`twincheck-healthcheck` runs `wget -q http://127.0.0.1:80/healthz` inside the container every 30 s
 (timeout 5 s, 3 retries, 20 s start period). `/healthz` needs no login and returns no data.
 
 ## Build arguments
@@ -212,7 +212,7 @@ and the last one is flagged, so tampering, reordering and truncation are detecte
 * **Key:** in your password manager (not with the backups of `/state`).
 * **`/state`:** stop the container (`docker compose stop`) or use *Export* from the UI, then copy the
   folder. `vault.enc` is useless without the key, so it is safe to back up.
-* **MariaDB:** `mariadb-dump --single-transaction photoorg > photoorg.sql`, or *Export* in the UI.
+* **MariaDB:** `mariadb-dump --single-transaction twincheck > twincheck.sql`, or *Export* in the UI.
 * **`/data`:** your photos - back them up before the first organisation run.
 * Encryption at rest of the database and of the volumes is done at disk level (LUKS, encrypted NAS
   volume, encrypted cloud disk): the operational database contains paths and hashes, not credentials.

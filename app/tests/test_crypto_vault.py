@@ -8,14 +8,14 @@ from pathlib import Path
 
 from helpers import APP_DIR, STRONG, Instance, make_user
 
-from photoorg.crypto import (DecryptError, KeyError_, StreamDecryptor, StreamEncryptor, generate_key, load_master_key,
+from twincheck.crypto import (DecryptError, KeyError_, StreamDecryptor, StreamEncryptor, generate_key, load_master_key,
                              parse_key)
-from photoorg.vault import Vault, default_vault
+from twincheck.vault import Vault, default_vault
 
 
 def run_cli(args, env, stdin=None):
     e = {"PATH": os.environ.get("PATH", "/usr/bin"), "PYTHONPATH": str(APP_DIR / "backend"), "PYTHONDONTWRITEBYTECODE": "1", **env}
-    return subprocess.run([sys.executable, "-B", "-m", "photoorg", *args], env=e, capture_output=True, text=True, input=stdin, timeout=120)
+    return subprocess.run([sys.executable, "-B", "-m", "twincheck", *args], env=e, capture_output=True, text=True, input=stdin, timeout=120)
 
 
 class KeyTests(unittest.TestCase):
@@ -177,7 +177,7 @@ class StartupRefusal(unittest.TestCase):
             inst.cleanup()
 
     def test_app_refuses_wrong_key(self):
-        from photoorg.core import App, StartupError
+        from twincheck.core import App, StartupError
         inst = Instance().start()
         try:
             inst.setup()

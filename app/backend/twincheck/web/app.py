@@ -107,7 +107,7 @@ class ASGIApp:
             if req.session:
                 if not secrets.compare_digest(req.headers.get("x-csrf-token", ""), req.session["csrf"]):
                     fail(403, "csrf_token")
-            elif req.headers.get("x-requested-with") != "photoorg":
+            elif req.headers.get("x-requested-with") != "twincheck":
                 fail(403, "csrf_token")
         if route.opts.get("public"):
             return
@@ -201,7 +201,7 @@ def db_params_from(body: dict, core) -> dict:
     p = body.get("database") or {}
     t = p.get("type", "sqlite")
     if t == "sqlite":
-        name = (p.get("filename") or "photoorg.sqlite3").strip()
+        name = (p.get("filename") or "twincheck.sqlite3").strip()
         if "/" in name or name.startswith(".") or not name.endswith((".sqlite3", ".sqlite", ".db")):
             fail(400, "bad_sqlite_name")
         return {"type": "sqlite", "path": str(core.settings.state_dir / name)}

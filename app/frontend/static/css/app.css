@@ -1,4 +1,4 @@
-/* Photo Organizer - offline stylesheet. Logical properties only (RTL-safe), no fixed widths. */
+/* TwinCheck - offline stylesheet. Logical properties only (RTL-safe), no fixed widths. */
 :root {
   --bg: #f6f8fa; --fg: #1f2328; --muted: #59636e; --card: #ffffff; --line: #d1d9e0; --accent: #1f6feb; --accent-fg: #ffffff;
   --ok: #1a7f37; --warn: #9a6700; --crit: #cf222e; --info: #0969da; --topbar: #0d1117; --topbar-fg: #e6edf3; --chip: #161b22;

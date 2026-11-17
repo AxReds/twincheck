@@ -47,7 +47,7 @@ class Catalogue(unittest.TestCase):
         d = tempfile.mkdtemp()
         try:
             bad = {"meta": {"code": "nl", "name": "", "dir": "sideways", "status": "complete", "authors": []},
-                   "messages": {"common.save": "Opslaan {oops}", "app.name": "Photo Organizer", "extra.key": "x",
+                   "messages": {"common.save": "Opslaan {oops}", "app.name": "TwinCheck", "extra.key": "x",
                                 "dup.summary": {"one": "{count} groep", "other": "{count} groepen", "few": "x"},
                                 "logs.title": "File moved from {src} to {dst}"}}
             Path(d, "nl.json").write_text(json.dumps(bad), encoding="utf-8")

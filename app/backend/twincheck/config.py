@@ -102,7 +102,7 @@ class Settings:
 
     @property
     def default_sqlite_path(self) -> Path:
-        return self.state_dir / "photoorg.sqlite3"
+        return self.state_dir / "twincheck.sqlite3"
 
 
 def load_settings() -> Settings:

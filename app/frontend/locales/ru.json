@@ -9,7 +9,7 @@
     ]
   },
   "messages": {
-    "app.name": "Photo Organizer",
+    "app.name": "TwinCheck",
     "common.na": "н/д",
     "common.next": "Далее",
     "common.back": "Назад",
@@ -702,7 +702,7 @@
     "error.not_in_group": "Файл не входит в эту группу.",
     "error.use_transfer_resume": "Возобновите это задание в разделе «Экспорт и миграция».",
     "error.bad_db_type": "Неизвестный тип базы данных.",
-    "error.bad_sqlite_name": "Недопустимое имя файла (например, photoorg.sqlite3).",
+    "error.bad_sqlite_name": "Недопустимое имя файла (например, twincheck.sqlite3).",
     "error.bad_port": "Недопустимый порт.",
     "error.bad_db_name": "Недопустимое имя базы данных.",
     "error.db_params_missing": "Хост, база данных и пользователь обязательны.",

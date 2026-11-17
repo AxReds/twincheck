@@ -8,8 +8,8 @@ from unittest import mock
 
 from helpers import Instance, make_user
 
-from photoorg import sysinfo
-from photoorg.fsutil import mount_for, mounts
+from twincheck import sysinfo
+from twincheck.fsutil import mount_for, mounts
 
 
 class Metrics(unittest.TestCase):
@@ -46,7 +46,7 @@ class Metrics(unittest.TestCase):
 
     def test_not_available_is_none(self):
         with mock.patch.object(sysinfo, "_read", return_value=None), \
-                mock.patch("photoorg.sysinfo.os.getloadavg", side_effect=OSError):
+                mock.patch("twincheck.sysinfo.os.getloadavg", side_effect=OSError):
             m = sysinfo.system(self.inst.core.settings, {}, 0)
         self.assertIsNone(m["os"])
         self.assertIsNone(m["memory"]["total"])
@@ -72,8 +72,8 @@ class Metrics(unittest.TestCase):
         table = [{"mount_point": "/", "options": ["rw"], "fstype": "overlay", "source": ""},
                  {"mount_point": "/srv/ro", "options": ["ro", "nosuid"], "fstype": "ext4", "source": "/dev/sdb1"}]
         self.assertEqual(mount_for("/srv/ro/x", table)["fstype"], "ext4")
-        with mock.patch("photoorg.sysinfo.os.path.exists", return_value=True), \
-                mock.patch("photoorg.sysinfo.disk_usage", return_value={"total": 100, "used": 95, "free": 5, "used_pct": 95.0, "free_pct": 5.0, "read_only": False}):
+        with mock.patch("twincheck.sysinfo.os.path.exists", return_value=True), \
+                mock.patch("twincheck.sysinfo.disk_usage", return_value={"total": 100, "used": 95, "free": 5, "used_pct": 95.0, "free_pct": 5.0, "read_only": False}):
             v = sysinfo.volume("/srv/ro/photos", 15, 5, table)
         self.assertTrue(v["read_only"])
         self.assertEqual(v["level"], "warning")

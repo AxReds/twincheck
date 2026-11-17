@@ -1,4 +1,4 @@
-# Contributing to Photo Organizer
+# Contributing to TwinCheck
 
 Thank you! Translations are the easiest and most valuable way to help. Code contributions are
 welcome too. English is the source language of the project and of this guide.
@@ -49,7 +49,7 @@ and add yourself to `authors`. To report a mistake without editing, open a *Tran
 
 * **Tone**: short, clear, neutral; address the user the way common software does in your language.
 * **Placeholders** `{count}`, `{path}`, `{size}`… must stay exactly as they are (you may move them).
-* **Do not translate**: product name *Photo Organizer*, technical terms and values such as `/data`,
+* **Do not translate**: product name *TwinCheck*, technical terms and values such as `/data`,
   `/state`, `.env`, `APP_MASTER_KEY`, `BIND_ADDRESS`, `ALLOWED_NETWORKS`, SHA-256, EXIF, IPTC, XMP,
   QuickTime, ExifTool, SQLite, MariaDB, UTC, HTTP/HTTPS, file extensions, the account name `admin`.
 * **Consistency**: use the same word for the same concept everywhere (source, destination, preview,
@@ -62,7 +62,7 @@ and add yourself to `authors`. To report a mistake without editing, open a *Tran
 * Python 3.12, standard library first; new runtime dependencies must be pure Python and justified.
 * No visible text in code: add keys to `app/frontend/locales/en.json` and use `t('key')` in the
   frontend; backend errors return codes (`{"error": "code"}`) translated by the UI as `error.<code>`.
-* Logs: add an event code with an English template to `app/backend/photoorg/events.py`.
+* Logs: add an event code with an English template to `app/backend/twincheck/events.py`.
 * Every write to user files must go through a plan (preview) + confirmation, the manifest and
   `mover.move_file` (journal, never overwrite).
 * New environment variables: add them to `ENV_PARAMS` in `config.py` **and** to the tables in

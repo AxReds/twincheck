@@ -9,7 +9,7 @@
     ]
   },
   "messages": {
-    "app.name": "Photo Organizer",
+    "app.name": "TwinCheck",
     "common.na": "不适用",
     "common.next": "下一步",
     "common.back": "返回",
@@ -663,7 +663,7 @@
     "error.not_in_group": "该文件不属于此组。",
     "error.use_transfer_resume": "请在“导出与迁移”中继续此任务。",
     "error.bad_db_type": "未知的数据库类型。",
-    "error.bad_sqlite_name": "文件名无效（例如 photoorg.sqlite3）。",
+    "error.bad_sqlite_name": "文件名无效（例如 twincheck.sqlite3）。",
     "error.bad_port": "端口无效。",
     "error.bad_db_name": "数据库名称无效。",
     "error.db_params_missing": "主机、数据库和用户为必填项。",

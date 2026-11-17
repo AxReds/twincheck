@@ -519,4 +519,4 @@ def migrate_job(ctx: JobContext) -> dict:
 
 
 def export_name(db_id: str) -> str:
-    return f"photoorg-export-{db_id}-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}.poarc"
+    return f"twincheck-export-{db_id}-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}.poarc"

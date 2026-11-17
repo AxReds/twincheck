@@ -8,7 +8,7 @@ from pathlib import Path
 
 from helpers import APP_DIR
 
-from photoorg.config import ENV_PARAMS
+from twincheck.config import ENV_PARAMS
 
 ROOT = APP_DIR.parent
 COMPOSE_ONLY = {"BIND_ADDRESS", "PUID", "PGID", "DATA_PATH", "STATE_PATH", "TMP_SIZE", "CONTAINER_NAME", "ALPINE_VERSION", "APP_VERSION"}

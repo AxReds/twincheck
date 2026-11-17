@@ -33,7 +33,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 LOCALES = ROOT / "frontend" / "locales"
 STATIC = ROOT / "frontend" / "static"
-EVENTS_FILE = ROOT / "backend" / "photoorg" / "events.py"
+EVENTS_FILE = ROOT / "backend" / "twincheck" / "events.py"
 
 BCP47 = re.compile(r"^[A-Za-z]{2,3}(-[A-Z][a-z]{3})?(-([A-Z]{2}|\d{3}))?(-[A-Za-z0-9]{5,8})*$|^qps-[a-z]{4}$")
 PLACEHOLDER = re.compile(r"\{(\w+)\}")

@@ -9,7 +9,7 @@
     ]
   },
   "messages": {
-    "app.name": "Photo Organizer",
+    "app.name": "TwinCheck",
     "common.na": "n/d",
     "common.next": "Avanti",
     "common.back": "Indietro",
@@ -689,7 +689,7 @@
     "error.not_in_group": "Il file non fa parte di questo gruppo.",
     "error.use_transfer_resume": "Riprendi questo job da Esportazione e migrazione.",
     "error.bad_db_type": "Tipo di database sconosciuto.",
-    "error.bad_sqlite_name": "Nome file non valido (es. photoorg.sqlite3).",
+    "error.bad_sqlite_name": "Nome file non valido (es. twincheck.sqlite3).",
     "error.bad_port": "Porta non valida.",
     "error.bad_db_name": "Nome del database non valido.",
     "error.db_params_missing": "Host, database e utente sono obbligatori.",

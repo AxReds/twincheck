@@ -17,10 +17,10 @@ from pathlib import Path
 from helpers import STRONG, Instance, make_user, sample_library, wait_job
 from test_database import drop, mariadb_params
 
-from photoorg.db import manager as dbm
-from photoorg.db import transfer
-from photoorg.db.schema import CURRENT_VERSION, DATA_TABLES, columns_at, create_structure, get_meta, set_meta
-from photoorg.fsutil import path_hash
+from twincheck.db import manager as dbm
+from twincheck.db import transfer
+from twincheck.db.schema import CURRENT_VERSION, DATA_TABLES, columns_at, create_structure, get_meta, set_meta
+from twincheck.fsutil import path_hash
 
 PASS = "export passphrase 42"
 
@@ -95,7 +95,7 @@ class ArchiveFormat(unittest.TestCase):
         with self.assertRaises(transfer.ArchiveError):
             transfer.verify_archive(str(self.tmp / "trunc.poarc"), PASS)
         # archive produced by a newer application version (re-packed with a newer header)
-        from photoorg.crypto import StreamEncryptor
+        from twincheck.crypto import StreamEncryptor
         newer = self.tmp / "newer.poarc"
         with open(newer, "wb") as fh:
             enc = StreamEncryptor(fh, PASS)
@@ -190,7 +190,7 @@ class TransferViaUI(unittest.TestCase):
         pv = a.post("/api/admin/transfer/preview", {"mode": "export"}).json()
         self.assertGreater(pv["source"]["rows"], 0)
         self.assertEqual(a.post("/api/admin/transfer/start", {"mode": "export", "passphrase": PASS}).status, 400, "needs confirmation")
-        src_sha = file_sha(self.inst.state / "photoorg.sqlite3")
+        src_sha = file_sha(self.inst.state / "twincheck.sqlite3")
         r = a.post("/api/admin/transfer/start", {"mode": "export", "passphrase": PASS, "confirm": True})
         self.assertEqual(r.status, 202, r.text)
         jid = r.json()["job_id"]

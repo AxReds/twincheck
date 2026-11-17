@@ -9,7 +9,7 @@
     ]
   },
   "messages": {
-    "app.name": "Photo Organizer",
+    "app.name": "TwinCheck",
     "common.na": "該当なし",
     "common.next": "次へ",
     "common.back": "戻る",
@@ -663,7 +663,7 @@
     "error.not_in_group": "このファイルはこのグループに属していません。",
     "error.use_transfer_resume": "このジョブは「エクスポートと移行」から再開してください。",
     "error.bad_db_type": "不明なデータベースの種類です。",
-    "error.bad_sqlite_name": "無効なファイル名です（例：photoorg.sqlite3）。",
+    "error.bad_sqlite_name": "無効なファイル名です（例：twincheck.sqlite3）。",
     "error.bad_port": "無効なポートです。",
     "error.bad_db_name": "無効なデータベース名です。",
     "error.db_params_missing": "ホスト、データベース、ユーザーは必須です。",

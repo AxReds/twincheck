@@ -100,13 +100,13 @@ EVENTS: dict[str, str] = {
     "DESTINATION_PURGED": "Destination database purged by {actor} after failed transfer",
 }
 
-_logger = logging.getLogger("photoorg")
+_logger = logging.getLogger("twincheck")
 
 
 def setup_logging(level: str = "INFO") -> None:
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s", "%Y-%m-%dT%H:%M:%S%z"))
-    root = logging.getLogger("photoorg")
+    root = logging.getLogger("twincheck")
     root.handlers[:] = [handler]
     root.setLevel(getattr(logging, level, logging.INFO))
     root.propagate = False

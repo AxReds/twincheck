@@ -15,8 +15,8 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-WORK="$(mktemp -d /tmp/photoorg-ct.XXXXXX)"
-PROJECT="photoorg-ct-$$"
+WORK="$(mktemp -d /tmp/twincheck-ct.XXXXXX)"
+PROJECT="twincheck-ct-$$"
 PASS=0; FAIL=0; RESULTS=()
 export COMPOSE_PROJECT_NAME="$PROJECT"
 
@@ -82,7 +82,7 @@ check "no devices" bash -c "[ \"$(I '{{.HostConfig.Devices}}')\" = '[]' ]"
 check "no docker socket mounted" bash -c "! docker inspect $PROJECT | grep -q docker.sock"
 check "only sysctl is ip_unprivileged_port_start" bash -c "[[ \"$(I '{{.HostConfig.Sysctls}}')\" == 'map[net.ipv4.ip_unprivileged_port_start:0]' ]]"
 check "write to / fails" bash -c "! docker exec $PROJECT sh -c 'touch /x' 2>/dev/null"
-check "write to /opt fails" bash -c "! docker exec $PROJECT sh -c 'touch /opt/photoorg/x' 2>/dev/null"
+check "write to /opt fails" bash -c "! docker exec $PROJECT sh -c 'touch /opt/twincheck/x' 2>/dev/null"
 check "write to /data, /state, /tmp works" docker exec "$PROJECT" sh -c 'touch /data/.w /state/.w /tmp/.w && rm /data/.w /state/.w /tmp/.w'
 check "no .pyc written" bash -c "[ -z \"\$(docker exec $PROJECT find / -xdev -name '*.pyc' -newer /proc/1/cmdline 2>/dev/null | head -1)\" ]"
 check "no secret in state files" bash -c "! grep -rqa 'admin\|scrypt' $WORK/state --include=vault.enc"
@@ -99,10 +99,10 @@ TOKEN="$(docker logs "$PROJECT" 2>&1 | sed -n 's/.*\[SETUP_TOKEN\] Setup token: 
 check "setup token printed in the log" test -n "$TOKEN"
 APW='Container-Test-Pass-42'
 CJ="$WORK/cookies"
-H=(-H 'Content-Type: application/json' -H 'X-Requested-With: photoorg')
+H=(-H 'Content-Type: application/json' -H 'X-Requested-With: twincheck')
 curl -fsS "${H[@]}" -d "{\"token\":\"$TOKEN\",\"database\":{\"type\":\"sqlite\"},\"password\":\"$APW\",\"password_confirm\":\"$APW\",\"lang\":\"en\"}" \
   http://127.0.0.1:7777/api/setup/complete >/dev/null && ok "wizard completes" || ko "wizard completes"
-check "wizard locked after use" bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_code}' -H 'X-Requested-With: photoorg' -H 'Content-Type: application/json' -d '{\"token\":\"$TOKEN\"}' http://127.0.0.1:7777/api/setup/check-token)\" = 410 ]"
+check "wizard locked after use" bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_code}' -H 'X-Requested-With: twincheck' -H 'Content-Type: application/json' -d '{\"token\":\"$TOKEN\"}' http://127.0.0.1:7777/api/setup/check-token)\" = 410 ]"
 login() { curl -s -c "$CJ" -b "$CJ" "${H[@]}" -d "{\"username\":\"$1\",\"password\":\"$2\"}" http://127.0.0.1:7777/api/login; }
 CSRF="$(login admin "$APW" | json "d['csrf']")"
 check "admin login" test -n "$CSRF"
@@ -155,7 +155,7 @@ uapi POST /api/jobs/$APPLY/resume >/dev/null
 for i in $(seq 1 180); do [ "$(uapi GET /api/jobs/$APPLY | json "d['status']")" = completed ] && break; sleep 1; done
 AFTER="$(find "$WORK/library/u" -type f | wc -l)"
 check "moves completed after kill: no file lost or duplicated ($BEFORE -> $AFTER)" test "$BEFORE" = "$AFTER"
-check "no leftover temp/partial files" bash -c "[ -z \"\$(find $WORK/library -name '.photoorg-*' | head -1)\" ]"
+check "no leftover temp/partial files" bash -c "[ -z \"\$(find $WORK/library -name '.twincheck-*' | head -1)\" ]"
 CJ="$CJ_SAVE"
 
 echo "== reset-admin-password with the app running"
@@ -182,9 +182,9 @@ docker run -d --name "${PROJECT}-mariadb" -e MARIADB_ROOT_PASSWORD=test-only-pas
 for i in $(seq 1 60); do docker exec "${PROJECT}-mariadb" mariadb-admin -uroot -ptest-only-password ping >/dev/null 2>&1 && break; sleep 2; done
 MIP="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${PROJECT}-mariadb")"
 docker run --rm --user "$CUID:$CGID" --read-only --tmpfs /tmp:rw,size=1g --cap-drop ALL --security-opt no-new-privileges:true \
-  -v "$ROOT/app/tests:/opt/photoorg/app/tests:ro" -v "$ROOT/app/tools:/opt/photoorg/app/tools:ro" \
+  -v "$ROOT/app/tests:/opt/twincheck/app/tests:ro" -v "$ROOT/app/tools:/opt/twincheck/app/tools:ro" \
   -e PHOTOORG_TEST_MARIADB_HOST="$MIP" -e PHOTOORG_TEST_MARIADB_PASSWORD=test-only-password -e PHOTOORG_BIG_ROWS="${PHOTOORG_BIG_ROWS:-1000000}" \
-  --entrypoint python3 "$IMG" -B -m unittest discover -s /opt/photoorg/app/tests -v > "$WORK/unittest.log" 2>&1 \
+  --entrypoint python3 "$IMG" -B -m unittest discover -s /opt/twincheck/app/tests -v > "$WORK/unittest.log" 2>&1 \
   && ok "unit/integration tests in the container (SQLite + MariaDB, real ExifTool/ffmpeg)" || { ko "unit/integration tests in the container"; tail -40 "$WORK/unittest.log"; }
 grep -E "^Ran |^OK|^FAILED|large dataset" "$WORK/unittest.log" | sed 's/^/   /'
 

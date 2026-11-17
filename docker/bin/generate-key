@@ -1,2 +1,2 @@
 #!/bin/sh
-exec python3 -B -m photoorg generate-key "$@"
+exec python3 -B -m twincheck generate-key "$@"

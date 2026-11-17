@@ -39,6 +39,6 @@ container deployment rebuild the image (`docker compose build`) or mount your fi
 
 ```yaml
     volumes:
-      - ./my-logo.svg:/opt/photoorg/app/frontend/static/img/logo.svg:ro
-      - ./my-favicon.svg:/opt/photoorg/app/frontend/static/img/favicon.svg:ro
+      - ./my-logo.svg:/opt/twincheck/app/frontend/static/img/logo.svg:ro
+      - ./my-favicon.svg:/opt/twincheck/app/frontend/static/img/favicon.svg:ro
 ```

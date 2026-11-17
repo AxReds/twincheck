@@ -1,12 +1,12 @@
 <p align="center"><img src="app/frontend/static/img/logo.svg" width="96" alt=""></p>
 
-# Photo Organizer
+# TwinCheck
 
-**Riorganizzazione sicura e multiutente di librerie di foto e video, in un unico container protetto e offline.**
+**Screening di librerie di foto e video, separazione dei duplicati esatti e riorganizzazione sicura: multiutente, in un unico container protetto e offline.**
 
 [English](README.md) · [Come contribuire](CONTRIBUTING.md) · [Deploy Docker](docker/README.md) · [Dettagli dell'applicazione](app/README.md) · Licenza: AGPL-3.0
 
-Photo Organizer indicizza foto e video, trova i duplicati esatti, completa i metadati mancanti
+TwinCheck indicizza foto e video, trova i duplicati esatti, completa i metadati mancanti
 **solo da fonti affidabili**, ti fa rivedere i file dubbi e sposta tutto in una struttura
 `Anno/Mese/Giorno`. I file vengono **spostati, mai copiati né cancellati**, nulla viene mai
 sovrascritto, ogni scrittura ha un'anteprima e richiede il tuo clic, e tutto si può annullare.
@@ -49,7 +49,7 @@ sovrascritto, ogni scrittura ha un'anteprima e richiede il tuo clic, e tutto si 
 ## Avvio rapido
 
 ```sh
-git clone <URL del tuo fork> photo-organizer && cd photo-organizer
+git clone https://github.com/AxReds/twincheck.git && cd twincheck
 cp .env.example .env && chmod 600 .env
 docker compose run --rm app generate-key          # copia la riga APP_MASTER_KEY=… stampata nel .env
 mkdir -p library state                            # metti (o monta) le foto in ./library

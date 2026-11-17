@@ -19,9 +19,9 @@ sys.dont_write_bytecode = True
 APP_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP_DIR / "backend"))
 
-from photoorg import events  # noqa: E402
-from photoorg.config import load_settings  # noqa: E402
-from photoorg.crypto import generate_key, parse_key  # noqa: E402
+from twincheck import events  # noqa: E402
+from twincheck.config import load_settings  # noqa: E402
+from twincheck.crypto import generate_key, parse_key  # noqa: E402
 
 events.setup_logging("WARNING")
 STRONG = "Correct-Horse-Battery-9"
@@ -54,7 +54,7 @@ class Client:
 
     def request(self, method, path, body=None, headers=None, raw=None, ip=None, csrf=True):
         path, _, qs = path.partition("?")
-        hdrs = {"host": self.host, "x-requested-with": "photoorg"}
+        hdrs = {"host": self.host, "x-requested-with": "twincheck"}
         if csrf and self.csrf:
             hdrs["x-csrf-token"] = self.csrf
         if self.cookies:
@@ -135,7 +135,7 @@ class Instance:
     """A complete application instance in a temporary directory."""
 
     def __init__(self, key: str | None = None, env: dict | None = None, data_dir: str | None = None):
-        self.tmp = tempfile.mkdtemp(prefix="photoorg-test-")
+        self.tmp = tempfile.mkdtemp(prefix="twincheck-test-")
         self.data = Path(data_dir or os.path.join(self.tmp, "data"))
         self.state = Path(self.tmp) / "state"
         self.data.mkdir(parents=True, exist_ok=True)
@@ -147,8 +147,8 @@ class Instance:
         self.app = None
 
     def start(self):
-        from photoorg.core import App
-        from photoorg.web.app import create_app
+        from twincheck.core import App
+        from twincheck.web.app import create_app
         old = {k: os.environ.get(k) for k in self.env}
         os.environ.update(self.env)
         try:

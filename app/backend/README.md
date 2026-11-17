@@ -1,11 +1,11 @@
 # Backend
 
-Python 3.12+ package `photoorg` (standard library + `cryptography`, `uvicorn`/`h11`, `PyMySQL`).
+Python 3.12+ package `twincheck` (standard library + `cryptography`, `uvicorn`/`h11`, `PyMySQL`).
 The HTTP layer is a minimal ASGI toolkit written with the standard library only
-(`photoorg/web/framework.py`); `uvicorn` serves it.
+(`twincheck/web/framework.py`); `uvicorn` serves it.
 
 ```
-photoorg/
+twincheck/
   cli.py          entry point: serve | generate-key | reset-admin-password | healthcheck
   config.py       environment variables (ENV_PARAMS: the single source of truth)
   core.py         application state: vault, current database, jobs, sessions, maintenance
@@ -29,14 +29,14 @@ photoorg/
 
 ```sh
 cd app/backend
-export APP_MASTER_KEY=$(python3 -m photoorg generate-key | sed -n 's/^APP_MASTER_KEY=//p')
+export APP_MASTER_KEY=$(python3 -m twincheck generate-key | sed -n 's/^APP_MASTER_KEY=//p')
 export DATA_DIR=$PWD/../../library STATE_DIR=$PWD/../../state APP_PORT=8080
-PYTHONDONTWRITEBYTECODE=1 python3 -m photoorg serve
+PYTHONDONTWRITEBYTECODE=1 python3 -m twincheck serve
 ```
 
 ## Environment variables
 
-The table below is checked by `app/tests/test_docs_consistency.py` against `photoorg/config.py`
+The table below is checked by `app/tests/test_docs_consistency.py` against `twincheck/config.py`
 (`ENV_PARAMS`): every variable read by the application is documented here and every documented
 variable exists.
 
@@ -44,7 +44,7 @@ variable exists.
 | Name | Description | Default | Required | Example |
 |------|-------------|---------|----------|---------|
 | `APP_MASTER_KEY` | Master key: 64 hex chars (32 bytes), base64 of 32 bytes, or a passphrase ≥ 20 characters; `file` = read `APP_MASTER_KEY_FILE`. Encryption key = HKDF-SHA256 (scrypt first for passphrases). | none | yes (or the file) | `3f9c…` |
-| `APP_MASTER_KEY_FILE` | File holding the key (Docker secret). | empty | no | `/run/secrets/photoorg_master_key` |
+| `APP_MASTER_KEY_FILE` | File holding the key (Docker secret). | empty | no | `/run/secrets/twincheck_master_key` |
 | `APP_LANG` | Console language and initial instance language. | `en` | no | `it` |
 | `HOST_LABEL` | Host name shown in the header. | container host name | no | `nas` |
 | `ALLOWED_NETWORKS` | Allowed client CIDRs, comma-separated (loopback always allowed). | empty = all | no | `192.168.1.0/24` |
@@ -52,7 +52,7 @@ variable exists.
 | `DISK_WARN_FREE_PERCENT` | Warning threshold of free disk space (%). | `15` | no | `20` |
 | `DISK_CRIT_FREE_PERCENT` | Critical threshold of free disk space (%). | `5` | no | `3` |
 | `DATA_DIR` | Libraries mount point. | `/data` | no | `/srv/photos` |
-| `STATE_DIR` | State mount point. | `/state` | no | `/srv/photoorg-state` |
+| `STATE_DIR` | State mount point. | `/state` | no | `/srv/twincheck-state` |
 | `APP_PORT` | Internal HTTP port. | `80` | no | `8080` |
 | `MAX_REQUEST_KB` | Max normal request body (KiB). | `1024` | no | `2048` |
 | `MAX_UPLOAD_MB` | Max archive upload (MiB). | `102400` | no | `20480` |

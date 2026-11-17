@@ -31,7 +31,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from .crypto import DecryptError, MasterKey, decrypt_blob
 
 MAGIC = b"POVAULT\x01"
-INFO = b"photoorg vault v1"
+INFO = b"twincheck vault v1"
 HEADER_LEN = len(MAGIC) + 1 + 16 + 12
 AUDIT_MAX = 10000
 

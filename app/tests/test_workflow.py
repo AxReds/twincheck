@@ -13,7 +13,7 @@ from unittest import mock
 
 from helpers import Instance, make_user, sample_library, using_fake_exiftool, wait_job
 
-from photoorg.services.metadata import analyse_file, collect, date_from_filename
+from twincheck.services.metadata import analyse_file, collect, date_from_filename
 
 
 def set_tags(path, tags):
@@ -90,7 +90,7 @@ class PureMetadataRules(unittest.TestCase):
         self.assertEqual(r2["conflicts"], {}, "UTC and local differing by a whole offset are consistent")
 
     def test_takeout_sidecar(self):
-        from photoorg.services.metadata import takeout_candidates
+        from twincheck.services.metadata import takeout_candidates
         import tempfile
         p = Path(tempfile.mkdtemp()) / "a.jpg.json"
         p.write_text(json.dumps({"photoTakenTime": {"timestamp": "1600000000"}, "geoData": {"latitude": 45.4642, "longitude": 9.19}}))
@@ -266,7 +266,7 @@ class Workflow(unittest.TestCase):
     def test_cross_volume_move(self):
         """Different volumes: copy, verify hash, then delete the original."""
         import errno
-        from photoorg import mover
+        from twincheck import mover
         src = self.inst.data / "xv" / "a.jpg"
         src.parent.mkdir()
         src.write_bytes(b"cross volume content")
@@ -280,7 +280,7 @@ class Workflow(unittest.TestCase):
             if len(calls) == 1:
                 raise OSError(errno.EXDEV, "cross-device")
             return real_link(a, b, **kw)
-        with mock.patch("photoorg.mover.os.link", side_effect=link_once_exdev):
+        with mock.patch("twincheck.mover.os.link", side_effect=link_once_exdev):
             res = mover.move_file(self.inst.core.db, job_id=None, owner_id="t", file_id=None, src=str(src), dst=str(dst), sha256=None)
         self.assertTrue(res["cross_volume"])
         self.assertFalse(src.exists())

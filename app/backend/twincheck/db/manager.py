@@ -128,7 +128,7 @@ class InstanceLock:
         self._conn = None
 
     def _name(self) -> str:
-        return f"photoorg_instance_{self.db.params.get('database')}"[:64]
+        return f"twincheck_instance_{self.db.params.get('database')}"[:64]
 
     def acquire(self) -> None:
         if self.db.kind == "sqlite":

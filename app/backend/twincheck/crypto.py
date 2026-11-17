@@ -49,7 +49,7 @@ class MasterKey:
 
     def fingerprint(self) -> str:
         """Non-secret identifier used only to tell keys apart in messages."""
-        k = HKDF(hashes.SHA256(), 8, b"photoorg-fp", b"fingerprint").derive(self.raw)
+        k = HKDF(hashes.SHA256(), 8, b"twincheck-fp", b"fingerprint").derive(self.raw)
         return k.hex()
 
 

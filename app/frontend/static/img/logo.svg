@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-hidden="true">
-  <!-- Photo Organizer logo: a folder holding a photo, with a calendar tab. Self-contained, readable on light and dark backgrounds. -->
+  <!-- TwinCheck logo: a folder holding a photo, with a calendar tab. Self-contained, readable on light and dark backgrounds. -->
   <rect x="2" y="10" width="60" height="48" rx="9" fill="#1f6feb"/>
   <path d="M2 19a9 9 0 0 1 9-9h14l6 6h22a9 9 0 0 1 9 9v2H2z" fill="#0b4fc0"/>
   <rect x="11" y="23" width="42" height="28" rx="4" fill="#ffffff"/>

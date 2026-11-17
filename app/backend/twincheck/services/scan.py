@@ -17,7 +17,7 @@ BATCH = 200
 
 
 def _excluded(name: str, patterns: list[str]) -> bool:
-    return any(fnmatch.fnmatchcase(name, p) for p in patterns) or name.startswith(".photoorg-")
+    return any(fnmatch.fnmatchcase(name, p) for p in patterns) or name.startswith(".twincheck-")
 
 
 def iter_dirs(root: str, patterns: list[str], ctx: JobContext | None = None):

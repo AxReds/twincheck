@@ -6,7 +6,7 @@ and [`backend/README.md`](backend/README.md) (all environment variables read by 
 
 | Folder | Content |
 |--------|---------|
-| [`backend/`](backend/README.md) | package `photoorg`: web server, jobs, database layer, encryption |
+| [`backend/`](backend/README.md) | package `twincheck`: web server, jobs, database layer, encryption |
 | [`frontend/`](frontend/README.md) | HTML/JS/CSS served by the backend, logo, translations |
 | [`frontend/locales/`](frontend/locales/README.md) | `<code>.json` translation files |
 | [`tests/`](tests/README.md) | test-suite (`python3 -B -m unittest discover -s app/tests`) |
@@ -48,7 +48,7 @@ review queues are separated per user, and every API checks it server-side.
 
 ## Migrations
 
-`backend/photoorg/db/schema.py` defines the schema as an ordered list of migrations (`MIGRATIONS`):
+`backend/twincheck/db/schema.py` defines the schema as an ordered list of migrations (`MIGRATIONS`):
 version 1 creates the baseline, version 2 adds `files.duration_s`, `review_items.group_key` and an
 index, version 3 adds `jobs.auto_resume` and an index on `run_log.event`. Every operation is
 idempotent (a table, column or index is created only if missing).
@@ -95,7 +95,7 @@ To add a migration: append `MIGRATIONS[n+1]`, bump `CURRENT_VERSION`, add a test
 * **Export:** choose a passphrase (≥ 12 characters), *Preview* (tables, rows, estimated size and
   time, warnings), confirm. The app enters maintenance mode (no job runs, writes blocked), reads a
   consistent snapshot through a dedicated read-only connection, writes
-  `/state/exports/photoorg-export-<db_id>-<time>.poarc` (downloadable, streamed), then leaves
+  `/state/exports/twincheck-export-<db_id>-<time>.poarc` (downloadable, streamed), then leaves
   maintenance. The source database is only read.
 * **Import:** upload the archive from the browser (streamed to `/state/imports`) or copy it there,
   choose the destination database (must be **empty**; the structure is created automatically),

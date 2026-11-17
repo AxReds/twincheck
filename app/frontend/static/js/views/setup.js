@@ -6,7 +6,7 @@ import { langSelect } from '../app.js';
 import { kv } from '../components.js';
 
 export function renderSetup(root, state) {
-  const s = { step: 0, token: '', db: { type: 'sqlite', filename: 'photoorg.sqlite3', host: '', port: 3306, database: 'photoorg', user: '', password: '' },
+  const s = { step: 0, token: '', db: { type: 'sqlite', filename: 'twincheck.sqlite3', host: '', port: 3306, database: 'twincheck', user: '', password: '' },
     test: null, password: '', password2: '', confirmMigration: false };
 
   const render = () => {

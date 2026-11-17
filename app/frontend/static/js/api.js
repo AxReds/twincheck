@@ -22,7 +22,7 @@ export function errorText(code, params = {}) {
 }
 
 export async function api(method, url, body, opts = {}) {
-  const headers = { 'X-Requested-With': 'photoorg' };
+  const headers = { 'X-Requested-With': 'twincheck' };
   if (csrf) headers['X-CSRF-Token'] = csrf;
   let payload;
   if (body instanceof Blob) { payload = body; headers['Content-Type'] = 'application/octet-stream'; }
@@ -51,7 +51,7 @@ export function uploadFile(url, file, onProgress) {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', url);
     xhr.setRequestHeader('X-CSRF-Token', csrf);
-    xhr.setRequestHeader('X-Requested-With', 'photoorg');
+    xhr.setRequestHeader('X-Requested-With', 'twincheck');
     xhr.setRequestHeader('Content-Type', 'application/octet-stream');
     xhr.upload.onprogress = (e) => { if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total); };
     xhr.onload = () => {

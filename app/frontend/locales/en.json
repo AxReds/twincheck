@@ -5,12 +5,12 @@
     "dir": "ltr",
     "status": "complete",
     "authors": [
-      "Photo Organizer maintainers"
+      "TwinCheck maintainers"
     ],
     "source": true
   },
   "messages": {
-    "app.name": "Photo Organizer",
+    "app.name": "TwinCheck",
     "common.na": "n/a",
     "common.next": "Next",
     "common.back": "Back",
@@ -677,7 +677,7 @@
     "error.not_in_group": "The file is not part of this group.",
     "error.use_transfer_resume": "Resume this job from Export & migration.",
     "error.bad_db_type": "Unknown database type.",
-    "error.bad_sqlite_name": "Invalid file name (e.g. photoorg.sqlite3).",
+    "error.bad_sqlite_name": "Invalid file name (e.g. twincheck.sqlite3).",
     "error.bad_port": "Invalid port.",
     "error.bad_db_name": "Invalid database name.",
     "error.db_params_missing": "Host, database and user are required.",

@@ -301,7 +301,7 @@ class Database:
                 self._local.depth = 0
                 c.execute("COMMIT")
         else:
-            name = f"photoorg_schema_{self.params.get('database')}"[:64]
+            name = f"twincheck_schema_{self.params.get('database')}"[:64]
             got = self.scalar("SELECT GET_LOCK(?, ?) AS l", (name, timeout))
             if got != 1:
                 raise DBError("lock_timeout")

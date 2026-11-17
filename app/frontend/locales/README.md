@@ -63,7 +63,7 @@ Check with `node -e "console.log(new Intl.PluralRules('xx').resolvedOptions().pl
 
 Paths, file names, metadata values, ExifTool tag names (shown next to the translated label) and
 **logs**. Log entries are always English: they have stable event codes and live in
-`app/backend/photoorg/events.py`, never in these files (the checker rejects log texts here).
+`app/backend/twincheck/events.py`, never in these files (the checker rejects log texts here).
 
 ## Overrides without rebuilding
 

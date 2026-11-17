@@ -130,7 +130,7 @@ class HttpSecurity(unittest.TestCase):
         c = self.inst.client(ip="192.168.10.2")
         self.assertEqual(c.get("/static/").status, 404)
         self.assertEqual(c.get("/static/js/").status, 404)
-        self.assertEqual(c.get("/static/../backend/photoorg/config.py").status, 404)
+        self.assertEqual(c.get("/static/../backend/twincheck/config.py").status, 404)
         self.assertEqual(c.get("/static/%2e%2e/%2e%2e/README.md").status, 404)
         self.assertEqual(c.get("/").status, 200)
 
