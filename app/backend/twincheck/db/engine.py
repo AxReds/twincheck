@@ -10,6 +10,7 @@ import contextlib
 import os
 import sqlite3
 import threading
+import time
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
@@ -22,6 +23,26 @@ class DBError(Exception):
         self.code = code
         self.detail = detail
         self.params = params
+
+
+def _sqlite_retry(fn, timeout: float = 60.0):
+    """Run ``fn`` again while SQLite reports a lock.
+
+    busy_timeout covers ordinary statements, but some operations (switching the
+    journal to WAL, BEGIN IMMEDIATE while another process creates the file or
+    recovers the WAL) can report "database is locked" straight away. Retry them
+    with a short back-off up to ``timeout`` seconds."""
+    deadline = time.monotonic() + timeout
+    delay = 0.02
+    while True:
+        try:
+            return fn()
+        except sqlite3.OperationalError as exc:
+            msg = str(exc).lower()
+            if ("locked" not in msg and "busy" not in msg) or time.monotonic() >= deadline:
+                raise
+            time.sleep(delay)
+            delay = min(delay * 2, 0.5)
 
 
 def _mariadb():
@@ -82,7 +103,9 @@ class Database:
         conn = sqlite3.connect(path, timeout=60, isolation_level=None, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA busy_timeout=60000")
-        conn.execute("PRAGMA journal_mode=WAL")
+        mode = _sqlite_retry(lambda: conn.execute("PRAGMA journal_mode").fetchone()[0])
+        if str(mode).lower() != "wal":
+            _sqlite_retry(lambda: conn.execute("PRAGMA journal_mode=WAL").fetchone())
         conn.execute("PRAGMA synchronous=FULL")
         conn.execute("PRAGMA foreign_keys=OFF")
         if self.read_only:
@@ -293,7 +316,7 @@ class Database:
         if self.kind == "sqlite":
             # BEGIN IMMEDIATE takes the RESERVED lock: other writers wait (busy_timeout)
             c = self.conn()
-            c.execute("BEGIN IMMEDIATE")
+            _sqlite_retry(lambda: c.execute("BEGIN IMMEDIATE"), timeout)
             self._local.depth = 1
             try:
                 yield

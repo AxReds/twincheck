@@ -82,6 +82,33 @@ class MariaDBDriver(unittest.TestCase):
         self.assertEqual(out.stdout.strip(), "twincheck")
 
 
+class SQLiteLockRetry(unittest.TestCase):
+    def test_retries_lock_errors_only(self):
+        import sqlite3
+        from twincheck.db.engine import _sqlite_retry
+        calls = []
+
+        def flaky():
+            calls.append(1)
+            if len(calls) < 3:
+                raise sqlite3.OperationalError("database is locked")
+            return "done"
+        self.assertEqual(_sqlite_retry(flaky, timeout=5), "done")
+        self.assertEqual(len(calls), 3)
+
+        def broken():
+            raise sqlite3.OperationalError("no such table: x")
+        with self.assertRaises(sqlite3.OperationalError):
+            _sqlite_retry(broken, timeout=5)
+
+        def always_locked():
+            raise sqlite3.OperationalError("database is locked")
+        start = time.monotonic()
+        with self.assertRaises(sqlite3.OperationalError):
+            _sqlite_retry(always_locked, timeout=0.3)
+        self.assertLess(time.monotonic() - start, 5)
+
+
 class Structure(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
