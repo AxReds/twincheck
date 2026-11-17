@@ -17,7 +17,7 @@
 - [ ] No visible text hard-coded in the code (keys added to `en.json`)
 - [ ] Placeholders (`{count}`, `{path}`…) unchanged; plural forms match the language
 - [ ] New environment variables documented in `app/backend/README.md` and `docker/README.md`
-- [ ] Language table in `README.md` / `README.it.md` updated (new language or status change)
+- [ ] Language table in `README.md` updated (new language or status change)
 - [ ] No photos, databases, `.env`, keys, passwords or tokens committed
 
 ## For translations

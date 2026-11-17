@@ -3,7 +3,7 @@
 Never visual similarity, names, dates or EXIF.  The keeper is the file with the
 oldest date (capture date if known, otherwise modification time); ties are
 broken by the "tidiest" path: fewer components, then shorter, then
-lexicographic.  Duplicates are moved to the "Duplicati" folder, never deleted.
+lexicographic.  Duplicates are moved to the "Duplicates" folder, never deleted.
 """
 from __future__ import annotations
 

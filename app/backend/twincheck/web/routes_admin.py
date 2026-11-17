@@ -349,7 +349,7 @@ def db_test(req: Request):
 
 @router.post("/api/admin/db/switch", maintenance_ok=True)
 def db_switch(req: Request):
-    """Change of the operational database (CAMBIO DEL DATABASE, steps 3-8)."""
+    """Change of the operational database (database switch procedure, steps 3-8)."""
     require(req, "switch_database")
     core = common.app()
     body = req.json()

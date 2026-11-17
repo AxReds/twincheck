@@ -148,7 +148,8 @@ class EnglishOnlyLogs(unittest.TestCase):
             r = run_cli(["generate-key"], {"APP_LANG": "it"})
             self.assertIn("APP_MASTER_KEY=", r.stdout)
             self.assertNotIn("New master key", r.stdout, "console commands follow APP_LANG")
-            self.assertIn("chiave", r.stdout.lower())
+            it_strings = json.loads((APP_DIR / "frontend" / "locales" / "it.json").read_text(encoding="utf-8"))["messages"]
+            self.assertIn(it_strings["cli.generate_key_intro"].strip().splitlines()[0], r.stdout)
             del env_ja
         finally:
             inst.cleanup()

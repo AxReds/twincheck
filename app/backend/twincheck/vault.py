@@ -278,7 +278,7 @@ def default_vault(instance_lang: str) -> dict:
 def default_settings(lang: str = "en") -> dict:
     return {
         "default_lang": lang,
-        "organize": {"no_date_folder": "Senza_data", "duplicates_folder": "Duplicati"},
+        "organize": {"no_date_folder": "No_date", "duplicates_folder": "Duplicates"},
         "scan": {
             "exclude": [".*", "@eaDir", "#recycle", "$RECYCLE.BIN", "lost+found", "Thumbs.db", "desktop.ini"],
             "follow_symlinks": False,

@@ -24,7 +24,7 @@ def table_names(readme: Path) -> set[str]:
 @unittest.skipUnless((ROOT / "docker" / "README.md").exists(), "repository files not available (running inside the image)")
 class DocsConsistency(unittest.TestCase):
     def test_required_readmes_exist(self):
-        for p in ("README.md", "README.it.md", "CONTRIBUTING.md", "LICENSE", ".gitignore", ".env.example", "app/README.md",
+        for p in ("README.md", "CONTRIBUTING.md", "LICENSE", ".gitignore", ".env.example", "app/README.md",
                   "app/backend/README.md", "app/frontend/README.md", "app/frontend/locales/README.md", "app/tests/README.md",
                   "docker/README.md", "docker/Dockerfile", "docker/docker-compose.yml", "compose.yaml"):
             self.assertTrue((ROOT / p).exists(), p)
@@ -61,12 +61,12 @@ class DocsConsistency(unittest.TestCase):
 
     def test_language_table(self):
         locs = {p.stem: json.loads(p.read_text(encoding="utf-8"))["meta"] for p in (APP_DIR / "frontend" / "locales").glob("*.json")}
-        for readme in ("README.md", "README.it.md"):
+        for readme in ("README.md",):
             rows = dict(re.findall(r"^\| `([A-Za-z-]+)` \| [^|]+ \| ([a-z-]+)", (ROOT / readme).read_text(encoding="utf-8"), re.M))
             self.assertEqual(set(rows), set(locs), readme)
             for code, status in rows.items():
                 expected = "complete" if code == "en" else locs[code]["status"]
-                self.assertEqual(status if code != "en" else ("complete" if status in ("complete", "completa") else status), expected, f"{readme} {code}")
+                self.assertEqual(status if code != "en" else status, expected, f"{readme} {code}")
 
     def test_no_secrets_or_data_committed(self):
         bad_ext = {".jpg", ".jpeg", ".heic", ".mov", ".mp4", ".sqlite3", ".db", ".poarc", ".enc", ".pem", ".key"}

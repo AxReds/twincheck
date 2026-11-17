@@ -197,7 +197,7 @@ class Roles(unittest.TestCase):
         self.assertEqual(self.ops.patch(f"/api/admin/users/{self.alice_id}", {"role": "administrator"}).status, 403)
         r = self.ops.post("/api/admin/users", {"username": "dave", "role": "user", "password": STRONG})
         self.assertEqual(r.status, 201)
-        self.assertEqual(self.ops.patch("/api/admin/settings", {"organize": {"no_date_folder": "Senza_data"}}).status, 200)
+        self.assertEqual(self.ops.patch("/api/admin/settings", {"organize": {"no_date_folder": "No_date"}}).status, 200)
         self.assertEqual(self.ops.patch("/api/admin/settings", {"default_lang": "en"}).status, 403)
         self.assertEqual(self.ops.post("/api/admin/groups", {"name": "family"}).status, 201)
 

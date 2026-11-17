@@ -36,7 +36,7 @@ welcome too. English is the source language of the project and of this guide.
    Or rebuild to test the file from the repository: `docker compose build && docker compose up -d`.
    Check long texts and, for RTL languages, the mirrored layout. A pseudo-language with very long
    texts helps: `python3 app/tools/make_pseudo_locale.py state/locales`.
-8. **Add your language** to the table in `README.md` and `README.it.md`.
+8. **Add your language** to the table in `README.md`.
 9. **Open a pull request** using the template. CI runs the checker and the tests; it must be green.
 
 ## Improve an existing translation

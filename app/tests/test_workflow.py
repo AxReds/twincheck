@@ -183,7 +183,7 @@ class Workflow(unittest.TestCase):
         mc = db.query("SELECT tag, before_value FROM meta_changes WHERE owner_id=?", (self.uid,))
         self.assertTrue(mc and all(json.loads(x["before_value"]) in (None, "") for x in mc), "original values stored before writing")
 
-        # --- duplicates: oldest kept, others moved to Duplicati, nothing deleted
+        # --- duplicates: oldest kept, others moved to Duplicates, nothing deleted
         self.run_job("/api/duplicates/analyze")
         groups = self.u.get("/api/duplicates").json()
         self.assertEqual(groups["total"], 1)
@@ -194,8 +194,8 @@ class Workflow(unittest.TestCase):
         self.assertIn("keep", csv)
         dup_plan = self.run_job("/api/duplicates/plan")
         self.confirm(dup_plan)
-        self.assertTrue((self.inst.data / "lib" / "Duplicati" / "phone" / "DSC_9.jpg").exists())
-        self.assertTrue((self.inst.data / "lib" / "Duplicati" / "backup" / "copy" / "IMG_0001 (1).jpg").exists())
+        self.assertTrue((self.inst.data / "lib" / "Duplicates" / "phone" / "DSC_9.jpg").exists())
+        self.assertTrue((self.inst.data / "lib" / "Duplicates" / "backup" / "copy" / "IMG_0001 (1).jpg").exists())
 
         # --- review: give a date to the file without EXIF (database only)
         item = [r for r in review if r.get("file") and r["file"]["name"] == "scan_without_exif.jpg"][0]
@@ -214,7 +214,7 @@ class Workflow(unittest.TestCase):
         self.assertEqual(len(by["pic.jpg|side"]["companions"]), 2, ".xmp and .aae travel with the photo")
         self.assertEqual(len(by["IMG_7000.jpg|live"]["companions"]), 1, "Live Photo video travels with the photo")
         self.assertTrue(by["scan_without_exif.jpg|misc"]["dst"].endswith("2015/06/07/scan_without_exif.jpg"))
-        self.assertIn("Senza_data", by["IMG_20210704_101500.jpg|misc"]["dst"], "filename date is not used without review")
+        self.assertIn("No_date", by["IMG_20210704_101500.jpg|misc"]["dst"], "filename date is not used without review")
         self.confirm(org_plan)
         lib = self.inst.data / "lib"
         self.assertTrue((lib / "2020/02/02/photo.jpg").exists() and (lib / "2020/02/02/photo_1.jpg").exists())
@@ -235,7 +235,7 @@ class Workflow(unittest.TestCase):
         undo = self.run_job("/api/undo/moves/plan")
         self.confirm(undo)
         self.assertTrue(f["samename_2"].exists() and f["sidecar_aae"].exists() and f["live_mov"].exists() and f["dup_3"].exists())
-        self.assertFalse((lib / "Duplicati" / "phone" / "DSC_9.jpg").exists())
+        self.assertFalse((lib / "Duplicates" / "phone" / "DSC_9.jpg").exists())
         undo_meta = self.run_job("/api/undo/metadata/plan")
         self.confirm(undo_meta)
         self.assertFalse(read_tags(f["sidecar_img"]).get("ExifIFD:DateTimeOriginal"), "metadata restored")

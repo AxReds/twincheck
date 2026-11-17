@@ -1,5 +1,5 @@
 """Planning and execution of file moves: organisation by date, duplicates to the
-"Duplicati" folder, and undo.  Every write is preceded by a plan (dry-run)
+"Duplicates" folder, and undo.  Every write is preceded by a plan (dry-run)
 stored in ``plan_items`` and confirmed by the user; execution re-validates each
 item and never overwrites anything."""
 from __future__ import annotations
@@ -54,8 +54,8 @@ def organize_plan(ctx: JobContext) -> dict:
     db = ctx.db
     area = _owner_area(ctx)
     org = ctx.app.settings_section("organize")
-    no_date = org.get("no_date_folder", "Senza_data")
-    dup_folder = org.get("duplicates_folder", "Duplicati")
+    no_date = org.get("no_date_folder", "No_date")
+    dup_folder = org.get("duplicates_folder", "Duplicates")
     db.execute("DELETE FROM plan_items WHERE plan_job_id=?", (ctx.id,))
     reserved: set[str] = set()
     cache: dict[str, tuple] = {}
@@ -114,10 +114,10 @@ def organize_plan(ctx: JobContext) -> dict:
 
 @register("dedupe_plan", auto_resume=True)
 def dedupe_plan(ctx: JobContext) -> dict:
-    """Plan moving non-keepers to <destination>/Duplicati/<relative path>."""
+    """Plan moving non-keepers to <destination>/Duplicates/<relative path>."""
     db = ctx.db
     scope = ctx.params.get("scope", f"user:{ctx.owner_id}")
-    folder = ctx.app.settings_section("organize").get("duplicates_folder", "Duplicati")
+    folder = ctx.app.settings_section("organize").get("duplicates_folder", "Duplicates")
     db.execute("DELETE FROM plan_items WHERE plan_job_id=?", (ctx.id,))
     reserved: set[str] = set()
     seq, recoverable = 0, 0

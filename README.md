@@ -4,7 +4,7 @@
 
 **Screen your photo and video libraries, set exact duplicates aside and reorganise everything safely - multi-user, in a single, hardened, offline container.**
 
-[Italiano](README.it.md) · [Contributing](CONTRIBUTING.md) · [Docker deployment](docker/README.md) · [Application internals](app/README.md) · License: GPL-3.0
+[Contributing](CONTRIBUTING.md) · [Docker deployment](docker/README.md) · [Application internals](app/README.md) · License: GPL-3.0
 
 TwinCheck indexes your photos and videos, finds exact duplicates, completes missing metadata
 **only from reliable sources**, lets you review doubtful files, and moves everything into a
@@ -18,13 +18,13 @@ overwritten, every write is previewed and needs your click, and everything can b
 * **Multi-user** with three roles (admin, administrator, base user), groups and per-user source
   folders that can never overlap; strict isolation of files, previews, logs and manifests.
 * **Exact duplicates** (same size + SHA-256 + byte comparison), oldest file kept, the others moved to
-  `Duplicati/`, CSV export.
+  `Duplicates/`, CSV export.
 * **Metadata without inventing** (EXIF, IPTC, XMP, QuickTime via ExifTool): missing fields are copied
   only from equivalent tags or linked files (`.xmp`, Google Takeout `.json`); guesses are proposals
   for review; existing values are never overwritten; QuickTime UTC ambiguity is reported.
 * **Review screen**: photo or playable video (HEVC/MOV get a temporary H.264 preview), all target
   fields, sources, proposals, validation, "apply to folder/group".
-* **Organisation** into `YYYY/MM/DD`, `Senza_data` without a reliable date, companions (`.xmp`,
+* **Organisation** into `YYYY/MM/DD`, `No_date` without a reliable date, companions (`.xmp`,
   `.aae`, Live Photo) moved together, same names get a numeric suffix, mtimes preserved.
 * **Resumable jobs** with real-time progress, checkpoints, journalled moves, automatic recovery
   after a crash or `docker kill`.
@@ -70,7 +70,7 @@ Open **http://<host>:7777** and follow the wizard.
 4. **Scan** - pick a source; files are indexed and hashed (SHA-256) in the background; you can
    close the browser, the job resumes after a restart.
 5. **Duplicates** - *Analyze*, check the groups (change which file to keep), *Preview move*, confirm.
-   Duplicates go to `<destination>/Duplicati/<original relative path>`.
+   Duplicates go to `<destination>/Duplicates/<original relative path>`.
 6. **Metadata** - *Analyze and preview*: see what would be completed and from which source; confirm
    to write (original values are saved first). Doubtful files go to review.
 7. **Review** - for each file: media on one side, every field on the other; save, skip, leave as it
