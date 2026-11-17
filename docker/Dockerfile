@@ -16,7 +16,7 @@ FROM alpine:${ALPINE_VERSION}
 ARG APP_VERSION=1.0.0
 LABEL org.opencontainers.image.title="TwinCheck" \
       org.opencontainers.image.version="${APP_VERSION}" \
-      org.opencontainers.image.licenses="AGPL-3.0-or-later" \
+      org.opencontainers.image.licenses="GPL-3.0-only" \
       org.opencontainers.image.description="Safe, multi-user reorganisation of photo and video libraries"
 
 RUN apk add --no-cache python3 py3-cryptography exiftool ffmpeg \

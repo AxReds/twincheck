@@ -80,4 +80,4 @@ and add yourself to `authors`. To report a mistake without editing, open a *Tran
 Do not open public issues for vulnerabilities: contact the maintainers privately (see the repository
 security policy).
 
-By contributing you agree that your contribution is licensed under the AGPL-3.0.
+By contributing you agree that your contribution is licensed under the GPL-3.0.

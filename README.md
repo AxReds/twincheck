@@ -4,7 +4,7 @@
 
 **Screen your photo and video libraries, set exact duplicates aside and reorganise everything safely - multi-user, in a single, hardened, offline container.**
 
-[Italiano](README.it.md) · [Contributing](CONTRIBUTING.md) · [Docker deployment](docker/README.md) · [Application internals](app/README.md) · License: AGPL-3.0
+[Italiano](README.it.md) · [Contributing](CONTRIBUTING.md) · [Docker deployment](docker/README.md) · [Application internals](app/README.md) · License: GPL-3.0
 
 TwinCheck indexes your photos and videos, finds exact duplicates, completes missing metadata
 **only from reliable sources**, lets you review doubtful files, and moves everything into a
@@ -180,5 +180,5 @@ request runs the translation checker and the test-suite.
 
 ## License
 
-[GNU Affero General Public License v3.0](LICENSE) - if you run a modified version as a network
-service, you must offer its source code to its users.
+[GNU General Public License v3.0](LICENSE) - you may use, study, modify and share TwinCheck; if you
+distribute it (original or modified), you must do so under the same license and provide the source code.

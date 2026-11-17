@@ -4,7 +4,7 @@
 
 **Screening di librerie di foto e video, separazione dei duplicati esatti e riorganizzazione sicura: multiutente, in un unico container protetto e offline.**
 
-[English](README.md) · [Come contribuire](CONTRIBUTING.md) · [Deploy Docker](docker/README.md) · [Dettagli dell'applicazione](app/README.md) · Licenza: AGPL-3.0
+[English](README.md) · [Come contribuire](CONTRIBUTING.md) · [Deploy Docker](docker/README.md) · [Dettagli dell'applicazione](app/README.md) · Licenza: GPL-3.0
 
 TwinCheck indicizza foto e video, trova i duplicati esatti, completa i metadati mancanti
 **solo da fonti affidabili**, ti fa rivedere i file dubbi e sposta tutto in una struttura
@@ -186,5 +186,5 @@ request esegue la verifica delle traduzioni e i test.
 
 ## Licenza
 
-[GNU Affero General Public License v3.0](LICENSE): se offri una versione modificata come servizio di
-rete, devi mettere il suo codice sorgente a disposizione degli utenti.
+[GNU General Public License v3.0](LICENSE): puoi usare, studiare, modificare e condividere TwinCheck; se
+lo distribuisci (originale o modificato), devi farlo con la stessa licenza e fornire il codice sorgente.
