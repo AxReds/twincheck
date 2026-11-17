@@ -1,0 +1,6 @@
+# Entry point so that "docker compose up -d" works from the repository root.
+# The service definition lives in docker/docker-compose.yml; variables come from ./.env
+# (requires Docker Compose v2.20 or later for "include").
+include:
+  - path: docker/docker-compose.yml
+    env_file: .env
