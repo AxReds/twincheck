@@ -1,0 +1,35 @@
+name: Translation error
+description: Report a wrong, missing or unclear translation
+title: "[i18n] Translation error: "
+labels: ["i18n", "translation error"]
+body:
+  - type: input
+    id: code
+    attributes:
+      label: Language code
+      placeholder: "it"
+    validations:
+      required: true
+  - type: input
+    id: key
+    attributes:
+      label: Key (if known) or screen
+      placeholder: "review.save_next  -  or: Review screen, bottom buttons"
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current text
+    validations:
+      required: true
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed text
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why (context, layout problem, screenshot)
