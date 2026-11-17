@@ -109,7 +109,9 @@ class Workflow(unittest.TestCase):
         root = cls.inst.data / "lib"
         cls.files = sample_library(root)
         f = cls.files
-        set_tags(f["dup_1"], {"ExifIFD:DateTimeOriginal": "2019:03:15 10:00:00"})
+        # dup_1/dup_2/dup_3 stay byte-identical: no tags are written to them (a real
+        # ExifTool write would change dup_1's bytes and break the duplicate group).
+        # Without capture dates the keeper is the file with the oldest mtime (dup_1).
         set_tags(f["sidecar_img"], {"IFD0:Make": "Canon"})
         set_tags(f["sidecar_xmp"], {"XMP-exif:DateTimeOriginal": "2018:12:24 20:00:00"})
         set_tags(f["samename_1"], {"ExifIFD:DateTimeOriginal": "2020:02:02 02:02:02"})
@@ -183,7 +185,7 @@ class Workflow(unittest.TestCase):
         mc = db.query("SELECT tag, before_value FROM meta_changes WHERE owner_id=?", (self.uid,))
         self.assertTrue(mc and all(json.loads(x["before_value"]) in (None, "") for x in mc), "original values stored before writing")
 
-        # --- duplicates: oldest kept, others moved to Duplicates, nothing deleted
+        # --- duplicates: oldest (mtime) kept, others moved to Duplicates, nothing deleted
         self.run_job("/api/duplicates/analyze")
         groups = self.u.get("/api/duplicates").json()
         self.assertEqual(groups["total"], 1)
