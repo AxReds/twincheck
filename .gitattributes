@@ -1,0 +1,13 @@
+# Keep LF line endings everywhere, also on Windows checkouts.
+# Shell scripts and entrypoints copied into the Linux image break with CRLF.
+* text=auto eol=lf
+
+# Binary assets (none tracked today; listed for future contributions)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.zip binary
+*.gz binary
