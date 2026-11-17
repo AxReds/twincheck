@@ -25,6 +25,10 @@ class DBError(Exception):
 
 
 def _mariadb():
+    # PyMySQL calls getpass.getuser() at import time. The container runs with an
+    # arbitrary UID that has no /etc/passwd entry, so give it a name to report.
+    if not any(os.environ.get(v) for v in ("LOGNAME", "USER", "LNAME", "USERNAME")):
+        os.environ["USER"] = "twincheck"
     try:
         import pymysql  # noqa: F401
         return pymysql

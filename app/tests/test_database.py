@@ -51,8 +51,8 @@ def backends(tmp):
 
 def drop(params):
     if params["type"] == "mariadb":
-        import pymysql
-        c = pymysql.connect(host=params["host"], port=params["port"], user=params["user"], password=params["password"])
+        from twincheck.db.engine import _mariadb
+        c = _mariadb().connect(host=params["host"], port=params["port"], user=params["user"], password=params["password"])
         with c.cursor() as cur:
             cur.execute(f"DROP DATABASE IF EXISTS `{params['database']}`")
         c.close()
@@ -65,6 +65,21 @@ def _prepare_worker(params, q):
         q.put(("ok", res["db_id"]))
     except Exception as exc:  # pragma: no cover
         q.put(("err", repr(exc)))
+
+
+class MariaDBDriver(unittest.TestCase):
+    def test_works_without_a_user_name(self):
+        # the container UID has no passwd entry; PyMySQL calls getpass.getuser() on import
+        import subprocess
+        import sys
+        code = ("import os\nfrom twincheck.db import engine\n"
+                "try:\n    engine._mariadb()\nexcept engine.DBError:\n    pass\n"
+                "print(os.environ.get('USER'))")
+        env = {k: v for k, v in os.environ.items() if k not in ("LOGNAME", "USER", "LNAME", "USERNAME")}
+        env["PYTHONPATH"] = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend")
+        out = subprocess.run([sys.executable, "-B", "-c", code], env=env, capture_output=True, text=True, timeout=60)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(out.stdout.strip(), "twincheck")
 
 
 class Structure(unittest.TestCase):
