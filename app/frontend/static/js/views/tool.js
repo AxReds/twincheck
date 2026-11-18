@@ -127,12 +127,15 @@ export async function organize(main) {
 // --- plan (dry-run) and confirmation ------------------------------------------------------------
 export async function plan(main, state, [id]) {
   let offset = 0;
+  let section = '#/jobs';
   let status = '';
   const box = h('div', {});
   const applyBox = h('div', {});
   let stopApply = null;
   const load = async () => {
     const d = await get(`/api/plans/${id}?offset=${offset}&limit=100${status ? '&status=' + status : ''}`);
+    section = { review_plan: '#/review', metadata_analyze: '#/metadata', dedupe_plan: '#/duplicates',
+      organize_plan: '#/organize', undo_moves_plan: '#/report', undo_meta_plan: '#/report' }[d.job.kind] || '#/jobs';
     const counts = {};
     for (const s of d.summary) counts[s.status] = (counts[s.status] || 0) + s.n;
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -169,7 +172,7 @@ export async function plan(main, state, [id]) {
   page(main, 'plan.title', 'plan.intro', box, h('h2', {}, t('plan.execution')), applyBox);
   await load();
   const stop = poll(load, 4000);
-  return { destroy: () => { stop(); if (stopApply) stopApply(); } };
+  return { section, destroy: () => { stop(); if (stopApply) stopApply(); } };
 }
 
 // --- report, manifest, undo, verify --------------------------------------------------------------

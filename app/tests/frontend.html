@@ -15,6 +15,7 @@ const user = { id: 'test-admin', username: 'admin', role: 'admin', lang: 'en', s
 const permissions = { manage_users: true, see_all_sources: true };
 const requests = [];
 let browsePath = 'test-folder';
+let planKind = 'review_plan';
 const metrics = {
   host: 'test-host', os: 'Test Linux', kernel: 'test-kernel', arch: 'aarch64',
   memory: { total: 1024, used: 512, percent: 50 }, cpu: { cores: 4, percent: 1, load: [0, 0, 0] },
@@ -33,6 +34,9 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/sources') data = { sources: [], can_browse: true };
   else if (path === '/api/fs/browse') data = { path: browsePath, dirs: [] };
   else if (path === '/api/scan' && opts.method === 'POST') data = { job_id: 1 };
+  else if (path === '/api/plans/1') data = {
+    job: { id: 1, kind: planKind, status: 'completed' }, summary: [], items: [], apply_jobs: [], can_confirm: false,
+  };
   else if (path === '/api/jobs') data = { items: [], total: 0 };
   else throw new Error('Unmocked request: ' + url);
   requests.push({ url: String(url), body: opts.body && JSON.parse(opts.body) });
@@ -124,6 +128,27 @@ await test('B4: scan selection survives page changes including the data root', a
     [...document.querySelectorAll('main button')].find((el) => el.textContent === t('scan.start_adhoc')).click();
     await sleep();
     assert(requests.slice(before).some((r) => r.url === '/api/scan' && r.body.path === path), 'visible selection was not submitted');
+  }
+  await go('#/home');
+});
+await test('B5: direct plan links highlight their owning section', async () => {
+  const sections = { review_plan: 'review', metadata_analyze: 'metadata', dedupe_plan: 'duplicates',
+    organize_plan: 'organize', undo_moves_plan: 'report', undo_meta_plan: 'report' };
+  for (const [kind, section] of Object.entries(sections)) {
+    planKind = kind;
+    await go('#/plans/1');
+    const active = [...document.querySelectorAll('.mainnav a.active')];
+    assert(active.length === 1 && active[0].getAttribute('href') === '#/' + section, kind + ' has wrong active section');
+    assert(active[0].getAttribute('aria-current') === 'page', 'active section is not announced');
+    const css = getComputedStyle(active[0]);
+    const lum = (color) => {
+      const rgb = color.match(/[\d.]+/g).slice(0, 3).map((v) => {
+        const x = Number(v) / 255; return x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4;
+      });
+      return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
+    };
+    const colors = [lum(css.color), lum(css.backgroundColor)].sort((a, b) => a - b);
+    assert((colors[1] + .05) / (colors[0] + .05) >= 4.5, 'active section contrast is below 4.5:1');
   }
   await go('#/home');
 });

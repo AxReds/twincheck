@@ -167,15 +167,27 @@ export async function route() {
   if (state.view && state.view.destroy) state.view.destroy();
   state.view = null;
   const hash = location.hash || '#/home';
-  for (const a of shell.nav.querySelectorAll('a')) a.classList.toggle('active', hash.startsWith(a.getAttribute('href')));
+  highlightSection(hash);
   const main = clear(shell.main);
   const found = ROUTES.find(([re]) => re.test(hash));
   if (!found) { mount(main, h('p', {}, t('error.not_found'))); return; }
   const m = hash.match(found[0]);
   try {
     state.view = (await found[1]()(main, state, m.slice(1))) || null;
+    highlightSection((state.view && state.view.section) || hash);
   } catch (e) {
     mount(main, h('p', { class: 'notice error' }, e.message || t('error.generic', { code: '' })));
+  }
+}
+
+function highlightSection(hash) {
+  const section = hash === '#' || hash === '#/' ? '#/home' : hash;
+  for (const a of shell.nav.querySelectorAll('a')) {
+    const href = a.classList.contains('admin-link') ? '#/admin' : a.getAttribute('href');
+    const active = section === href || section.startsWith(href + '/');
+    a.classList.toggle('active', active);
+    if (active) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
   }
 }
 
