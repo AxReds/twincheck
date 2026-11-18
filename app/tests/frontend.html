@@ -74,6 +74,8 @@ await test('B1: menu dismisses, keeps ARIA in sync and survives shell rebuild', 
 });
 await test('B2: metric boxes stay in one row with stable widths and ellipsis', async () => {
   const box = document.querySelector('.metrics');
+  for (let i = 0; i < 100 && !box.children.length; i++) await sleep();
+  assert(box.children.length > 0, 'metric refresh did not complete');
   if (!visible(box)) {
     assert(visible(document.querySelector('.metrics-toggle')), 'narrow screen has no metrics toggle');
     return;
@@ -89,6 +91,21 @@ await test('B2: metric boxes stay in one row with stable widths and ellipsis', a
   assert(after.every((rect, i) => Math.abs(rect.width - before[i].width) < 1), 'metric widths changed with values');
   const value = chips[0].querySelector('.chip-value');
   assert(getComputedStyle(value).textOverflow === 'ellipsis' && value.scrollWidth > value.clientWidth, 'long values are not ellipsized');
+});
+await test('B3: user control has reserved space even with long usernames', async () => {
+  const btn = document.querySelector('.user-btn');
+  const old = btn.textContent;
+  btn.textContent = 'long-admin-name-'.repeat(12);
+  const userRect = btn.getBoundingClientRect();
+  const brandRect = document.querySelector('.brand').getBoundingClientRect();
+  const metricBox = document.querySelector('.metrics');
+  const metricRect = metricBox.getBoundingClientRect();
+  try {
+    assert(userRect.x >= 0 && userRect.x + userRect.width <= innerWidth, 'user control leaves the viewport');
+    assert(Math.abs(userRect.y + userRect.height / 2 - brandRect.y - brandRect.height / 2) < 2, 'user control wrapped below the brand');
+    if (visible(metricBox)) assert(metricRect.x + metricRect.width <= userRect.x, 'user control overlaps metrics');
+    assert(btn.scrollWidth > btn.clientWidth, 'long username is not constrained');
+  } finally { btn.textContent = old; }
 });
 if (app.state.view?.destroy) app.state.view.destroy();
 if (app.state.stopMetrics) app.state.stopMetrics();

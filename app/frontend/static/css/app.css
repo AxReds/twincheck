@@ -19,7 +19,7 @@ h3 { font-size: 1.05rem; margin-block: 1rem 0.4rem; }
 .muted { color: var(--muted); } .small { font-size: 0.85em; } .ok { color: var(--ok); } .warn { color: var(--warn); } .crit { color: var(--crit); }
 
 /* --- top bar (fixed, always visible) --- */
-.topbar { position: sticky; inset-block-start: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem;
+.topbar { position: sticky; inset-block-start: 0; z-index: 20; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.5rem 0.75rem;
   padding-block: 0.4rem; padding-inline: 0.75rem; background: var(--topbar); color: var(--topbar-fg); }
 .brand { display: flex; align-items: center; gap: 0.5rem; color: var(--topbar-fg); text-decoration: none; font-weight: 700; flex: 0 0 auto; }
 .logo { inline-size: 32px; block-size: 32px; }
@@ -36,14 +36,15 @@ h3 { font-size: 1.05rem; margin-block: 1rem 0.4rem; }
   padding: 0.5rem; display: grid; gap: 0.4rem; background: var(--chip); border: 1px solid #30363d; border-radius: 6px; }
 .disk-row code { color: var(--topbar-fg); }
 .metrics-toggle { display: none; }
-.usermenu { position: relative; margin-inline-start: auto; flex: 0 0 auto; }
-.user-btn { background: #21262d; color: var(--topbar-fg); border-color: #30363d; }
+.usermenu { position: relative; grid-column: 3; grid-row: 1; min-inline-size: 0; max-inline-size: min(30vw, 14rem); }
+.usermenu .user-btn { display: block; max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  background: #21262d; color: var(--topbar-fg); border-color: #30363d; }
 .menu-panel { position: absolute; inset-inline-end: 0; inset-block-start: calc(100% + 4px); background: var(--card); color: var(--fg); border: 1px solid var(--line);
   border-radius: var(--radius); padding: 0.5rem; display: grid; gap: 0.4rem; min-inline-size: 15rem; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
 .menu-who { display: grid; } .menu-row { display: block; text-align: start; }
 @media (max-width: 1200px) {
   .metrics-toggle { display: inline-block; }
-  .metrics { display: none; order: 10; flex-basis: 100%; }
+  .metrics { display: none; grid-column: 1 / -1; grid-row: 2; }
   .metrics.open { display: grid; grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); }
   .brand-name { display: none; }
 }
