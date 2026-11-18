@@ -86,9 +86,25 @@ function userMenu() {
     h('button', { type: 'button', class: 'menu-row link', onclick: logout }, t('user.logout')));
   const btn = h('button', { type: 'button', class: 'btn user-btn', 'aria-haspopup': 'true', 'aria-expanded': 'false' }, u.username, ' ▾');
   btn.addEventListener('click', () => { panel.hidden = !panel.hidden; btn.setAttribute('aria-expanded', String(!panel.hidden)); });
-  document.addEventListener('click', (e) => { if (!panel.contains(e.target) && e.target !== btn) panel.hidden = true; });
   return h('div', { class: 'usermenu' }, btn, panel);
 }
+
+function closeUserMenu(restoreFocus = false) {
+  const menu = shell && shell.header.querySelector('.usermenu');
+  if (!menu) return;
+  const panel = menu.querySelector('.menu-panel');
+  const btn = menu.querySelector('.user-btn');
+  const wasOpen = !panel.hidden;
+  panel.hidden = true;
+  btn.setAttribute('aria-expanded', 'false');
+  if (restoreFocus && wasOpen) btn.focus();
+}
+
+document.addEventListener('click', (e) => {
+  const menu = shell && shell.header.querySelector('.usermenu');
+  if (menu && !menu.contains(e.target)) closeUserMenu();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeUserMenu(true); });
 
 async function logout() {
   try { await post('/api/logout'); } catch (e) { /* ignore */ }
@@ -146,6 +162,7 @@ function drawMetrics() {
 
 export async function route() {
   if (!shell) return;
+  closeUserMenu();
   if (state.view && state.view.destroy) state.view.destroy();
   state.view = null;
   const hash = location.hash || '#/home';

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frontend regression tests (synthetic data only)</title>
+<link rel="stylesheet" href="../frontend/static/css/app.css">
+</head>
+<body>
+<div id="app"></div>
+<pre id="results"></pre>
+<script type="module">
+const realFetch = window.fetch.bind(window);
+const user = { id: 'test-admin', username: 'admin', role: 'admin', lang: 'en', sources: [] };
+const permissions = { manage_users: true, see_all_sources: true };
+const requests = [];
+const metrics = {
+  host: 'test-host', os: 'Test Linux', kernel: 'test-kernel', arch: 'aarch64',
+  memory: { total: 1024, used: 512, percent: 50 }, cpu: { cores: 4, percent: 1, load: [0, 0, 0] },
+  volumes: { data: { total: 1024, used: 512, used_pct: 50 }, state: { total: 1024, used: 512, used_pct: 50 } },
+  uptime: { system: 100, container: 50 }, version: 'test', database: { type: 'sqlite', connected: true, schema_version: 3 },
+  jobs_running: 0, disks: [],
+};
+window.fetch = async (url, opts = {}) => {
+  const path = String(url).split('?')[0];
+  if (path.startsWith('/api/locales/')) return realFetch('../frontend/locales/' + path.split('/').pop() + '.json');
+  let data;
+  if (path === '/api/locales') data = [{ code: 'en', name: 'English' }, { code: 'it', name: 'Italiano' }];
+  else if (path === '/api/bootstrap') data = { authenticated: true, user, permissions };
+  else if (path === '/api/sysinfo') data = metrics;
+  else if (path === '/api/report') data = { files: [], review: [], duplicates: {}, manifest: [] };
+  else if (path === '/api/sources') data = { sources: [], can_browse: true };
+  else if (path === '/api/fs/browse') data = { path: 'test-folder', dirs: [] };
+  else if (path === '/api/jobs') data = { items: [], total: 0 };
+  else throw new Error('Unmocked request: ' + url);
+  requests.push({ url: String(url), body: opts.body && JSON.parse(opts.body) });
+  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
+};
+location.hash = '#/home';
+const app = await import('../frontend/static/js/app.js');
+const { t } = await import('../frontend/static/js/i18n.js');
+const sleep = () => new Promise((resolve) => setTimeout(resolve, 30));
+for (let i = 0; i < 100 && !document.querySelector('.user-btn'); i++) await sleep();
+const assert = (ok, message) => { if (!ok) throw new Error(message); };
+const visible = (el) => getComputedStyle(el).display !== 'none';
+const go = async (hash) => { location.hash = hash; await sleep(); await app.route(); };
+const results = [];
+async function test(name, fn) {
+  try { await fn(); results.push({ name, passed: true }); }
+  catch (error) { results.push({ name, passed: false, error: error.message }); }
+  document.getElementById('results').textContent = JSON.stringify(results, null, 2);
+}
+await test('B1: menu dismisses, keeps ARIA in sync and survives shell rebuild', async () => {
+  for (let pass = 0; pass < 2; pass++) {
+    const btn = document.querySelector('.user-btn');
+    const panel = document.querySelector('.menu-panel');
+    assert(!visible(panel), 'menu is initially visible despite hidden');
+    btn.click();
+    assert(visible(panel) && btn.getAttribute('aria-expanded') === 'true', 'menu does not open');
+    panel.querySelector('select').click();
+    assert(visible(panel), 'inside click dismissed the menu');
+    document.querySelector('main').click();
+    assert(!visible(panel) && btn.getAttribute('aria-expanded') === 'false', 'outside click did not close');
+    btn.click();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert(!visible(panel) && document.activeElement === btn, 'Escape did not close and restore focus');
+    btn.click();
+    await go(pass ? '#/home' : '#/scan');
+    assert(!visible(panel) && btn.getAttribute('aria-expanded') === 'false', 'navigation did not close');
+    const { setLanguage } = await import('../frontend/static/js/i18n.js');
+    await setLanguage(pass ? 'en' : 'it');
+    await sleep();
+  }
+});
+if (app.state.view?.destroy) app.state.view.destroy();
+if (app.state.stopMetrics) app.state.stopMetrics();
+window.testResults = results;
+window.testsDone = true;
+</script>
+</body>
+</html>

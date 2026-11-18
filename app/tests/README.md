@@ -38,3 +38,11 @@ MariaDB for tests: `docker compose -f docker/docker-compose.test.yml up -d`, the
 `TWINCHECK_TEST_MARIADB_HOST=127.0.0.1 TWINCHECK_TEST_MARIADB_PORT=33306 TWINCHECK_TEST_MARIADB_PASSWORD=test-only-password python3 -B -m unittest discover -s app/tests`.
 
 Container-level tests (permissions, network, kill/resume): `bash docker/tests/run_container_tests.sh`.
+
+## Frontend regressions
+
+Serve `app/` locally with `python3 -B -m http.server 18767 --bind 127.0.0.1 --directory app`
+and open `http://127.0.0.1:18767/tests/frontend.html` in a browser. The page runs
+automated DOM/CSS regression checks against the real frontend modules with synthetic,
+in-memory API responses only; every result must show `"passed": true`.
+Stop the server afterwards. These browser checks supplement the Python suite.
