@@ -179,6 +179,8 @@
       "other": "{count} items"
     },
     "job.phase": "phase {phase}",
+    "job.scan_result": "{indexed} indexed · {hashed} hashed · {reused} hashes reused · {unhashed} without a hash",
+    "job.scan_result_legacy": "{indexed} indexed · {hashed} hashed; unchanged files reuse hashes (not counted in older scans).",
     "job.needs_confirmation": "This job writes or moves files: it resumes only when you click Resume.",
     "job.started": "Job #{id} started.",
     "job.status.queued": "queued",

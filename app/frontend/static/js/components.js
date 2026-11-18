@@ -18,11 +18,13 @@ export function jobCard(job, onChange) {
   const count = job.progress_total > 0
     ? t('job.progress_of', { done: job.progress_done, total: job.progress_total })
     : t('job.progress_items', { count: job.progress_done || 0 });
+  const scanResult = job.kind === 'scan' && job.status === 'completed' && job.result
+    ? t(job.result.reused === undefined ? 'job.scan_result_legacy' : 'job.scan_result', job.result) : null;
   return h('div', { class: 'job-card' },
     h('div', { class: 'job-head' }, h('strong', {}, t('job.kind.' + job.kind)), ' ', h('span', { class: 'muted' }, '#' + job.id), ' ', jobBadge(job.status),
       job.owner ? h('span', { class: 'muted' }, ' · ' + job.owner) : null),
     job.status === 'running' || job.status === 'queued' ? progress(job.progress_done, job.progress_total) : null,
-    h('div', { class: 'job-meta' }, job.phase ? t('job.phase', { phase: job.phase }) + ' · ' : '', count,
+    h('div', { class: 'job-meta' }, scanResult || [(job.phase ? t('job.phase', { phase: job.phase }) + ' · ' : ''), count].join(''),
       job.updated_at ? ' · ' + fmt.date(job.updated_at) : ''),
     job.status === 'interrupted' && !['scan', 'verify', 'reconcile'].includes(job.kind) ? h('p', { class: 'notice warn' }, t('job.needs_confirmation')) : null,
     job.error ? h('p', { class: 'notice error' }, h('code', {}, job.error)) : null,

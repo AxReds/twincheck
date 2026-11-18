@@ -181,6 +181,19 @@ await test('B6: choosing an organizing date discards stale date edits only', asy
   assert(manual.fields.datetime_original === '1999-01-01T01:02:03', 'manual date without a new choice was lost');
   await go('#/home');
 });
+await test('B7: completed scans explain new, reused and legacy hashes', async () => {
+  const { jobCard } = await import('../frontend/static/js/components.js');
+  for (const result of [
+    { indexed: 39, hashed: 0, missing: 0, reused: 39, unhashed: 0 },
+    { indexed: 35, hashed: 35, missing: 0, reused: 0, unhashed: 0 },
+    { indexed: 39, hashed: 0, missing: 0 },
+  ]) {
+    const card = jobCard({ id: 1, kind: 'scan', status: 'completed', phase: 'walk', progress_done: 39, result });
+    const text = card.querySelector('.job-meta').textContent;
+    assert(text === t(result.reused === undefined ? 'job.scan_result_legacy' : 'job.scan_result', result), 'scan summary is unclear');
+    assert(!text.includes('walk'), 'stale walk phase is shown for a completed scan');
+  }
+});
 if (app.state.view?.destroy) app.state.view.destroy();
 if (app.state.stopMetrics) app.state.stopMetrics();
 window.testResults = results;

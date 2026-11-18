@@ -173,6 +173,8 @@
       "other": "{count} 項目"
     },
     "job.phase": "フェーズ {phase}",
+    "job.scan_result": "登録 {indexed} · ハッシュ計算 {hashed} · 再利用 {reused} · ハッシュなし {unhashed}",
+    "job.scan_result_legacy": "登録 {indexed} · ハッシュ計算 {hashed}。変更のないファイルのハッシュは再利用されます（以前のスキャンでは未集計）。",
     "job.needs_confirmation": "このジョブはファイルを書き込みまたは移動します。「再開」をクリックしたときにのみ再開されます。",
     "job.started": "ジョブ #{id} を開始しました。",
     "job.status.queued": "待機中",

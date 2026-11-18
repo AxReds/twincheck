@@ -265,6 +265,35 @@ class Workflow(unittest.TestCase):
         self.assertTrue(list((self.inst.state / "cache" / "previews").rglob("*.mp4")))
         self.assertTrue(self.hevc.exists())
 
+    def test_scan_hash_completion_and_reuse(self):
+        from helpers import jpeg_bytes
+        root = self.inst.data / "scan-progress"
+        root.mkdir()
+        photo = root / "photo.jpg"
+        photo.write_bytes(jpeg_bytes(101))
+        uid, client = make_user(self.admin, "scan-progress", [{"path": "scan-progress"}])
+        sid = client.get("/api/sources").json()["sources"][0]["id"]
+        first = self.run_job("/api/scan", {"source_id": sid}, client)
+        job = client.get(f"/api/jobs/{first}").json()
+        self.assertEqual(job["phase"], "hash", "fast scans must not retain the throttled walk phase")
+        self.assertEqual((job["progress_done"], job["progress_total"]), (1, 1))
+        self.assertEqual(job["result"], {"indexed": 1, "missing": 0, "hashed": 1, "reused": 0, "unhashed": 0})
+        hashed_at = self.inst.core.db.query_one("SELECT hashed_at FROM files WHERE owner_id=?", (uid,))["hashed_at"]
+        second = self.run_job("/api/scan", {"source_id": sid}, client)
+        job = client.get(f"/api/jobs/{second}").json()
+        self.assertEqual(job["phase"], "hash")
+        self.assertEqual((job["progress_done"], job["progress_total"]), (0, 0))
+        self.assertEqual(job["result"], {"indexed": 1, "missing": 0, "hashed": 0, "reused": 1, "unhashed": 0})
+        self.assertEqual(self.inst.core.db.query_one("SELECT hashed_at FROM files WHERE owner_id=?", (uid,))["hashed_at"], hashed_at)
+        photo.write_bytes(jpeg_bytes(102) + b"changed")
+        third = self.run_job("/api/scan", {"source_id": sid}, client)
+        self.assertEqual(client.get(f"/api/jobs/{third}").json()["result"]["hashed"], 1)
+        with mock.patch("twincheck.services.scan.sha256_file", side_effect=OSError("test read failure")):
+            photo.write_bytes(jpeg_bytes(103) + b"unreadable")
+            fourth = self.run_job("/api/scan", {"source_id": sid}, client)
+        result = client.get(f"/api/jobs/{fourth}").json()["result"]
+        self.assertEqual((result["hashed"], result["reused"], result["unhashed"]), (0, 0, 1))
+
     def test_cross_volume_move(self):
         """Different volumes: copy, verify hash, then delete the original."""
         import errno

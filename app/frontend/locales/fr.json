@@ -183,6 +183,8 @@
       "other": "{count} éléments"
     },
     "job.phase": "phase {phase}",
+    "job.scan_result": "{indexed} indexés · {hashed} calculés · {reused} empreintes réutilisées · {unhashed} sans empreinte",
+    "job.scan_result_legacy": "{indexed} indexés · {hashed} calculés ; les fichiers inchangés réutilisent leurs empreintes (non comptées dans les anciens scans).",
     "job.needs_confirmation": "Cette tâche écrit ou déplace des fichiers : elle ne reprend que lorsque vous cliquez sur Reprendre.",
     "job.started": "Tâche n° {id} démarrée.",
     "job.status.queued": "en file d'attente",

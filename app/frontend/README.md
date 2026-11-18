@@ -30,6 +30,11 @@ locales/*.json             translations (see locales/README.md)
 narrow screens the metrics collapse into a panel opened by the *System* button; logo and user menu
 stay visible.
 
+Completed scan cards show indexed files, newly computed hashes, reused hashes and
+files still without a hash. Older scans show their recorded indexed/hashed counts
+and explain that reused hashes were not counted; a stale phase is not shown as a
+completion result.
+
 ## Replacing the logo
 
 Replace `static/img/logo.svg` (shown in the header, login and wizard at 32×32 px) and

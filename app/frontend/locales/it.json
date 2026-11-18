@@ -183,6 +183,8 @@
       "other": "{count} elementi"
     },
     "job.phase": "fase {phase}",
+    "job.scan_result": "{indexed} indicizzati · {hashed} calcolati · {reused} hash riutilizzati · {unhashed} senza hash",
+    "job.scan_result_legacy": "{indexed} indicizzati · {hashed} calcolati; i file invariati riutilizzano gli hash (non conteggiati nelle scansioni precedenti).",
     "job.needs_confirmation": "Questo job scrive o sposta file: riprende solo quando fai clic su Riprendi.",
     "job.started": "Job #{id} avviato.",
     "job.status.queued": "in coda",
