@@ -96,6 +96,10 @@ await test('B2: metric boxes stay in one row with stable widths and ellipsis', a
     return;
   }
   const chips = [...box.children];
+  const brand = document.querySelector('.brand').getBoundingClientRect();
+  const rect = box.getBoundingClientRect();
+  assert(!visible(document.querySelector('.metrics-toggle')), 'compact toggle is visible on desktop');
+  assert(Math.abs(rect.y + rect.height / 2 - brand.y - brand.height / 2) < 2, 'metrics left the reserved desktop header row');
   const before = chips.map((el) => el.getBoundingClientRect());
   chips.forEach((el) => {
     const value = el.querySelector('.chip-value');

@@ -23,8 +23,8 @@ h3 { font-size: 1.05rem; margin-block: 1rem 0.4rem; }
   padding-block: 0.4rem; padding-inline: 0.75rem; background: var(--topbar); color: var(--topbar-fg); }
 .brand { display: flex; align-items: center; gap: 0.5rem; color: var(--topbar-fg); text-decoration: none; font-weight: 700; flex: 0 0 auto; }
 .logo { inline-size: 32px; block-size: 32px; }
-.metrics { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.35rem; flex: 1 1 0; min-inline-size: 0; align-items: center; }
-.chip { display: inline-flex; flex-direction: column; background: var(--chip); border: 1px solid #30363d; border-radius: 6px; padding-block: 0.15rem; padding-inline: 0.45rem;
+.metrics { display: grid; grid-column: 2; grid-row: 1; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.35rem; min-inline-size: 0; align-items: center; }
+.metrics > .chip { display: inline-flex; flex-direction: column; background: var(--chip); border: 1px solid #30363d; border-radius: 6px; padding-block: 0.15rem; padding-inline: 0.45rem;
   font-size: 0.75rem; color: var(--topbar-fg); text-decoration: none; min-inline-size: 0; max-inline-size: 100%; }
 .chip-label { color: #9198a1; font-size: 0.7rem; }
 .chip-label, .chip-value, .chip.disks summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -35,7 +35,7 @@ h3 { font-size: 1.05rem; margin-block: 1rem 0.4rem; }
 .disk-panel { position: absolute; inset-inline-end: 0; inset-block-start: 100%; inline-size: min(90vw, 48rem);
   padding: 0.5rem; display: grid; gap: 0.4rem; background: var(--chip); border: 1px solid #30363d; border-radius: 6px; }
 .disk-row code { color: var(--topbar-fg); }
-.metrics-toggle { display: none; }
+.topbar .metrics-toggle { display: none; }
 .usermenu { position: relative; grid-column: 3; grid-row: 1; min-inline-size: 0; max-inline-size: min(30vw, 14rem); }
 .usermenu .user-btn { display: block; max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   background: #21262d; color: var(--topbar-fg); border-color: #30363d; }
@@ -43,7 +43,7 @@ h3 { font-size: 1.05rem; margin-block: 1rem 0.4rem; }
   border-radius: var(--radius); padding: 0.5rem; display: grid; gap: 0.4rem; min-inline-size: 15rem; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
 .menu-who { display: grid; } .menu-row { display: block; text-align: start; }
 @media (max-width: 1200px) {
-  .metrics-toggle { display: inline-block; }
+  .topbar .metrics-toggle { display: inline-block; }
   .metrics { display: none; grid-column: 1 / -1; grid-row: 2; }
   .metrics.open { display: grid; grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); }
   .brand-name { display: none; }
