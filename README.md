@@ -36,6 +36,12 @@ overwritten, every write is previewed and needs your click, and everything can b
   destination, uptime, database, jobs.
 * **10 languages** with RTL support; add one by dropping a JSON file.
 
+## Roadmap
+
+See the [TwinCheck roadmap](ROADMAP.md) for planned improvements.
+[Vote on roadmap issues](https://github.com/AxReds/twincheck/issues?q=is:open+label:roadmap+sort:reactions-+1-desc)
+with a 👍, or propose new ideas in [Discussions](https://github.com/AxReds/twincheck/discussions/categories/ideas).
+
 ## Requirements
 
 * Docker Engine with Docker Compose **v2.20+** (Linux host; x86-64 or ARM64).
