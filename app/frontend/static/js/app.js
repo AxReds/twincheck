@@ -115,7 +115,7 @@ async function logout() {
 function level(l) { return l === 'critical' ? 'crit' : l === 'warning' ? 'warn' : ''; }
 
 function chip(labelKey, value, cls = '', title) {
-  return h('div', { class: 'chip ' + cls, title: title || undefined }, h('span', { class: 'chip-label' }, t(labelKey)), h('span', { class: 'chip-value' }, value));
+  return h('div', { class: 'chip ' + cls, title: title || t(labelKey) + ': ' + value }, h('span', { class: 'chip-label' }, t(labelKey)), h('span', { class: 'chip-value' }, value));
 }
 
 function vol(v) {
@@ -156,7 +156,7 @@ function drawMetrics() {
     chip('header.version', m.version),
     chip('header.database', (db.type ? t('db.type.' + db.type) : t('common.na')) + ' · ' + (db.connected ? t('header.connected') : t('header.not_connected')) +
       (db.schema_version ? ' · ' + t('header.schema', { version: db.schema_version }) : ''), db.connected ? '' : 'crit'),
-    h('a', { class: 'chip link', href: '#/jobs' }, h('span', { class: 'chip-label' }, t('header.jobs')), h('span', { class: 'chip-value' }, t('header.jobs_running', { count: m.jobs_running }))),
+    h('a', { class: 'chip link', href: '#/jobs', title: t('header.jobs_running', { count: m.jobs_running }) }, h('span', { class: 'chip-label' }, t('header.jobs')), h('span', { class: 'chip-value' }, t('header.jobs_running', { count: m.jobs_running }))),
     disks.length ? h('details', { class: 'chip disks' }, h('summary', {}, t('header.disks', { count: disks.length })), h('div', { class: 'disk-panel' }, disks)) : null);
 }
 

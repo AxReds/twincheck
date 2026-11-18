@@ -72,6 +72,24 @@ await test('B1: menu dismisses, keeps ARIA in sync and survives shell rebuild', 
     await sleep();
   }
 });
+await test('B2: metric boxes stay in one row with stable widths and ellipsis', async () => {
+  const box = document.querySelector('.metrics');
+  if (!visible(box)) {
+    assert(visible(document.querySelector('.metrics-toggle')), 'narrow screen has no metrics toggle');
+    return;
+  }
+  const chips = [...box.children];
+  const before = chips.map((el) => el.getBoundingClientRect());
+  chips.forEach((el) => {
+    const value = el.querySelector('.chip-value');
+    if (value) value.textContent = 'Very long changing metric value '.repeat(8);
+  });
+  const after = chips.map((el) => el.getBoundingClientRect());
+  assert(after.every((rect) => Math.abs(rect.y - after[0].y) < 1), 'metric boxes wrapped');
+  assert(after.every((rect, i) => Math.abs(rect.width - before[i].width) < 1), 'metric widths changed with values');
+  const value = chips[0].querySelector('.chip-value');
+  assert(getComputedStyle(value).textOverflow === 'ellipsis' && value.scrollWidth > value.clientWidth, 'long values are not ellipsized');
+});
 if (app.state.view?.destroy) app.state.view.destroy();
 if (app.state.stopMetrics) app.state.stopMetrics();
 window.testResults = results;

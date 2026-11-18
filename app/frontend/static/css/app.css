@@ -1,4 +1,4 @@
-/* TwinCheck - offline stylesheet. Logical properties only (RTL-safe), no fixed widths. */
+/* TwinCheck - offline stylesheet. Logical properties only (RTL-safe). */
 :root {
   --bg: #f6f8fa; --fg: #1f2328; --muted: #59636e; --card: #ffffff; --line: #d1d9e0; --accent: #1f6feb; --accent-fg: #ffffff;
   --ok: #1a7f37; --warn: #9a6700; --crit: #cf222e; --info: #0969da; --topbar: #0d1117; --topbar-fg: #e6edf3; --chip: #161b22;
@@ -23,15 +23,17 @@ h3 { font-size: 1.05rem; margin-block: 1rem 0.4rem; }
   padding-block: 0.4rem; padding-inline: 0.75rem; background: var(--topbar); color: var(--topbar-fg); }
 .brand { display: flex; align-items: center; gap: 0.5rem; color: var(--topbar-fg); text-decoration: none; font-weight: 700; flex: 0 0 auto; }
 .logo { inline-size: 32px; block-size: 32px; }
-.metrics { display: flex; flex-wrap: wrap; gap: 0.35rem; flex: 1 1 0; min-inline-size: 0; align-items: center; }
+.metrics { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.35rem; flex: 1 1 0; min-inline-size: 0; align-items: center; }
 .chip { display: inline-flex; flex-direction: column; background: var(--chip); border: 1px solid #30363d; border-radius: 6px; padding-block: 0.15rem; padding-inline: 0.45rem;
-  font-size: 0.75rem; color: var(--topbar-fg); text-decoration: none; max-inline-size: 100%; }
+  font-size: 0.75rem; color: var(--topbar-fg); text-decoration: none; min-inline-size: 0; max-inline-size: 100%; }
 .chip-label { color: #9198a1; font-size: 0.7rem; }
-.chip-value { overflow-wrap: anywhere; }
+.chip-label, .chip-value, .chip.disks summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chip.warn { border-color: var(--warn); } .chip.crit { border-color: var(--crit); }
 .chip .warn { color: #e3b341; } .chip .crit { color: #ff7b72; } .chip .ok { color: #56d364; }
+.chip.disks { position: relative; }
 .chip.disks summary { cursor: pointer; }
-.disk-panel { padding-block: 0.3rem; display: grid; gap: 0.4rem; }
+.disk-panel { position: absolute; inset-inline-end: 0; inset-block-start: 100%; inline-size: min(90vw, 48rem);
+  padding: 0.5rem; display: grid; gap: 0.4rem; background: var(--chip); border: 1px solid #30363d; border-radius: 6px; }
 .disk-row code { color: var(--topbar-fg); }
 .metrics-toggle { display: none; }
 .usermenu { position: relative; margin-inline-start: auto; flex: 0 0 auto; }
@@ -39,10 +41,10 @@ h3 { font-size: 1.05rem; margin-block: 1rem 0.4rem; }
 .menu-panel { position: absolute; inset-inline-end: 0; inset-block-start: calc(100% + 4px); background: var(--card); color: var(--fg); border: 1px solid var(--line);
   border-radius: var(--radius); padding: 0.5rem; display: grid; gap: 0.4rem; min-inline-size: 15rem; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
 .menu-who { display: grid; } .menu-row { display: block; text-align: start; }
-@media (max-width: 900px) {
+@media (max-width: 1200px) {
   .metrics-toggle { display: inline-block; }
   .metrics { display: none; order: 10; flex-basis: 100%; }
-  .metrics.open { display: flex; }
+  .metrics.open { display: grid; grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); }
   .brand-name { display: none; }
 }
 
