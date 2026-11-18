@@ -21,7 +21,7 @@ container test-suite always uses the real ExifTool.
 | `test_transfer.py` | archive verification (wrong passphrase, tampering, truncation, newer version), old-schema archive upgraded, round trip with identical checksums, Unicode/long/case paths, non-empty destination refused, export/import/migrate through the UI, permissions, interrupted migration resumed from checkpoints, purge after confirmation, large dataset with bounded memory |
 | `test_i18n.py` | same keys and placeholders in every language, plural categories (ru, ar), checker detects defective files, discovery of a new language file, `/state/locales` override, pseudo-locale, per-user language, English-only logs |
 | `test_sysinfo.py` | header metrics vs. `statvfs`/`nproc`/`/proc/meminfo`, cgroup limits, `n/a` values, disk levels, read-only mounts, different volumes, offline assets, RTL-safe CSS |
-| `test_docs_consistency.py` | every parameter in the README tables exists in the code/compose files and vice versa |
+| `test_docs_consistency.py` | every parameter in the README tables exists in the code/compose files and vice versa; release workflow tag outputs keep pre-releases separate from stable images |
 
 ## Optional parameters
 

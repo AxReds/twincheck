@@ -250,6 +250,14 @@ the image for **linux/amd64 and linux/arm64**, starts it once with the full hard
 | `ghcr.io/axreds/twincheck:1.0` | latest patch of 1.0 |
 | `ghcr.io/axreds/twincheck:latest` | latest version tag |
 | `ghcr.io/axreds/twincheck:edge` | current `main`, only when the workflow is started by hand |
+| `ghcr.io/axreds/twincheck:1.0.1-rc.1` | exact pre-release candidate, for isolated manual testing |
+| `ghcr.io/axreds/twincheck:rc` | most recently published pre-release candidate |
+
+Pre-release tags such as `v1.0.1-rc.1` publish **only** the exact version and `rc`,
+never `latest`, `1`, `1.0` or `1.0.0`. The smoke test does not print container logs
+(which can contain the one-time setup token). Git tags are immutable: a failed
+candidate is followed by a new candidate number, never by moving its tag.
+GitHub candidate releases must be marked **Pre-release**, not stable.
 
 The first time, open the package page on GitHub (*Packages → twincheck → Package settings*) and set
 the visibility to **Public**, or add a GHCR registry with a read-only token in Portainer.
