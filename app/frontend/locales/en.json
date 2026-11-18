@@ -375,7 +375,7 @@
     "review.chosen_date": "Date used for organizing",
     "review.utc_ambiguous": "This date comes from a UTC tag and the time zone is unknown: check the day.",
     "review.date_choice": "Date to use for organizing",
-    "review.date_choice_hint": "Saved in the database only; the file is not changed.",
+    "review.date_choice_hint": "Saved in the database only, for organizing; the file is not changed. Choosing a date clears unsaved Date taken and Creation date edits. To write a date, enter it in a missing field and preview writing.",
     "review.date_keep": "keep the current one",
     "review.apply_scope": "Apply to",
     "review.scope.item": "this file only",

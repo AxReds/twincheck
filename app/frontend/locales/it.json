@@ -383,7 +383,7 @@
     "review.chosen_date": "Data usata per l'organizzazione",
     "review.utc_ambiguous": "Questa data proviene da un tag UTC e il fuso orario è sconosciuto: controlla il giorno.",
     "review.date_choice": "Data da usare per l'organizzazione",
-    "review.date_choice_hint": "Salvata solo nel database; il file non viene modificato.",
+    "review.date_choice_hint": "Salvata solo nel database, per organizzare; il file non viene modificato. Scegliere una data cancella le modifiche non salvate a Data di scatto e Data di creazione. Per scrivere una data, inserirla in un campo mancante e visualizzare l'anteprima di scrittura.",
     "review.date_keep": "mantieni quella attuale",
     "review.apply_scope": "Applica a",
     "review.scope.item": "solo questo file",

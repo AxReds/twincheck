@@ -37,6 +37,13 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/plans/1') data = {
     job: { id: 1, kind: planKind, status: 'completed' }, summary: [], items: [], apply_jobs: [], can_confirm: false,
   };
+  else if (path === '/api/review/1' && opts.method === 'POST') data = { updated: 1, next_id: null };
+  else if (path === '/api/review/1') data = {
+    file: null, fields: ['datetime_original', 'create_date', 'title'].map((field) => ({ field, candidates: [], writable: true, present: false })),
+    proposals: [{ field: 'datetime_original', value: '2020-01-02T03:04:05', origin: 'mtime_utc' }],
+    status: 'pending', kind: 'no_date', details: {},
+  };
+  else if (path === '/api/review') data = { items: [], total: 0, counts: {} };
   else if (path === '/api/jobs') data = { items: [], total: 0 };
   else throw new Error('Unmocked request: ' + url);
   requests.push({ url: String(url), body: opts.body && JSON.parse(opts.body) });
@@ -150,6 +157,28 @@ await test('B5: direct plan links highlight their owning section', async () => {
     const colors = [lum(css.color), lum(css.backgroundColor)].sort((a, b) => a - b);
     assert((colors[1] + .05) / (colors[0] + .05) >= 4.5, 'active section contrast is below 4.5:1');
   }
+  await go('#/home');
+});
+await test('B6: choosing an organizing date discards stale date edits only', async () => {
+  await go('#/review/1');
+  const dateInputs = [...document.querySelectorAll('input[type="datetime-local"]')];
+  dateInputs.forEach((el) => { el.value = '1999-01-01T01:02:03'; });
+  document.querySelector('input[type="text"]').value = 'Test title';
+  const choice = document.querySelector('main select');
+  choice.value = '2020-01-02T03:04:05';
+  choice.dispatchEvent(new Event('change'));
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.save_next')).click();
+  await sleep();
+  const saved = requests.filter((r) => r.url === '/api/review/1' && r.body).at(-1).body;
+  assert(saved.date === choice.value, 'chosen organizing date was lost');
+  assert(!saved.fields.datetime_original && !saved.fields.create_date, 'stale manual dates were submitted for writing');
+  assert(saved.fields.title === 'Test title', 'unrelated manual edit was lost');
+  await go('#/review/1');
+  document.querySelector('input[type="datetime-local"]').value = '1999-01-01T01:02:03';
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.save_next')).click();
+  await sleep();
+  const manual = requests.filter((r) => r.url === '/api/review/1' && r.body).at(-1).body;
+  assert(manual.fields.datetime_original === '1999-01-01T01:02:03', 'manual date without a new choice was lost');
   await go('#/home');
 });
 if (app.state.view?.destroy) app.state.view.destroy();

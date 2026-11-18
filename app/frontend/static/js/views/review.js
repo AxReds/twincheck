@@ -94,6 +94,12 @@ export async function item(main, state, [id]) {
       h('td', {}, candidateList(row.candidates), row.fill ? h('div', { class: 'small' }, badge(t('review.auto_fill'), 'ok'), ' ', h('code', {}, String(row.fill.value)), ' ← ', row.fill.from) : null, proposals),
       h('td', {}, editor || (row.present ? h('span', { class: 'muted small' }, t('review.present_readonly')) : h('span', { class: 'muted small' }, t('review.not_writable')))));
   });
+  dateChoice.addEventListener('change', () => {
+    if (!dateChoice.value) return;
+    for (const key of ['datetime_original', 'create_date']) {
+      if (inputs[key]) inputs[key].value = '';
+    }
+  });
   const scope = h('select', {}, ['item', 'folder', 'group'].map((s) => h('option', { value: s }, t('review.scope.' + s))));
   const decide = async (action) => {
     const fields = {};

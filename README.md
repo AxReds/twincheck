@@ -86,6 +86,8 @@ On a server with **Portainer** you do not need the source code: use the publishe
 7. **Review** - for each file: media on one side, every field on the other; save, skip, leave as it
    is, or apply to the whole folder/group. Decisions are stored immediately; *Preview writing*
    writes the values you entered (only into missing fields).
+   Choosing a date for organizing clears unsaved capture/creation date edits; that choice
+   is stored only in the database and does not itself write date tags.
 8. **Organise** - preview the `Year/Month/Day` structure, confirm the move.
 9. **Undo** - *Report & undo*: preview and execute the reversal of moves and/or metadata, read from
    the manifest; *Verify* checks files and hashes against index and manifest; download the manifest CSV.
