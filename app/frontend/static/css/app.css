@@ -53,7 +53,7 @@ h3 { font-size: 1.05rem; margin-block: 1rem 0.4rem; }
 .mainnav, .subnav, .tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; padding-block: 0.4rem; padding-inline: 0.75rem; border-block-end: 1px solid var(--line); background: var(--card); }
 .mainnav a, .subnav a { padding-block: 0.3rem; padding-inline: 0.6rem; border-radius: 6px; text-decoration: none; color: var(--fg); }
 .mainnav a.active, .subnav a.active, .tab.active { background: var(--accent); color: var(--accent-fg); }
-.mainnav .admin-link { margin-inline-start: auto; }
+.mainnav .admin-link { font-weight: 700; border: 1px solid var(--line); }
 .subnav { border: 1px solid var(--line); border-radius: var(--radius); margin-block-end: 0.75rem; }
 .content { padding: 1rem; max-inline-size: 1400px; margin-inline: auto; }
 

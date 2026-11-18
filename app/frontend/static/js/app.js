@@ -67,8 +67,8 @@ function renderShell() {
     h('a', { class: 'brand', href: '#/home' }, h('img', { src: '/static/img/logo.svg', alt: '', class: 'logo' }), h('span', { class: 'brand-name' }, t('app.name'))),
     toggle, metrics, userMenu());
   const nav = h('nav', { class: 'mainnav', 'aria-label': t('nav.label') },
-    NAV.map(([href, key]) => h('a', { href }, t(key))),
-    state.perms.manage_users ? h('a', { href: '#/admin/users', class: 'admin-link' }, t('nav.admin')) : null);
+    state.perms.manage_users ? h('a', { href: '#/admin/users', class: 'admin-link' }, t('nav.admin')) : null,
+    NAV.map(([href, key]) => h('a', { href }, t(key))));
   shell = { header, nav, main, metrics };
   mount(root, header, nav, main);
   stopMetrics();
@@ -83,6 +83,7 @@ function userMenu() {
     h('label', { class: 'menu-row' }, t('common.language'), ' ', langSelect(async (code) => {
       try { await post('/api/me/lang', { lang: code }); } catch (e) { toast(e.message, 'error'); }
     })),
+    state.perms.manage_users ? h('a', { class: 'menu-row', href: '#/admin/users' }, t('nav.admin')) : null,
     h('a', { class: 'menu-row', href: '#/me' }, t('user.change_password')),
     h('button', { type: 'button', class: 'menu-row link', onclick: logout }, t('user.logout')));
   const btn = h('button', { type: 'button', class: 'btn user-btn', 'aria-haspopup': 'true', 'aria-expanded': 'false' }, u.username, ' ▾');

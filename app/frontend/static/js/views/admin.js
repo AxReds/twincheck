@@ -54,11 +54,12 @@ export async function users(main, state) {
     const role = h('select', { disabled: u.fixed || state.user.role !== 'admin' }, ['user', 'administrator'].map((r) => h('option', { value: r, selected: u.role === r }, t('role.' + r))));
     const groups = h('div', { class: 'checks' }, d.groups.map((g) => h('label', {}, h('input', { type: 'checkbox', value: g.id, checked: u.groups.includes(g.id) }), ' ', g.name)));
     const src = sourcesEditor(u.sources);
-    const body = h('div', { class: 'form' }, u.fixed ? null : field('admin.role', role), u.role === 'user' ? [field('admin.groups', groups), h('h3', {}, t('admin.sources')), src.el] : null);
+    const body = h('div', { class: 'form' }, u.fixed ? null : field('admin.role', role),
+      u.role === 'user' ? field('admin.groups', groups) : null, h('h3', {}, t('admin.sources')), src.el);
     if (!await modal({ titleKey: 'admin.edit_user', body, confirmKey: 'common.save' })) return;
     const payload = { groups: [...groups.querySelectorAll('input:checked')].map((i) => i.value) };
     if (!u.fixed && state.user.role === 'admin') payload.role = role.value;
-    if (u.role === 'user') payload.sources = src.value();
+    payload.sources = src.value();
     await act(() => patch('/api/admin/users/' + u.id, payload));
   };
 

@@ -11,7 +11,7 @@
 <pre id="results"></pre>
 <script type="module">
 const realFetch = window.fetch.bind(window);
-const user = { id: 'test-admin', username: 'admin', role: 'admin', lang: 'en', sources: [] };
+const user = { id: 'test-admin', username: 'admin', role: 'admin', lang: 'en', sources: [], groups: [], fixed: true, active: true };
 const permissions = { manage_users: true, see_all_sources: true };
 const requests = [];
 let browsePath = 'test-folder';
@@ -44,6 +44,8 @@ window.fetch = async (url, opts = {}) => {
     status: 'pending', kind: 'no_date', details: {},
   };
   else if (path === '/api/review') data = { items: [], total: 0, counts: {} };
+  else if (path === '/api/admin/users' && opts.method !== 'PATCH') data = { users: [user], groups: [] };
+  else if (path === '/api/admin/users/test-admin' && opts.method === 'PATCH') data = { ok: true };
   else if (path === '/api/jobs') data = { items: [], total: 0 };
   else throw new Error('Unmocked request: ' + url);
   requests.push({ url: String(url), body: opts.body && JSON.parse(opts.body) });
@@ -193,6 +195,30 @@ await test('B7: completed scans explain new, reused and legacy hashes', async ()
     assert(text === t(result.reused === undefined ? 'job.scan_result_legacy' : 'job.scan_result', result), 'scan summary is unclear');
     assert(!text.includes('walk'), 'stale walk phase is shown for a completed scan');
   }
+});
+await test('B8: admin can discover Administration and edit own source assignments', async () => {
+  browsePath = 'admin-library';
+  for (const hash of ['#/scan', '#/organize']) {
+    await go(hash);
+    const link = document.querySelector('main a[href="#/admin/users"]');
+    assert(link, hash + ' has no actionable source-assignment link');
+  }
+  const nav = document.querySelector('.mainnav a[href="#/admin/users"]');
+  assert(nav && visible(nav), 'Administration is absent from main navigation');
+  await go('#/admin/users');
+  assert(document.querySelector('.admin-link.active'), 'Administration subpage is not highlighted');
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('admin.edit')).click();
+  await sleep();
+  const editor = document.querySelector('.modal .sources-editor');
+  assert(editor, 'admin cannot edit own sources');
+  [...editor.querySelectorAll('button')].find((el) => el.textContent === t('browser.choose')).click();
+  await sleep();
+  const save = [...document.querySelectorAll('.modal button')].find((el) => el.textContent === t('common.save'));
+  save.click();
+  await sleep();
+  const update = requests.filter((r) => r.url === '/api/admin/users/test-admin' && r.body).at(-1);
+  assert(update?.body.sources?.[0]?.path === browsePath, 'admin source assignment was not submitted');
+  await go('#/home');
 });
 if (app.state.view?.destroy) app.state.view.destroy();
 if (app.state.stopMetrics) app.state.stopMetrics();
