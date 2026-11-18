@@ -14,6 +14,7 @@ const realFetch = window.fetch.bind(window);
 const user = { id: 'test-admin', username: 'admin', role: 'admin', lang: 'en', sources: [] };
 const permissions = { manage_users: true, see_all_sources: true };
 const requests = [];
+let browsePath = 'test-folder';
 const metrics = {
   host: 'test-host', os: 'Test Linux', kernel: 'test-kernel', arch: 'aarch64',
   memory: { total: 1024, used: 512, percent: 50 }, cpu: { cores: 4, percent: 1, load: [0, 0, 0] },
@@ -30,7 +31,8 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/sysinfo') data = metrics;
   else if (path === '/api/report') data = { files: [], review: [], duplicates: {}, manifest: [] };
   else if (path === '/api/sources') data = { sources: [], can_browse: true };
-  else if (path === '/api/fs/browse') data = { path: 'test-folder', dirs: [] };
+  else if (path === '/api/fs/browse') data = { path: browsePath, dirs: [] };
+  else if (path === '/api/scan' && opts.method === 'POST') data = { job_id: 1 };
   else if (path === '/api/jobs') data = { items: [], total: 0 };
   else throw new Error('Unmocked request: ' + url);
   requests.push({ url: String(url), body: opts.body && JSON.parse(opts.body) });
@@ -43,7 +45,7 @@ const sleep = () => new Promise((resolve) => setTimeout(resolve, 30));
 for (let i = 0; i < 100 && !document.querySelector('.user-btn'); i++) await sleep();
 const assert = (ok, message) => { if (!ok) throw new Error(message); };
 const visible = (el) => getComputedStyle(el).display !== 'none';
-const go = async (hash) => { location.hash = hash; await sleep(); await app.route(); };
+const go = async (hash) => { location.hash = hash; await sleep(); await app.route(); await sleep(); };
 const results = [];
 async function test(name, fn) {
   try { await fn(); results.push({ name, passed: true }); }
@@ -106,6 +108,24 @@ await test('B3: user control has reserved space even with long usernames', async
     if (visible(metricBox)) assert(metricRect.x + metricRect.width <= userRect.x, 'user control overlaps metrics');
     assert(btn.scrollWidth > btn.clientWidth, 'long username is not constrained');
   } finally { btn.textContent = old; }
+});
+await test('B4: scan selection survives page changes including the data root', async () => {
+  for (const path of ['test-folder', '']) {
+    browsePath = path;
+    await go('#/scan');
+    const choose = [...document.querySelectorAll('main button')].find((el) => el.textContent === t('browser.choose'));
+    assert(choose, 'folder browser did not load');
+    choose.click();
+    await go('#/home');
+    await go('#/scan');
+    const codes = [...document.querySelectorAll('main p code')];
+    assert(codes.some((el) => el.textContent === '/data/' + path), 'selected folder label was lost');
+    const before = requests.length;
+    [...document.querySelectorAll('main button')].find((el) => el.textContent === t('scan.start_adhoc')).click();
+    await sleep();
+    assert(requests.slice(before).some((r) => r.url === '/api/scan' && r.body.path === path), 'visible selection was not submitted');
+  }
+  await go('#/home');
 });
 if (app.state.view?.destroy) app.state.view.destroy();
 if (app.state.stopMetrics) app.state.stopMetrics();

@@ -10,7 +10,7 @@ import * as review from './views/review.js';
 import * as admin from './views/admin.js';
 import * as transferView from './views/transfer.js';
 
-export const state = { boot: null, user: null, locales: [], perms: {}, stopMetrics: null, view: null };
+export const state = { boot: null, user: null, locales: [], perms: {}, stopMetrics: null, view: null, scanPath: null };
 const root = document.getElementById('app');
 
 const ROUTES = [
@@ -46,6 +46,7 @@ async function boot() {
   if (b.setup_required) { stopMetrics(); renderSetup(root, state); return; }
   if (!b.authenticated) { stopMetrics(); renderLogin(root, state, boot); return; }
   setCsrf(b.csrf);
+  if (!state.user || state.user.id !== b.user.id) state.scanPath = null;
   state.user = b.user;
   state.perms = b.permissions;
   renderShell();

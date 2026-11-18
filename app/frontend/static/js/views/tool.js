@@ -46,18 +46,17 @@ export async function home(main, state) {
 function card(k, v) { return h('div', { class: 'card' }, h('div', { class: 'card-label' }, t(k)), h('div', { class: 'card-value' }, v)); }
 
 // --- scan -------------------------------------------------------------------------------------
-export async function scan(main) {
+export async function scan(main, state) {
   const { select, sources, canBrowse } = await sourceSelect();
-  let adhoc = null;
-  const adhocLabel = h('code', {});
+  const adhocLabel = h('code', {}, state.scanPath === null ? '' : '/data/' + state.scanPath);
   const browser = canBrowse ? h('details', { class: 'panel' }, h('summary', {}, t('scan.browse_data')),
-    folderBrowser((p) => { adhoc = p; adhocLabel.textContent = '/data/' + p; })) : null;
+    folderBrowser((p) => { state.scanPath = p; adhocLabel.textContent = '/data/' + p; }, state.scanPath ?? '')) : null;
   page(main, 'scan.title', 'scan.intro',
     sources.length ? field('scan.source', select) : h('p', { class: 'notice warn' }, t('scan.no_sources')),
     browser, canBrowse ? h('p', {}, t('scan.adhoc_selected'), ' ', adhocLabel) : null,
     h('div', { class: 'actions' },
       sources.length ? button('scan.start', () => startJob('/api/scan', { source_id: select.value }), 'primary') : null,
-      canBrowse ? button('scan.start_adhoc', () => { if (adhoc === null) { toast(t('scan.choose_folder'), 'warn'); return; } startJob('/api/scan', { path: adhoc }); }) : null),
+      canBrowse ? button('scan.start_adhoc', () => { if (state.scanPath === null) { toast(t('scan.choose_folder'), 'warn'); return; } startJob('/api/scan', { path: state.scanPath }); }) : null),
     h('h2', {}, t('scan.jobs')));
   const jl = jobList(main, 'kind=scan&limit=10');
   return { destroy: jl.stop };
