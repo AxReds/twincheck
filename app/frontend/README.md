@@ -30,6 +30,11 @@ locales/*.json             translations (see locales/README.md)
 narrow screens the metrics collapse into a panel opened by the *System* button; logo and user menu
 stay visible.
 
+On session expiry, the first unauthorized response stops all polling and opens the
+login form once. Late responses cannot replace that form or sign out a newly
+authenticated session. Typed values and focus stay intact; a failed login does
+not restart polling. Polling resumes only after a successful login and bootstrap.
+
 Completed scan cards show indexed files, newly computed hashes, reused hashes and
 files still without a hash. Older scans show their recorded indexed/hashed counts
 and explain that reused hashes were not counted; a stale phase is not shown as a

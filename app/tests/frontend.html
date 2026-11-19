@@ -16,6 +16,12 @@ const permissions = { manage_users: true, see_all_sources: true };
 const requests = [];
 let browsePath = 'test-folder';
 let planKind = 'review_plan';
+let authenticated = true;
+let rejectLogin = true;
+let expiring = false;
+let expireMetrics;
+let expireJobs;
+let expireLate;
 const metrics = {
   host: 'test-host', os: 'Test Linux', kernel: 'test-kernel', arch: 'aarch64',
   memory: { total: 1024, used: 512, percent: 50 }, cpu: { cores: 4, percent: 1, load: [0, 0, 0] },
@@ -26,9 +32,25 @@ const metrics = {
 window.fetch = async (url, opts = {}) => {
   const path = String(url).split('?')[0];
   if (path.startsWith('/api/locales/')) return realFetch('../frontend/locales/' + path.split('/').pop() + '.json');
+  if (path === '/api/late-session-response') return new Promise((resolve) => {
+    expireLate = () => resolve(new Response(JSON.stringify({ error: 'unauthenticated' }), { status: 401 }));
+  });
+  if (expiring && (path === '/api/sysinfo' || path === '/api/jobs')) {
+    requests.push({ url: String(url) });
+    return new Promise((resolve) => {
+      const expire = () => resolve(new Response(JSON.stringify({ error: 'unauthenticated' }), { status: 401 }));
+      if (path === '/api/sysinfo') expireMetrics = expire;
+      else expireJobs = expire;
+    });
+  }
+  if (path === '/api/login') {
+    if (rejectLogin) return new Response(JSON.stringify({ error: 'invalid_credentials' }), { status: 401 });
+    authenticated = true;
+    return new Response('{}');
+  }
   let data;
   if (path === '/api/locales') data = [{ code: 'en', name: 'English' }, { code: 'it', name: 'Italiano' }];
-  else if (path === '/api/bootstrap') data = { authenticated: true, user, permissions };
+  else if (path === '/api/bootstrap') data = { authenticated, user: authenticated ? user : null, permissions };
   else if (path === '/api/sysinfo') data = metrics;
   else if (path === '/api/report') data = { files: [], review: [], duplicates: {}, manifest: [] };
   else if (path === '/api/sources') data = { sources: [], can_browse: true };
@@ -223,6 +245,62 @@ await test('B8: admin can discover Administration and edit own source assignment
   const update = requests.filter((r) => r.url === '/api/admin/users/test-admin' && r.body).at(-1);
   assert(update?.body.sources?.[0]?.path === browsePath, 'admin source assignment was not submitted');
   await go('#/home');
+});
+await test('B26: expired sessions stop polling and keep login typing/focus until successful sign-in', async () => {
+  await go('#/jobs');
+  const { get } = await import('../frontend/static/js/api.js');
+  const lateResponse = get('/api/late-session-response').catch((error) => error);
+  authenticated = false;
+  expiring = true;
+  document.dispatchEvent(new Event('visibilitychange'));
+  for (let i = 0; i < 100 && (!expireMetrics || !expireJobs); i++) await sleep();
+  assert(expireMetrics && expireJobs, 'both poll requests must be in flight');
+  expireMetrics();
+  for (let i = 0; i < 100 && !document.querySelector('input[autocomplete="username"]'); i++) await sleep();
+  const form = document.querySelector('.auth-card form');
+  assert(form, 'session expiry did not show login');
+  const pollCount = () => requests.filter((r) => r.url.startsWith('/api/jobs') || r.url === '/api/sysinfo').length;
+  const stopped = pollCount();
+  const username = form.querySelector('input[type="text"]');
+  const password = form.querySelector('input[type="password"]');
+  username.value = 'typing-user';
+  password.value = 'synthetic-only';
+  password.focus();
+  password.setSelectionRange(3, 3);
+  const loginBootstraps = requests.filter((r) => r.url === '/api/bootstrap').length;
+  expireJobs();
+  for (const char of '-typing') {
+    password.setRangeText(char, password.selectionStart, password.selectionEnd, 'end');
+    password.dispatchEvent(new Event('input', { bubbles: true }));
+    document.dispatchEvent(new Event('visibilitychange'));
+    await sleep();
+  }
+  const typed = password.value;
+  const caret = password.selectionStart;
+  await new Promise((resolve) => setTimeout(resolve, 5200));
+  assert(document.querySelector('.auth-card form') === form, 'a late 401 replaced the login form while typing');
+  assert(username.value === 'typing-user' && password.value === typed, 'typed login values were lost');
+  assert(document.activeElement === password && password.selectionStart === caret, 'typing focus/caret was lost');
+  assert(requests.filter((r) => r.url === '/api/bootstrap').length === loginBootstraps, 'late 401 restarted bootstrap');
+  assert(pollCount() === stopped, 'polling continued on the login screen');
+  expiring = false;
+  form.requestSubmit();
+  await sleep();
+  document.dispatchEvent(new Event('visibilitychange'));
+  await sleep();
+  assert(document.querySelector('.auth-card form') === form && password.value === typed && document.activeElement === password, 'failed login lost typing or focus');
+  assert(pollCount() === stopped, 'polling resumed before a successful login');
+  rejectLogin = false;
+  form.requestSubmit();
+  for (let i = 0; i < 100 && !document.querySelector('.topbar'); i++) await sleep();
+  await sleep();
+  assert(document.querySelector('.topbar'), 'successful login did not restore the shell');
+  const resumed = requests.slice(requests.findLastIndex((r) => r.url === '/api/bootstrap') + 1);
+  assert(resumed.some((r) => r.url === '/api/sysinfo') && resumed.some((r) => r.url.startsWith('/api/jobs')), 'polling did not resume after successful login');
+  expireLate();
+  const error = await lateResponse;
+  await sleep();
+  assert(error.status === 401 && document.querySelector('.topbar') && !document.querySelector('.auth-card'), 'an old-session 401 signed out the new session');
 });
 if (app.state.view?.destroy) app.state.view.destroy();
 if (app.state.stopMetrics) app.state.stopMetrics();

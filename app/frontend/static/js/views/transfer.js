@@ -2,7 +2,7 @@
 import { h, mount, button, field, table, modal, toast } from '../dom.js';
 import { t, fmt } from '../i18n.js';
 import { get, post, del, uploadFile } from '../api.js';
-import { jobList, kv } from '../components.js';
+import { jobList, kv, poll } from '../components.js';
 import { adminNav, dbForm } from './admin.js';
 
 export async function transfer(main, state) {
@@ -126,9 +126,7 @@ export async function transfer(main, state) {
     tabs, body, h('h2', {}, t('transfer.jobs')), jobsBox, h('h2', {}, t('transfer.archives')), archivesBox);
   await renderMode();
   await loadArchives();
-  const stop = setInterval(() => { if (!document.hidden) tj(); }, 2000);
-  tj();
-  return { destroy: () => clearInterval(stop) };
+  return { destroy: poll(tj, 2000) };
 }
 
 export { jobList };

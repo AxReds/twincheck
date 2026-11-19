@@ -4,6 +4,18 @@ All notable changes are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.1-rc.2] - 2026-11-19
+
+### Fixed
+
+- After session expiry, background polling stops and the login form stays usable without losing typed values or focus; polling resumes only after a successful login ([#26](https://github.com/AxReds/twincheck/issues/26)).
+
+### Known issues / not fixed
+
+- This remains a test candidate. The owner's manual acceptance test is pending;
+  the draft PR is not merged and bug issues remain open for retesting.
+- The limitations and deferred work listed under 1.0.1-rc.1 remain unchanged.
+
 ## [1.0.1-rc.1] - 2026-11-19
 
 ### Fixed
@@ -42,4 +54,5 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Duplicates folder preview/restore and a design discussion on guarded deletion;
   the current "never delete" rule is unchanged ([#25](https://github.com/AxReds/twincheck/issues/25)).
 
+[1.0.1-rc.2]: https://github.com/AxReds/twincheck/compare/v1.0.1-rc.1...v1.0.1-rc.2
 [1.0.1-rc.1]: https://github.com/AxReds/twincheck/compare/v1.0.0...v1.0.1-rc.1

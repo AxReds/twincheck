@@ -1,7 +1,17 @@
 // Reusable UI pieces: job progress, polling, source picker, folder browser.
 import { h, button, badge, progress, mount, toast } from './dom.js';
 import { t, fmt } from './i18n.js';
-import { get, post } from './api.js';
+import { get, post, ApiError } from './api.js';
+
+const pollers = new Set();
+let pollingEnabled = false;
+let pollingGeneration = 0;
+export function resumePolling() { pollingEnabled = true; }
+export function stopPolling() {
+  pollingEnabled = false;
+  pollingGeneration++;
+  for (const stop of pollers) stop();
+}
 
 const STATUS_CLASS = { queued: 'muted', running: 'info', paused: 'warn', interrupted: 'warn', completed: 'ok', failed: 'error', cancelled: 'muted' };
 
@@ -37,16 +47,21 @@ async function act(job, action, onChange) {
 
 // Polls a function while the tab is visible; returns a stop function.
 export function poll(fn, ms) {
-  let timer = null; let stopped = false;
+  if (!pollingEnabled) return () => {};
+  let timer = null; let stopped = false; let running = false;
   const tick = async () => {
-    if (stopped) return;
+    if (stopped || running) return;
+    running = true;
     if (!document.hidden) { try { await fn(); } catch (e) { /* keep polling */ } }
-    timer = setTimeout(tick, ms);
+    running = false;
+    if (!stopped) timer = setTimeout(tick, ms);
   };
   const vis = () => { if (!document.hidden && !stopped) { clearTimeout(timer); tick(); } };
+  const stop = () => { stopped = true; clearTimeout(timer); document.removeEventListener('visibilitychange', vis); pollers.delete(stop); };
+  pollers.add(stop);
   document.addEventListener('visibilitychange', vis);
   tick();
-  return () => { stopped = true; clearTimeout(timer); document.removeEventListener('visibilitychange', vis); };
+  return stop;
 }
 
 export function jobList(container, query, opts = {}) {
@@ -61,11 +76,17 @@ export function jobList(container, query, opts = {}) {
 }
 
 export async function waitForJob(id, onUpdate) {
+  const generation = pollingGeneration;
   for (;;) {
+    if (!pollingEnabled || generation !== pollingGeneration) throw new ApiError(401, 'unauthenticated');
     const j = await get('/api/jobs/' + id);
     if (onUpdate) onUpdate(j);
     if (['completed', 'failed', 'cancelled', 'paused', 'interrupted'].includes(j.status)) return j;
-    await new Promise((r) => setTimeout(r, document.hidden ? 3000 : 800));
+    await new Promise((resolve, reject) => {
+      const stop = () => { clearTimeout(timer); pollers.delete(stop); reject(new ApiError(401, 'unauthenticated')); };
+      const timer = setTimeout(() => { pollers.delete(stop); resolve(); }, document.hidden ? 3000 : 800);
+      pollers.add(stop);
+    });
   }
 }
 

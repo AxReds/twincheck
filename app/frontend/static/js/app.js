@@ -2,7 +2,7 @@
 import { h, mount, clear, toast } from './dom.js';
 import { t, fmt, setLanguage, listLocales, browserLanguage, onLanguage, currentLang } from './i18n.js';
 import { get, post, setCsrf } from './api.js';
-import { poll } from './components.js';
+import { poll, stopPolling, resumePolling } from './components.js';
 import { renderSetup } from './views/setup.js';
 import { renderLogin } from './views/login.js';
 import * as tool from './views/tool.js';
@@ -43,8 +43,8 @@ async function boot() {
   const preferred = (b.user && b.user.lang) || (cookieLang && decodeURIComponent(cookieLang)) || browserLanguage(state.locales) || b.default_lang || 'en';
   await setLanguage(state.locales.some((l) => l.code === preferred) ? preferred : (b.default_lang || 'en'));
   document.title = t('app.name');
-  if (b.setup_required) { stopMetrics(); renderSetup(root, state); return; }
-  if (!b.authenticated) { stopMetrics(); renderLogin(root, state, boot); return; }
+  if (b.setup_required) { clearSession(); renderSetup(root, state); return; }
+  if (!b.authenticated) { clearSession(); renderLogin(root, state, boot); return; }
   setCsrf(b.csrf);
   if (!state.user || state.user.id !== b.user.id) state.scanPath = null;
   state.user = b.user;
@@ -55,6 +55,22 @@ async function boot() {
 function stopMetrics() { if (state.stopMetrics) { state.stopMetrics(); state.stopMetrics = null; } }
 
 let shell = null;
+let routeGeneration = 0;
+
+function clearSession() {
+  stopPolling();
+  stopMetrics();
+  if (state.view?.destroy) state.view.destroy();
+  state.view = null;
+  shell = null;
+  routeGeneration++;
+  setCsrf('');
+  state.user = null;
+  state.perms = {};
+  state.scanPath = null;
+  lastMetrics = null;
+}
+
 function renderShell() {
   const metrics = h('div', { class: 'metrics', id: 'metrics' });
   const toggle = h('button', { type: 'button', class: 'btn small metrics-toggle', 'aria-expanded': 'false', 'aria-controls': 'metrics' }, t('header.system'));
@@ -72,6 +88,7 @@ function renderShell() {
   shell = { header, nav, main, metrics };
   mount(root, header, nav, main);
   stopMetrics();
+  resumePolling();
   state.stopMetrics = poll(refreshMetrics, 5000);
   route();
 }
@@ -164,6 +181,8 @@ function drawMetrics() {
 
 export async function route() {
   if (!shell) return;
+  const generation = ++routeGeneration;
+  const activeShell = shell;
   closeUserMenu();
   if (state.view && state.view.destroy) state.view.destroy();
   state.view = null;
@@ -174,10 +193,12 @@ export async function route() {
   if (!found) { mount(main, h('p', {}, t('error.not_found'))); return; }
   const m = hash.match(found[0]);
   try {
-    state.view = (await found[1]()(main, state, m.slice(1))) || null;
+    const view = (await found[1]()(main, state, m.slice(1))) || null;
+    if (generation !== routeGeneration || shell !== activeShell) { if (view?.destroy) view.destroy(); return; }
+    state.view = view;
     highlightSection((state.view && state.view.section) || hash);
   } catch (e) {
-    mount(main, h('p', { class: 'notice error' }, e.message || t('error.generic', { code: '' })));
+    if (generation === routeGeneration && shell === activeShell) mount(main, h('p', { class: 'notice error' }, e.message || t('error.generic', { code: '' })));
   }
 }
 
@@ -193,7 +214,11 @@ function highlightSection(hash) {
 }
 
 window.addEventListener('hashchange', route);
-window.addEventListener('po:unauthenticated', () => { shell = null; stopMetrics(); boot(); });
+window.addEventListener('po:unauthenticated', () => {
+  if (!shell) return;
+  clearSession();
+  renderLogin(root, state, boot);
+});
 window.addEventListener('po:password-required', () => { if (location.hash !== '#/me') location.hash = '#/me'; });
 onLanguage(() => {
   document.title = t('app.name');
