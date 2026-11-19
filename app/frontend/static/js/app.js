@@ -2,7 +2,7 @@
 import { h, mount, clear, toast } from './dom.js';
 import { t, fmt, setLanguage, listLocales, browserLanguage, onLanguage, currentLang } from './i18n.js';
 import { get, post, setCsrf } from './api.js';
-import { poll } from './components.js';
+import { poll, stopPolling, resumePolling } from './components.js';
 import { renderSetup } from './views/setup.js';
 import { renderLogin } from './views/login.js';
 import * as tool from './views/tool.js';
@@ -10,7 +10,7 @@ import * as review from './views/review.js';
 import * as admin from './views/admin.js';
 import * as transferView from './views/transfer.js';
 
-export const state = { boot: null, user: null, locales: [], perms: {}, stopMetrics: null, view: null };
+export const state = { boot: null, user: null, locales: [], perms: {}, stopMetrics: null, view: null, scanPath: null };
 const root = document.getElementById('app');
 
 const ROUTES = [
@@ -43,9 +43,10 @@ async function boot() {
   const preferred = (b.user && b.user.lang) || (cookieLang && decodeURIComponent(cookieLang)) || browserLanguage(state.locales) || b.default_lang || 'en';
   await setLanguage(state.locales.some((l) => l.code === preferred) ? preferred : (b.default_lang || 'en'));
   document.title = t('app.name');
-  if (b.setup_required) { stopMetrics(); renderSetup(root, state); return; }
-  if (!b.authenticated) { stopMetrics(); renderLogin(root, state, boot); return; }
+  if (b.setup_required) { clearSession(); renderSetup(root, state); return; }
+  if (!b.authenticated) { clearSession(); renderLogin(root, state, boot); return; }
   setCsrf(b.csrf);
+  if (!state.user || state.user.id !== b.user.id) state.scanPath = null;
   state.user = b.user;
   state.perms = b.permissions;
   renderShell();
@@ -54,6 +55,22 @@ async function boot() {
 function stopMetrics() { if (state.stopMetrics) { state.stopMetrics(); state.stopMetrics = null; } }
 
 let shell = null;
+let routeGeneration = 0;
+
+function clearSession() {
+  stopPolling();
+  stopMetrics();
+  if (state.view?.destroy) state.view.destroy();
+  state.view = null;
+  shell = null;
+  routeGeneration++;
+  setCsrf('');
+  state.user = null;
+  state.perms = {};
+  state.scanPath = null;
+  lastMetrics = null;
+}
+
 function renderShell() {
   const metrics = h('div', { class: 'metrics', id: 'metrics' });
   const toggle = h('button', { type: 'button', class: 'btn small metrics-toggle', 'aria-expanded': 'false', 'aria-controls': 'metrics' }, t('header.system'));
@@ -66,11 +83,12 @@ function renderShell() {
     h('a', { class: 'brand', href: '#/home' }, h('img', { src: '/static/img/logo.svg', alt: '', class: 'logo' }), h('span', { class: 'brand-name' }, t('app.name'))),
     toggle, metrics, userMenu());
   const nav = h('nav', { class: 'mainnav', 'aria-label': t('nav.label') },
-    NAV.map(([href, key]) => h('a', { href }, t(key))),
-    state.perms.manage_users ? h('a', { href: '#/admin/users', class: 'admin-link' }, t('nav.admin')) : null);
+    state.perms.manage_users ? h('a', { href: '#/admin/users', class: 'admin-link' }, t('nav.admin')) : null,
+    NAV.map(([href, key]) => h('a', { href }, t(key))));
   shell = { header, nav, main, metrics };
   mount(root, header, nav, main);
   stopMetrics();
+  resumePolling();
   state.stopMetrics = poll(refreshMetrics, 5000);
   route();
 }
@@ -82,13 +100,30 @@ function userMenu() {
     h('label', { class: 'menu-row' }, t('common.language'), ' ', langSelect(async (code) => {
       try { await post('/api/me/lang', { lang: code }); } catch (e) { toast(e.message, 'error'); }
     })),
+    state.perms.manage_users ? h('a', { class: 'menu-row', href: '#/admin/users' }, t('nav.admin')) : null,
     h('a', { class: 'menu-row', href: '#/me' }, t('user.change_password')),
     h('button', { type: 'button', class: 'menu-row link', onclick: logout }, t('user.logout')));
   const btn = h('button', { type: 'button', class: 'btn user-btn', 'aria-haspopup': 'true', 'aria-expanded': 'false' }, u.username, ' ▾');
   btn.addEventListener('click', () => { panel.hidden = !panel.hidden; btn.setAttribute('aria-expanded', String(!panel.hidden)); });
-  document.addEventListener('click', (e) => { if (!panel.contains(e.target) && e.target !== btn) panel.hidden = true; });
   return h('div', { class: 'usermenu' }, btn, panel);
 }
+
+function closeUserMenu(restoreFocus = false) {
+  const menu = shell && shell.header.querySelector('.usermenu');
+  if (!menu) return;
+  const panel = menu.querySelector('.menu-panel');
+  const btn = menu.querySelector('.user-btn');
+  const wasOpen = !panel.hidden;
+  panel.hidden = true;
+  btn.setAttribute('aria-expanded', 'false');
+  if (restoreFocus && wasOpen) btn.focus();
+}
+
+document.addEventListener('click', (e) => {
+  const menu = shell && shell.header.querySelector('.usermenu');
+  if (menu && !menu.contains(e.target)) closeUserMenu();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeUserMenu(true); });
 
 async function logout() {
   try { await post('/api/logout'); } catch (e) { /* ignore */ }
@@ -99,7 +134,7 @@ async function logout() {
 function level(l) { return l === 'critical' ? 'crit' : l === 'warning' ? 'warn' : ''; }
 
 function chip(labelKey, value, cls = '', title) {
-  return h('div', { class: 'chip ' + cls, title: title || undefined }, h('span', { class: 'chip-label' }, t(labelKey)), h('span', { class: 'chip-value' }, value));
+  return h('div', { class: 'chip ' + cls, title: title || t(labelKey) + ': ' + value }, h('span', { class: 'chip-label' }, t(labelKey)), h('span', { class: 'chip-value' }, value));
 }
 
 function vol(v) {
@@ -140,29 +175,50 @@ function drawMetrics() {
     chip('header.version', m.version),
     chip('header.database', (db.type ? t('db.type.' + db.type) : t('common.na')) + ' · ' + (db.connected ? t('header.connected') : t('header.not_connected')) +
       (db.schema_version ? ' · ' + t('header.schema', { version: db.schema_version }) : ''), db.connected ? '' : 'crit'),
-    h('a', { class: 'chip link', href: '#/jobs' }, h('span', { class: 'chip-label' }, t('header.jobs')), h('span', { class: 'chip-value' }, t('header.jobs_running', { count: m.jobs_running }))),
+    h('a', { class: 'chip link', href: '#/jobs', title: t('header.jobs_running', { count: m.jobs_running }) }, h('span', { class: 'chip-label' }, t('header.jobs')), h('span', { class: 'chip-value' }, t('header.jobs_running', { count: m.jobs_running }))),
     disks.length ? h('details', { class: 'chip disks' }, h('summary', {}, t('header.disks', { count: disks.length })), h('div', { class: 'disk-panel' }, disks)) : null);
 }
 
 export async function route() {
   if (!shell) return;
+  const generation = ++routeGeneration;
+  const activeShell = shell;
+  closeUserMenu();
   if (state.view && state.view.destroy) state.view.destroy();
   state.view = null;
   const hash = location.hash || '#/home';
-  for (const a of shell.nav.querySelectorAll('a')) a.classList.toggle('active', hash.startsWith(a.getAttribute('href')));
+  highlightSection(hash);
   const main = clear(shell.main);
   const found = ROUTES.find(([re]) => re.test(hash));
   if (!found) { mount(main, h('p', {}, t('error.not_found'))); return; }
   const m = hash.match(found[0]);
   try {
-    state.view = (await found[1]()(main, state, m.slice(1))) || null;
+    const view = (await found[1]()(main, state, m.slice(1))) || null;
+    if (generation !== routeGeneration || shell !== activeShell) { if (view?.destroy) view.destroy(); return; }
+    state.view = view;
+    highlightSection((state.view && state.view.section) || hash);
   } catch (e) {
-    mount(main, h('p', { class: 'notice error' }, e.message || t('error.generic', { code: '' })));
+    if (generation === routeGeneration && shell === activeShell) mount(main, h('p', { class: 'notice error' }, e.message || t('error.generic', { code: '' })));
+  }
+}
+
+function highlightSection(hash) {
+  const section = hash === '#' || hash === '#/' ? '#/home' : hash;
+  for (const a of shell.nav.querySelectorAll('a')) {
+    const href = a.classList.contains('admin-link') ? '#/admin' : a.getAttribute('href');
+    const active = section === href || section.startsWith(href + '/');
+    a.classList.toggle('active', active);
+    if (active) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
   }
 }
 
 window.addEventListener('hashchange', route);
-window.addEventListener('po:unauthenticated', () => { shell = null; stopMetrics(); boot(); });
+window.addEventListener('po:unauthenticated', () => {
+  if (!shell) return;
+  clearSession();
+  renderLogin(root, state, boot);
+});
 window.addEventListener('po:password-required', () => { if (location.hash !== '#/me') location.hash = '#/me'; });
 onLanguage(() => {
   document.title = t('app.name');

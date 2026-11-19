@@ -178,6 +178,8 @@
       "other": "{count} Elemente"
     },
     "job.phase": "Phase {phase}",
+    "job.scan_result": "{indexed} indiziert · {hashed} berechnet · {reused} Hashes wiederverwendet · {unhashed} ohne Hash",
+    "job.scan_result_legacy": "{indexed} indiziert · {hashed} berechnet; unveränderte Dateien verwenden Hashes wieder (in älteren Scans nicht gezählt).",
     "job.needs_confirmation": "Dieser Auftrag schreibt oder verschiebt Dateien: Er wird erst fortgesetzt, wenn Sie auf Fortsetzen klicken.",
     "job.started": "Auftrag #{id} gestartet.",
     "job.status.queued": "in Warteschlange",

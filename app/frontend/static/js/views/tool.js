@@ -46,18 +46,25 @@ export async function home(main, state) {
 function card(k, v) { return h('div', { class: 'card' }, h('div', { class: 'card-label' }, t(k)), h('div', { class: 'card-value' }, v)); }
 
 // --- scan -------------------------------------------------------------------------------------
-export async function scan(main) {
+function noSources(state) {
+  return state.perms.manage_users
+    ? h('p', { class: 'notice warn' }, t('admin.no_sources'), ' ',
+      h('a', { href: '#/admin/users' }, t('nav.admin'), ' → ', t('admin.users')),
+      ': ', t('admin.edit'), ' → ', t('admin.sources'))
+    : h('p', { class: 'notice warn' }, t('scan.no_sources'));
+}
+
+export async function scan(main, state) {
   const { select, sources, canBrowse } = await sourceSelect();
-  let adhoc = null;
-  const adhocLabel = h('code', {});
+  const adhocLabel = h('code', {}, state.scanPath === null ? '' : '/data/' + state.scanPath);
   const browser = canBrowse ? h('details', { class: 'panel' }, h('summary', {}, t('scan.browse_data')),
-    folderBrowser((p) => { adhoc = p; adhocLabel.textContent = '/data/' + p; })) : null;
+    folderBrowser((p) => { state.scanPath = p; adhocLabel.textContent = '/data/' + p; }, state.scanPath ?? '')) : null;
   page(main, 'scan.title', 'scan.intro',
-    sources.length ? field('scan.source', select) : h('p', { class: 'notice warn' }, t('scan.no_sources')),
+    sources.length ? field('scan.source', select) : noSources(state),
     browser, canBrowse ? h('p', {}, t('scan.adhoc_selected'), ' ', adhocLabel) : null,
     h('div', { class: 'actions' },
       sources.length ? button('scan.start', () => startJob('/api/scan', { source_id: select.value }), 'primary') : null,
-      canBrowse ? button('scan.start_adhoc', () => { if (adhoc === null) { toast(t('scan.choose_folder'), 'warn'); return; } startJob('/api/scan', { path: adhoc }); }) : null),
+      canBrowse ? button('scan.start_adhoc', () => { if (state.scanPath === null) { toast(t('scan.choose_folder'), 'warn'); return; } startJob('/api/scan', { path: state.scanPath }); }) : null),
     h('h2', {}, t('scan.jobs')));
   const jl = jobList(main, 'kind=scan&limit=10');
   return { destroy: jl.stop };
@@ -113,12 +120,12 @@ export async function metadata(main) {
 }
 
 // --- organise ---------------------------------------------------------------------------------
-export async function organize(main) {
+export async function organize(main, state) {
   const { select, sources } = await sourceSelect();
   page(main, 'org.title', 'org.intro',
     h('ul', { class: 'rules' }, ['org.rule_structure', 'org.rule_no_date', 'org.rule_no_rename', 'org.rule_companions', 'org.rule_mtime', 'org.rule_volumes']
       .map((k) => h('li', {}, t(k)))),
-    sources.length ? field('scan.source', select) : h('p', { class: 'notice warn' }, t('scan.no_sources')),
+    sources.length ? field('scan.source', select) : noSources(state),
     sources.length ? h('div', { class: 'actions' }, button('org.plan', () => startJob('/api/organize/plan', { source_id: select.value }, openPlanWhenReady), 'primary')) : null,
     h('h2', {}, t('org.jobs')));
   const jl = jobList(main, 'kind=organize_plan&limit=5');
@@ -128,12 +135,15 @@ export async function organize(main) {
 // --- plan (dry-run) and confirmation ------------------------------------------------------------
 export async function plan(main, state, [id]) {
   let offset = 0;
+  let section = '#/jobs';
   let status = '';
   const box = h('div', {});
   const applyBox = h('div', {});
   let stopApply = null;
   const load = async () => {
     const d = await get(`/api/plans/${id}?offset=${offset}&limit=100${status ? '&status=' + status : ''}`);
+    section = { review_plan: '#/review', metadata_analyze: '#/metadata', dedupe_plan: '#/duplicates',
+      organize_plan: '#/organize', undo_moves_plan: '#/report', undo_meta_plan: '#/report' }[d.job.kind] || '#/jobs';
     const counts = {};
     for (const s of d.summary) counts[s.status] = (counts[s.status] || 0) + s.n;
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -170,7 +180,7 @@ export async function plan(main, state, [id]) {
   page(main, 'plan.title', 'plan.intro', box, h('h2', {}, t('plan.execution')), applyBox);
   await load();
   const stop = poll(load, 4000);
-  return { destroy: () => { stop(); if (stopApply) stopApply(); } };
+  return { section, destroy: () => { stop(); if (stopApply) stopApply(); } };
 }
 
 // --- report, manifest, undo, verify --------------------------------------------------------------

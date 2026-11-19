@@ -173,6 +173,8 @@
       "other": "{count} 项"
     },
     "job.phase": "阶段 {phase}",
+    "job.scan_result": "已索引 {indexed} · 已计算 {hashed} · 复用哈希 {reused} · 无哈希 {unhashed}",
+    "job.scan_result_legacy": "已索引 {indexed} · 已计算 {hashed}；未更改的文件会复用哈希（旧扫描未统计）。",
     "job.needs_confirmation": "此任务会写入或移动文件：只有在您点击“继续”后才会恢复。",
     "job.started": "任务 #{id} 已启动。",
     "job.status.queued": "排队中",

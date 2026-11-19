@@ -217,6 +217,20 @@ class Roles(unittest.TestCase):
         self.assertEqual(self.ops.patch("/api/admin/settings", {"default_lang": "en"}).status, 403)
         self.assertEqual(self.ops.post("/api/admin/groups", {"name": "family"}).status, 201)
 
+    def test_admin_can_assign_own_source(self):
+        admin_id = self.admin.get("/api/bootstrap").json()["user"]["id"]
+        path = self.inst.data / "admin-own"
+        path.mkdir()
+        try:
+            response = self.admin.patch(f"/api/admin/users/{admin_id}", {"sources": [{"path": "admin-own"}]})
+            self.assertEqual(response.status, 200, response.text)
+            source = self.admin.get("/api/sources").json()["sources"][0]
+            self.assertTrue(source["path"].endswith("/admin-own"))
+            self.assertEqual(self.ops.patch(f"/api/admin/users/{admin_id}", {"sources": []}).status, 403)
+            self.assertEqual(self.alice.patch(f"/api/admin/users/{admin_id}", {"sources": []}).status, 403)
+        finally:
+            self.assertEqual(self.admin.patch(f"/api/admin/users/{admin_id}", {"sources": []}).status, 200)
+
     def test_isolation_between_users(self):
         a_src = self.alice.get("/api/sources").json()["sources"][0]["id"]
         b_src = self.bob.get("/api/sources").json()["sources"][0]["id"]

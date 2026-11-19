@@ -198,6 +198,8 @@
       "other": "{count} عنصر"
     },
     "job.phase": "المرحلة {phase}",
+    "job.scan_result": "مفهرس: {indexed} · محسوب: {hashed} · بصمات معاد استخدامها: {reused} · بدون بصمة: {unhashed}",
+    "job.scan_result_legacy": "مفهرس: {indexed} · محسوب: {hashed}؛ تعيد الملفات غير المعدلة استخدام البصمات (لم تُحسب في الفحوصات السابقة).",
     "job.needs_confirmation": "تكتب هذه المهمة الملفات أو تنقلها: لا تُستأنف إلا عند النقر على «استئناف».",
     "job.started": "بدأت المهمة رقم {id}.",
     "job.status.queued": "في قائمة الانتظار",

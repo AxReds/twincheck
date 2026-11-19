@@ -77,3 +77,25 @@ Issue: [#7](https://github.com/AxReds/twincheck/issues/7)
 
 ## Suggested order
 4a → 1c → 1b → 4b → 2 → 4c → 3
+
+## 5. Settings and preferences – TODO
+Issue: [#24](https://github.com/AxReds/twincheck/issues/24)
+
+- Admin Settings: libraries, source/destination folders and assignments (admin included
+  by default), default folder for new users, existing database/export controls and
+  allowed user policies.
+- User Preferences in the user menu: own folders, organisation patterns (`YYYY/MM/DD`,
+  `YYYY/MM`, ...), duplicate handling, language, theme and technical details.
+- Users can choose only within admin-defined limits. Timestamp settings depend on
+  [#2](https://github.com/AxReds/twincheck/issues/2).
+- Tracking only: no new settings model is included in the v1.0.1 bug fixes.
+
+## 6. Duplicates folder management – DESIGN REQUIRED
+Issue: [#25](https://github.com/AxReds/twincheck/issues/25)
+
+- List and preview duplicates and restore them to their original paths.
+- Proposed permanent deletion would require admin access, double confirmation,
+  a kept original that still exists and matches by SHA-256, and an audit record.
+- **Blocked on a design discussion:** permanent deletion conflicts with the current
+  "never delete" rule. This roadmap entry does not change that rule or authorize deletion.
+- Coordinate allowed policies with [#24](https://github.com/AxReds/twincheck/issues/24).

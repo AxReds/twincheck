@@ -183,6 +183,8 @@
       "other": "{count} itens"
     },
     "job.phase": "fase {phase}",
+    "job.scan_result": "{indexed} indexados · {hashed} calculados · {reused} hashes reutilizados · {unhashed} sem hash",
+    "job.scan_result_legacy": "{indexed} indexados · {hashed} calculados; arquivos inalterados reutilizam hashes (não contados nas verificações anteriores).",
     "job.needs_confirmation": "Esta tarefa grava ou move arquivos: ela só é retomada quando você clicar em Retomar.",
     "job.started": "Tarefa #{id} iniciada.",
     "job.status.queued": "na fila",

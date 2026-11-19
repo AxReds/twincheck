@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frontend regression tests (synthetic data only)</title>
+<link rel="stylesheet" href="../frontend/static/css/app.css">
+</head>
+<body>
+<div id="app"></div>
+<pre id="results"></pre>
+<script type="module">
+const realFetch = window.fetch.bind(window);
+const user = { id: 'test-admin', username: 'admin', role: 'admin', lang: 'en', sources: [], groups: [], fixed: true, active: true };
+const permissions = { manage_users: true, see_all_sources: true };
+const requests = [];
+let browsePath = 'test-folder';
+let planKind = 'review_plan';
+let authenticated = true;
+let rejectLogin = true;
+let expiring = false;
+let expireMetrics;
+let expireJobs;
+let expireLate;
+const metrics = {
+  host: 'test-host', os: 'Test Linux', kernel: 'test-kernel', arch: 'aarch64',
+  memory: { total: 1024, used: 512, percent: 50 }, cpu: { cores: 4, percent: 1, load: [0, 0, 0] },
+  volumes: { data: { total: 1024, used: 512, used_pct: 50 }, state: { total: 1024, used: 512, used_pct: 50 } },
+  uptime: { system: 100, container: 50 }, version: 'test', database: { type: 'sqlite', connected: true, schema_version: 3 },
+  jobs_running: 0, disks: [],
+};
+window.fetch = async (url, opts = {}) => {
+  const path = String(url).split('?')[0];
+  if (path.startsWith('/api/locales/')) return realFetch('../frontend/locales/' + path.split('/').pop() + '.json');
+  if (path === '/api/late-session-response') return new Promise((resolve) => {
+    expireLate = () => resolve(new Response(JSON.stringify({ error: 'unauthenticated' }), { status: 401 }));
+  });
+  if (expiring && (path === '/api/sysinfo' || path === '/api/jobs')) {
+    requests.push({ url: String(url) });
+    return new Promise((resolve) => {
+      const expire = () => resolve(new Response(JSON.stringify({ error: 'unauthenticated' }), { status: 401 }));
+      if (path === '/api/sysinfo') expireMetrics = expire;
+      else expireJobs = expire;
+    });
+  }
+  if (path === '/api/login') {
+    if (rejectLogin) return new Response(JSON.stringify({ error: 'invalid_credentials' }), { status: 401 });
+    authenticated = true;
+    return new Response('{}');
+  }
+  let data;
+  if (path === '/api/locales') data = [{ code: 'en', name: 'English' }, { code: 'it', name: 'Italiano' }];
+  else if (path === '/api/bootstrap') data = { authenticated, user: authenticated ? user : null, permissions };
+  else if (path === '/api/sysinfo') data = metrics;
+  else if (path === '/api/report') data = { files: [], review: [], duplicates: {}, manifest: [] };
+  else if (path === '/api/sources') data = { sources: [], can_browse: true };
+  else if (path === '/api/fs/browse') data = { path: browsePath, dirs: [] };
+  else if (path === '/api/scan' && opts.method === 'POST') data = { job_id: 1 };
+  else if (path === '/api/plans/1') data = {
+    job: { id: 1, kind: planKind, status: 'completed' }, summary: [], items: [], apply_jobs: [], can_confirm: false,
+  };
+  else if (path === '/api/review/1' && opts.method === 'POST') data = { updated: 1, next_id: null };
+  else if (path === '/api/review/1') data = {
+    file: null, fields: ['datetime_original', 'create_date', 'title'].map((field) => ({ field, candidates: [], writable: true, present: false })),
+    proposals: [{ field: 'datetime_original', value: '2020-01-02T03:04:05', origin: 'mtime_utc' }],
+    status: 'pending', kind: 'no_date', details: {},
+  };
+  else if (path === '/api/review') data = { items: [], total: 0, counts: {} };
+  else if (path === '/api/admin/users' && opts.method !== 'PATCH') data = { users: [user], groups: [] };
+  else if (path === '/api/admin/users/test-admin' && opts.method === 'PATCH') data = { ok: true };
+  else if (path === '/api/jobs') data = { items: [], total: 0 };
+  else throw new Error('Unmocked request: ' + url);
+  requests.push({ url: String(url), body: opts.body && JSON.parse(opts.body) });
+  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
+};
+location.hash = '#/home';
+const app = await import('../frontend/static/js/app.js');
+const { t } = await import('../frontend/static/js/i18n.js');
+const sleep = () => new Promise((resolve) => setTimeout(resolve, 30));
+for (let i = 0; i < 100 && !document.querySelector('.user-btn'); i++) await sleep();
+const assert = (ok, message) => { if (!ok) throw new Error(message); };
+const visible = (el) => getComputedStyle(el).display !== 'none';
+const go = async (hash) => { location.hash = hash; await sleep(); await app.route(); await sleep(); };
+const results = [];
+async function test(name, fn) {
+  try { await fn(); results.push({ name, passed: true }); }
+  catch (error) { results.push({ name, passed: false, error: error.message }); }
+  document.getElementById('results').textContent = JSON.stringify(results, null, 2);
+}
+await test('B1: menu dismisses, keeps ARIA in sync and survives shell rebuild', async () => {
+  for (let pass = 0; pass < 2; pass++) {
+    const btn = document.querySelector('.user-btn');
+    const panel = document.querySelector('.menu-panel');
+    assert(!visible(panel), 'menu is initially visible despite hidden');
+    btn.click();
+    assert(visible(panel) && btn.getAttribute('aria-expanded') === 'true', 'menu does not open');
+    panel.querySelector('select').click();
+    assert(visible(panel), 'inside click dismissed the menu');
+    document.querySelector('main').click();
+    assert(!visible(panel) && btn.getAttribute('aria-expanded') === 'false', 'outside click did not close');
+    btn.click();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert(!visible(panel) && document.activeElement === btn, 'Escape did not close and restore focus');
+    btn.click();
+    await go(pass ? '#/home' : '#/scan');
+    assert(!visible(panel) && btn.getAttribute('aria-expanded') === 'false', 'navigation did not close');
+    const { setLanguage } = await import('../frontend/static/js/i18n.js');
+    await setLanguage(pass ? 'en' : 'it');
+    await sleep();
+  }
+});
+await test('B2: metric boxes stay in one row with stable widths and ellipsis', async () => {
+  const box = document.querySelector('.metrics');
+  for (let i = 0; i < 100 && !box.children.length; i++) await sleep();
+  assert(box.children.length > 0, 'metric refresh did not complete');
+  if (!visible(box)) {
+    assert(visible(document.querySelector('.metrics-toggle')), 'narrow screen has no metrics toggle');
+    return;
+  }
+  const chips = [...box.children];
+  const brand = document.querySelector('.brand').getBoundingClientRect();
+  const rect = box.getBoundingClientRect();
+  assert(!visible(document.querySelector('.metrics-toggle')), 'compact toggle is visible on desktop');
+  assert(Math.abs(rect.y + rect.height / 2 - brand.y - brand.height / 2) < 2, 'metrics left the reserved desktop header row');
+  const before = chips.map((el) => el.getBoundingClientRect());
+  chips.forEach((el) => {
+    const value = el.querySelector('.chip-value');
+    if (value) value.textContent = 'Very long changing metric value '.repeat(8);
+  });
+  const after = chips.map((el) => el.getBoundingClientRect());
+  assert(after.every((rect) => Math.abs(rect.y - after[0].y) < 1), 'metric boxes wrapped');
+  assert(after.every((rect, i) => Math.abs(rect.width - before[i].width) < 1), 'metric widths changed with values');
+  const value = chips[0].querySelector('.chip-value');
+  assert(getComputedStyle(value).textOverflow === 'ellipsis' && value.scrollWidth > value.clientWidth, 'long values are not ellipsized');
+});
+await test('B3: user control has reserved space even with long usernames', async () => {
+  const btn = document.querySelector('.user-btn');
+  const old = btn.textContent;
+  btn.textContent = 'long-admin-name-'.repeat(12);
+  const userRect = btn.getBoundingClientRect();
+  const brandRect = document.querySelector('.brand').getBoundingClientRect();
+  const metricBox = document.querySelector('.metrics');
+  const metricRect = metricBox.getBoundingClientRect();
+  try {
+    assert(userRect.x >= 0 && userRect.x + userRect.width <= innerWidth, 'user control leaves the viewport');
+    assert(Math.abs(userRect.y + userRect.height / 2 - brandRect.y - brandRect.height / 2) < 2, 'user control wrapped below the brand');
+    if (visible(metricBox)) assert(metricRect.x + metricRect.width <= userRect.x, 'user control overlaps metrics');
+    assert(btn.scrollWidth > btn.clientWidth, 'long username is not constrained');
+  } finally { btn.textContent = old; }
+});
+await test('B4: scan selection survives page changes including the data root', async () => {
+  for (const path of ['test-folder', '']) {
+    browsePath = path;
+    await go('#/scan');
+    const choose = [...document.querySelectorAll('main button')].find((el) => el.textContent === t('browser.choose'));
+    assert(choose, 'folder browser did not load');
+    choose.click();
+    await go('#/home');
+    await go('#/scan');
+    const codes = [...document.querySelectorAll('main p code')];
+    assert(codes.some((el) => el.textContent === '/data/' + path), 'selected folder label was lost');
+    const before = requests.length;
+    [...document.querySelectorAll('main button')].find((el) => el.textContent === t('scan.start_adhoc')).click();
+    await sleep();
+    assert(requests.slice(before).some((r) => r.url === '/api/scan' && r.body.path === path), 'visible selection was not submitted');
+  }
+  await go('#/home');
+});
+await test('B5: direct plan links highlight their owning section', async () => {
+  const sections = { review_plan: 'review', metadata_analyze: 'metadata', dedupe_plan: 'duplicates',
+    organize_plan: 'organize', undo_moves_plan: 'report', undo_meta_plan: 'report' };
+  for (const [kind, section] of Object.entries(sections)) {
+    planKind = kind;
+    await go('#/plans/1');
+    const active = [...document.querySelectorAll('.mainnav a.active')];
+    assert(active.length === 1 && active[0].getAttribute('href') === '#/' + section, kind + ' has wrong active section');
+    assert(active[0].getAttribute('aria-current') === 'page', 'active section is not announced');
+    const css = getComputedStyle(active[0]);
+    const lum = (color) => {
+      const rgb = color.match(/[\d.]+/g).slice(0, 3).map((v) => {
+        const x = Number(v) / 255; return x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4;
+      });
+      return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
+    };
+    const colors = [lum(css.color), lum(css.backgroundColor)].sort((a, b) => a - b);
+    assert((colors[1] + .05) / (colors[0] + .05) >= 4.5, 'active section contrast is below 4.5:1');
+  }
+  await go('#/home');
+});
+await test('B6: choosing an organizing date discards stale date edits only', async () => {
+  await go('#/review/1');
+  const dateInputs = [...document.querySelectorAll('input[type="datetime-local"]')];
+  dateInputs.forEach((el) => { el.value = '1999-01-01T01:02:03'; });
+  document.querySelector('input[type="text"]').value = 'Test title';
+  const choice = document.querySelector('main select');
+  choice.value = '2020-01-02T03:04:05';
+  choice.dispatchEvent(new Event('change'));
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.save_next')).click();
+  await sleep();
+  const saved = requests.filter((r) => r.url === '/api/review/1' && r.body).at(-1).body;
+  assert(saved.date === choice.value, 'chosen organizing date was lost');
+  assert(!saved.fields.datetime_original && !saved.fields.create_date, 'stale manual dates were submitted for writing');
+  assert(saved.fields.title === 'Test title', 'unrelated manual edit was lost');
+  await go('#/review/1');
+  document.querySelector('input[type="datetime-local"]').value = '1999-01-01T01:02:03';
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.save_next')).click();
+  await sleep();
+  const manual = requests.filter((r) => r.url === '/api/review/1' && r.body).at(-1).body;
+  assert(manual.fields.datetime_original === '1999-01-01T01:02:03', 'manual date without a new choice was lost');
+  await go('#/home');
+});
+await test('B7: completed scans explain new, reused and legacy hashes', async () => {
+  const { jobCard } = await import('../frontend/static/js/components.js');
+  for (const result of [
+    { indexed: 39, hashed: 0, missing: 0, reused: 39, unhashed: 0 },
+    { indexed: 35, hashed: 35, missing: 0, reused: 0, unhashed: 0 },
+    { indexed: 39, hashed: 0, missing: 0 },
+  ]) {
+    const card = jobCard({ id: 1, kind: 'scan', status: 'completed', phase: 'walk', progress_done: 39, result });
+    const text = card.querySelector('.job-meta').textContent;
+    assert(text === t(result.reused === undefined ? 'job.scan_result_legacy' : 'job.scan_result', result), 'scan summary is unclear');
+    assert(!text.includes('walk'), 'stale walk phase is shown for a completed scan');
+  }
+});
+await test('B8: admin can discover Administration and edit own source assignments', async () => {
+  browsePath = 'admin-library';
+  for (const hash of ['#/scan', '#/organize']) {
+    await go(hash);
+    const link = document.querySelector('main a[href="#/admin/users"]');
+    assert(link, hash + ' has no actionable source-assignment link');
+  }
+  const nav = document.querySelector('.mainnav a[href="#/admin/users"]');
+  assert(nav && visible(nav), 'Administration is absent from main navigation');
+  await go('#/admin/users');
+  assert(document.querySelector('.admin-link.active'), 'Administration subpage is not highlighted');
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('admin.edit')).click();
+  await sleep();
+  const editor = document.querySelector('.modal .sources-editor');
+  assert(editor, 'admin cannot edit own sources');
+  [...editor.querySelectorAll('button')].find((el) => el.textContent === t('browser.choose')).click();
+  await sleep();
+  const save = [...document.querySelectorAll('.modal button')].find((el) => el.textContent === t('common.save'));
+  save.click();
+  await sleep();
+  const update = requests.filter((r) => r.url === '/api/admin/users/test-admin' && r.body).at(-1);
+  assert(update?.body.sources?.[0]?.path === browsePath, 'admin source assignment was not submitted');
+  await go('#/home');
+});
+await test('B26: expired sessions stop polling and keep login typing/focus until successful sign-in', async () => {
+  await go('#/jobs');
+  const { get } = await import('../frontend/static/js/api.js');
+  const lateResponse = get('/api/late-session-response').catch((error) => error);
+  authenticated = false;
+  expiring = true;
+  document.dispatchEvent(new Event('visibilitychange'));
+  for (let i = 0; i < 100 && (!expireMetrics || !expireJobs); i++) await sleep();
+  assert(expireMetrics && expireJobs, 'both poll requests must be in flight');
+  expireMetrics();
+  for (let i = 0; i < 100 && !document.querySelector('input[autocomplete="username"]'); i++) await sleep();
+  const form = document.querySelector('.auth-card form');
+  assert(form, 'session expiry did not show login');
+  const pollCount = () => requests.filter((r) => r.url.startsWith('/api/jobs') || r.url === '/api/sysinfo').length;
+  const stopped = pollCount();
+  const username = form.querySelector('input[type="text"]');
+  const password = form.querySelector('input[type="password"]');
+  username.value = 'typing-user';
+  password.value = 'synthetic-only';
+  password.focus();
+  password.setSelectionRange(3, 3);
+  const loginBootstraps = requests.filter((r) => r.url === '/api/bootstrap').length;
+  expireJobs();
+  for (const char of '-typing') {
+    password.setRangeText(char, password.selectionStart, password.selectionEnd, 'end');
+    password.dispatchEvent(new Event('input', { bubbles: true }));
+    document.dispatchEvent(new Event('visibilitychange'));
+    await sleep();
+  }
+  const typed = password.value;
+  const caret = password.selectionStart;
+  await new Promise((resolve) => setTimeout(resolve, 5200));
+  assert(document.querySelector('.auth-card form') === form, 'a late 401 replaced the login form while typing');
+  assert(username.value === 'typing-user' && password.value === typed, 'typed login values were lost');
+  assert(document.activeElement === password && password.selectionStart === caret, 'typing focus/caret was lost');
+  assert(requests.filter((r) => r.url === '/api/bootstrap').length === loginBootstraps, 'late 401 restarted bootstrap');
+  assert(pollCount() === stopped, 'polling continued on the login screen');
+  expiring = false;
+  form.requestSubmit();
+  await sleep();
+  document.dispatchEvent(new Event('visibilitychange'));
+  await sleep();
+  assert(document.querySelector('.auth-card form') === form && password.value === typed && document.activeElement === password, 'failed login lost typing or focus');
+  assert(pollCount() === stopped, 'polling resumed before a successful login');
+  rejectLogin = false;
+  form.requestSubmit();
+  for (let i = 0; i < 100 && !document.querySelector('.topbar'); i++) await sleep();
+  await sleep();
+  assert(document.querySelector('.topbar'), 'successful login did not restore the shell');
+  const resumed = requests.slice(requests.findLastIndex((r) => r.url === '/api/bootstrap') + 1);
+  assert(resumed.some((r) => r.url === '/api/sysinfo') && resumed.some((r) => r.url.startsWith('/api/jobs')), 'polling did not resume after successful login');
+  expireLate();
+  const error = await lateResponse;
+  await sleep();
+  assert(error.status === 401 && document.querySelector('.topbar') && !document.querySelector('.auth-card'), 'an old-session 401 signed out the new session');
+});
+if (app.state.view?.destroy) app.state.view.destroy();
+if (app.state.stopMetrics) app.state.stopMetrics();
+window.testResults = results;
+window.testsDone = true;
+</script>
+</body>
+</html>

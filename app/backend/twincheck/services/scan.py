@@ -139,6 +139,7 @@ def scan_job(ctx: JobContext) -> dict:
         db = ctx.db
         total = int(db.scalar("SELECT COUNT(*) AS n FROM files WHERE owner_id=? AND source_id=? AND present=1 AND phase_hash<>'done'",
                               (ctx.owner_id, source_id)) or 0) + hashed
+        ctx.progress(done=hashed, total=total, phase="hash", force=True)
         last_id = ctx.checkpoint.get("last_id", 0)
         while True:
             ctx.check()
@@ -165,4 +166,8 @@ def scan_job(ctx: JobContext) -> dict:
                 hashed += 1
                 ctx.progress(done=hashed, total=total, phase="hash")
             ctx.save_checkpoint(phase="hash", last_id=last_id, hashed=hashed)
-    return {"indexed": indexed, "missing": missing, "hashed": hashed}
+    ready = int(ctx.db.scalar("SELECT COUNT(*) AS n FROM files WHERE owner_id=? AND source_id=? AND present=1 "
+                              "AND phase_hash='done' AND sha256 IS NOT NULL", (ctx.owner_id, source_id)) or 0)
+    unhashed = int(ctx.db.scalar("SELECT COUNT(*) AS n FROM files WHERE owner_id=? AND source_id=? AND present=1 "
+                                 "AND (phase_hash<>'done' OR sha256 IS NULL)", (ctx.owner_id, source_id)) or 0)
+    return {"indexed": indexed, "missing": missing, "hashed": hashed, "reused": max(0, ready - hashed), "unhashed": unhashed}
