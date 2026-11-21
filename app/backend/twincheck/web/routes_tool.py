@@ -55,9 +55,37 @@ def _area_params(a: dict) -> dict:
 def sources(req: Request):
     core = common.app()
     data_dir = core.settings.data_dir.as_posix()
-    out = [{"id": a["id"], "label": a["label"], "path": disp(req, a["path"]), "dest": disp(req, a["dest"]),
+    out = [{"id": a["id"], "label": a["label"], "path": disp(req, a["path"]), "path_rel": a["path_rel"], "dest": disp(req, a["dest"]),
             "same_as_source": a["path"] == a["dest"]} for a in access.areas(data_dir, req.user)]
-    return JSONResponse({"sources": out, "can_browse": is_admin(req)})
+    return JSONResponse({"sources": out, "can_browse": is_admin(req), "scan_selection": _scan_selection(req)})
+
+
+def _scan_selection(req: Request) -> dict | None:
+    core = common.app()
+    data_dir = core.settings.data_dir.as_posix()
+    assigned = access.areas(data_dir, req.user)
+    latest = core.db.query_one("SELECT params FROM jobs WHERE owner_id=? AND kind='scan' ORDER BY id DESC LIMIT 1",
+                              (req.user["id"],)) if core.db_ready and core.db else None
+    candidates = []
+    if latest:
+        root = json.loads(latest["params"]).get("root")
+        if root:
+            candidates.append(root)
+    if assigned:
+        candidates.append(assigned[0]["path"])
+    for path in candidates:
+        try:
+            real = access.check_path_allowed(data_dir, req.user, path)
+        except PathError:
+            continue                 # inaccessible history is not a usable default
+        if not os.path.isdir(real) or not os.access(real, os.R_OK | os.X_OK):
+            continue
+        area = next((a for a in assigned if os.path.realpath(a["path"]) == real), None)
+        if not area and not is_admin(req):
+            continue
+        return {"path": os.path.relpath(real, os.path.realpath(data_dir)) if real != os.path.realpath(data_dir) else "",
+                "source_id": area["id"] if area else None}
+    return None
 
 
 @router.get("/api/fs/browse")

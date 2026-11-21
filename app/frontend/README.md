@@ -31,6 +31,11 @@ navigation. Admin pages highlight that menu button as the current section;
 the internal admin navigation underlines its current page. Direct admin routes
 redirect base users Home without calling admin APIs.
 
+Scan initializes the selection from the current user's most recent scan when
+still accessible, then the first assigned source. Otherwise an inline message
+asks for a selection. Browsing alone does not select a folder: only the actual
+selection is marked, and its label always matches the submitted source or path.
+
 `GET /api/sysinfo` every 5 s while the tab is visible (`document.visibilitychange` pauses it). On
 narrow screens the metrics collapse into a panel opened by the *System* button; logo and user menu
 stay visible.

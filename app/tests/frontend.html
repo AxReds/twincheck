@@ -15,6 +15,7 @@ const user = { id: 'test-admin', username: 'admin', role: 'admin', lang: 'en', s
 const permissions = { manage_users: true, see_all_sources: true };
 const requests = [];
 let browsePath = 'test-folder';
+let sourceData = { sources: [], can_browse: true, scan_selection: null };
 let planKind = 'review_plan';
 let authenticated = true;
 let rejectLogin = true;
@@ -53,7 +54,7 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/bootstrap') data = { authenticated, user: authenticated ? user : null, permissions };
   else if (path === '/api/sysinfo') data = metrics;
   else if (path === '/api/report') data = { files: [], review: [], duplicates: {}, manifest: [] };
-  else if (path === '/api/sources') data = { sources: [], can_browse: true };
+  else if (path === '/api/sources') data = sourceData;
   else if (path === '/api/fs/browse') data = { path: browsePath, dirs: [] };
   else if (path === '/api/scan' && opts.method === 'POST') data = { job_id: 1 };
   else if (path === '/api/plans/1') data = {
@@ -164,6 +165,31 @@ await test('B4: scan selection survives page changes including the data root', a
     await sleep();
     assert(requests.slice(before).some((r) => r.url === '/api/scan' && r.body.path === path), 'visible selection was not submitted');
   }
+  await go('#/home');
+});
+await test('B4: initial selection and browser markings match the submitted source/path', async () => {
+  const source = { id: 'source-test', label: 'Assigned', path: '/data/assigned', path_rel: 'assigned', same_as_source: true };
+  for (const selection of [{ path: 'previous', source_id: null }, { path: 'assigned', source_id: source.id }, null]) {
+    sourceData = { sources: [source], can_browse: true, scan_selection: selection };
+    app.state.scanPath = null;
+    browsePath = selection?.path || '';
+    await go('#/scan');
+    const chosen = document.querySelector('main p code');
+    assert(chosen.textContent === (selection ? '/data/' + selection.path : ''), 'initial selected label is incorrect');
+    const choose = [...document.querySelectorAll('main button')].find((el) => el.textContent === t('browser.choose'));
+    assert(choose.getAttribute('aria-pressed') === String(Boolean(selection)), 'browser marks a folder that is not selected');
+    const before = requests.length;
+    [...document.querySelectorAll('main button')].find((el) => el.textContent === t('scan.start_adhoc')).click();
+    await sleep();
+    const submitted = requests.slice(before).find((r) => r.url === '/api/scan');
+    if (selection) {
+      assert(submitted && (selection.source_id ? submitted.body.source_id === selection.source_id : submitted.body.path === selection.path), 'label and initial scan submission disagree');
+    } else {
+      assert(!submitted && visible(document.querySelector('main p[role="status"]')), 'no selection must show an inline message, not submit a scan');
+    }
+  }
+  sourceData = { sources: [], can_browse: true, scan_selection: null };
+  app.state.scanPath = null;
   await go('#/home');
 });
 await test('B5: direct plan links highlight their owning section', async () => {

@@ -248,6 +248,38 @@ class Roles(unittest.TestCase):
         finally:
             self.assertEqual(self.admin.patch(f"/api/admin/users/{admin_id}", {"sources": []}).status, 200)
 
+    def test_scan_initial_selection_is_accessible_and_user_scoped(self):
+        first = self.alice.get("/api/sources").json()
+        self.assertEqual(first["scan_selection"]["path"], "alice")
+        self.assertEqual(first["scan_selection"]["source_id"], first["sources"][0]["id"])
+        nested = self.inst.data / "carol" / "last-scan"
+        nested.mkdir(exist_ok=True)
+        admin_id = self.admin.get("/api/bootstrap").json()["user"]["id"]
+        admin_job = self.inst.core.jobs.submit("scan", admin_id, {"source_id": "adhoc", "root": str(nested),
+                                                               "dest": str(nested), "roots": [str(nested)]})
+        wait_job(self.inst.core, admin_job)
+        self.assertEqual(self.admin.get("/api/sources").json()["scan_selection"]["path"], "carol/last-scan")
+        self.assertEqual(self.alice.get("/api/sources").json()["scan_selection"]["path"], "alice",
+                         "another user's newer job must not affect selection")
+        nested.rmdir()
+        self.assertIsNone(self.admin.get("/api/sources").json()["scan_selection"],
+                          "inaccessible last scan and no assigned source means no selection")
+        (self.inst.data / "admin-fallback").mkdir()
+        response = self.admin.patch(f"/api/admin/users/{admin_id}", {"sources": [{"path": "admin-fallback"}]})
+        self.assertEqual(response.status, 200, response.text)
+        try:
+            self.assertEqual(self.admin.get("/api/sources").json()["scan_selection"]["path"], "admin-fallback",
+                             "an inaccessible last scan falls back to the first assigned source")
+        finally:
+            self.assertEqual(self.admin.patch(f"/api/admin/users/{admin_id}", {"sources": []}).status, 200)
+        with self.inst.core.vault.transaction() as data:
+            data["users"][self.alice_id]["sources"][0]["path"] = "missing-test-folder"
+        try:
+            self.assertIsNone(self.alice.get("/api/sources").json()["scan_selection"])
+        finally:
+            with self.inst.core.vault.transaction() as data:
+                data["users"][self.alice_id]["sources"][0]["path"] = "alice"
+
     def test_isolation_between_users(self):
         a_src = self.alice.get("/api/sources").json()["sources"][0]["id"]
         b_src = self.bob.get("/api/sources").json()["sources"][0]["id"]
