@@ -99,3 +99,42 @@ Issue: [#25](https://github.com/AxReds/twincheck/issues/25)
 - **Blocked on a design discussion:** permanent deletion conflicts with the current
   "never delete" rule. This roadmap entry does not change that rule or authorize deletion.
 - Coordinate allowed policies with [#24](https://github.com/AxReds/twincheck/issues/24).
+
+## 7. User folders and administrator root analysis – DESIGN REQUIRED
+Issue: [#32](https://github.com/AxReds/twincheck/issues/32)
+
+- On user creation choose an existing folder or create `/data/users/<username>/`
+  in the UI and assign it as the source automatically.
+- A mistakenly created folder may be removed only when empty (including hidden
+  files and sidecars), unassigned and with no running job.
+- Proposed administrators-group root analysis would exclude Duplicates, Organize
+  destinations, `.twincheck-trash` and NAS system folders such as `@eaDir` and
+  `#recycle`. Root source assignment remains intentionally prohibited today.
+- Phase 1 is analysis only: cross-user reports, no moves. Phase 2 requires no user
+  jobs, locks on user folders and review for every cross-user duplicate.
+- Tracking only; coordinate permissions and settings with
+  [#24](https://github.com/AxReds/twincheck/issues/24),
+  [#25](https://github.com/AxReds/twincheck/issues/25) and NAS safeguards
+  [#6](https://github.com/AxReds/twincheck/issues/6).
+
+## 8. Administrator file-system management and trash – DESIGN REQUIRED
+Issue: [#33](https://github.com/AxReds/twincheck/issues/33)
+
+- Administrators-group UI: create/rename folders, remove only empty folders,
+  background size jobs with progress/cached results, and read-only UID/GID,
+  permissions, file count, modification date and free-space properties.
+- Rename requires no running job, atomic updates of all stored source/index/undo
+  paths, and rollback on failure.
+- "Empty folder" means move contents into `/data/.twincheck-trash/` preserving
+  original paths. Exclude trash from scans and hide it from non-admins.
+- Restore to the original path; an occupied target stops the action without
+  overwriting. No automatic trash expiry; show its size.
+- Proposed "Empty trash" would be the only permanent deletion, administrators only,
+  with selected/all-item preview (count, size, trashed date and actor), double
+  confirmation and audit. **Blocked on design: the current never-delete rule
+  remains unchanged; duplicates are moved, never deleted.**
+- Every action needs preview, confirmation, audit and no jobs on that folder;
+  recheck network shares immediately before acting. Coordinate with
+  [#25](https://github.com/AxReds/twincheck/issues/25),
+  [#24](https://github.com/AxReds/twincheck/issues/24) and
+  [#32](https://github.com/AxReds/twincheck/issues/32). Tracking only.
