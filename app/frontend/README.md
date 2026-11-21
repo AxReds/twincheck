@@ -26,6 +26,11 @@ locales/*.json             translations (see locales/README.md)
 
 ## Header metrics
 
+Administration appears only in the administrative user menu, not the main
+navigation. Admin pages highlight that menu button as the current section;
+the internal admin navigation underlines its current page. Direct admin routes
+redirect base users Home without calling admin APIs.
+
 `GET /api/sysinfo` every 5 s while the tab is visible (`document.visibilitychange` pauses it). On
 narrow screens the metrics collapse into a panel opened by the *System* button; logo and user menu
 stay visible.

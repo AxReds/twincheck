@@ -217,6 +217,23 @@ class Roles(unittest.TestCase):
         self.assertEqual(self.ops.patch("/api/admin/settings", {"default_lang": "en"}).status, 403)
         self.assertEqual(self.ops.post("/api/admin/groups", {"name": "family"}).status, 201)
 
+    def test_every_admin_endpoint_denies_base_users(self):
+        from twincheck.web.app import router
+
+        checked = 0
+        for route in router.routes:
+            if not route.regex.pattern.startswith("^/api/admin/"):
+                continue
+            path = route.regex.pattern.removeprefix("^").removesuffix("$")
+            path = re.sub(r"\(\?P<[^>]+>[^)]+\)", "1", path).replace("\\", "")
+            with self.subTest(method=route.method, path=path):
+                self.assertIsNotNone(route.match(path), "test must exercise the actual registered route")
+                response = self.alice.request(route.method, path, {})
+                self.assertEqual(response.status, 403, response.text)
+                self.assertEqual(response.json()["error"], "forbidden")
+            checked += 1
+        self.assertGreater(checked, 0)
+
     def test_admin_can_assign_own_source(self):
         admin_id = self.admin.get("/api/bootstrap").json()["user"]["id"]
         path = self.inst.data / "admin-own"

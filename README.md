@@ -78,8 +78,9 @@ On a server with **Portainer** you do not need the source code: use the publishe
    `/data` (and optional destination), group them, create administrators (admin only). New users must
    change their temporary password at first sign-in.
    The fixed admin can assign his own source using *Administration → Users → admin →
-   Edit → Sources*. Administration is also available in the user menu; empty Scan
-   and Organize pages link to source assignment for admin roles.
+   Edit → Sources*. Administration is available only in the administrative user menu,
+   above Change password; empty Scan and Organize pages link to source assignment
+   for admin roles. Base users get an instruction to ask an administrator instead.
 4. **Scan** - pick a source; files are indexed and hashed (SHA-256) in the background; you can
    close the browser, the job resumes after a restart.
 5. **Duplicates** - *Analyze*, check the groups (change which file to keep), *Preview move*, confirm.

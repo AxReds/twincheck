@@ -229,10 +229,12 @@ await test('B8: admin can discover Administration and edit own source assignment
     const link = document.querySelector('main a[href="#/admin/users"]');
     assert(link, hash + ' has no actionable source-assignment link');
   }
-  const nav = document.querySelector('.mainnav a[href="#/admin/users"]');
-  assert(nav && visible(nav), 'Administration is absent from main navigation');
+  assert(!document.querySelector('.mainnav a[href="#/admin/users"]'), 'Administration must not be in main navigation');
+  const menuLink = document.querySelector('.menu-panel a[href="#/admin/users"]');
+  assert(menuLink && menuLink.nextElementSibling.getAttribute('href') === '#/me', 'Administration must be above Change password in the user menu');
   await go('#/admin/users');
-  assert(document.querySelector('.admin-link.active'), 'Administration subpage is not highlighted');
+  assert(document.querySelector('.user-btn.active'), 'Administration does not highlight the user menu button');
+  assert(document.querySelectorAll('.active').length === 1, 'admin pages highlight more than one element');
   [...document.querySelectorAll('main button')].find((el) => el.textContent === t('admin.edit')).click();
   await sleep();
   const editor = document.querySelector('.modal .sources-editor');
@@ -245,6 +247,24 @@ await test('B8: admin can discover Administration and edit own source assignment
   const update = requests.filter((r) => r.url === '/api/admin/users/test-admin' && r.body).at(-1);
   assert(update?.body.sources?.[0]?.path === browsePath, 'admin source assignment was not submitted');
   await go('#/home');
+  const { setLanguage } = await import('../frontend/static/js/i18n.js');
+  const perms = app.state.perms;
+  app.state.perms = {};
+  await setLanguage('it');
+  await sleep();
+  assert(!document.querySelector('a[href^="#/admin"]'), 'base user sees an Administration link');
+  for (const hash of ['#/scan', '#/organize']) {
+    await go(hash);
+    assert(document.querySelector('main .notice').textContent === t('scan.no_sources'), 'base user empty state is not clear');
+    assert(!document.querySelector('main a[href^="#/admin"]'), 'base user empty state links to Administration');
+  }
+  const beforeAdmin = requests.filter((r) => r.url.startsWith('/api/admin')).length;
+  await go('#/admin/users');
+  assert(location.hash === '#/home', 'direct admin URL must redirect a base user Home');
+  assert(requests.filter((r) => r.url.startsWith('/api/admin')).length === beforeAdmin, 'base user route called an admin API');
+  app.state.perms = perms;
+  await setLanguage('en');
+  await sleep();
 });
 await test('B26: expired sessions stop polling and keep login typing/focus until successful sign-in', async () => {
   await go('#/jobs');

@@ -11,7 +11,7 @@ export function adminNav(state, active) {
   items.push(['audit', 'admin.audit']);
   if (state.perms.security_settings) items.push(['security', 'admin.security']);
   return [h('p', { class: 'notice warn http-warning', role: 'note' }, t('admin.http_warning')),
-    h('nav', { class: 'subnav', 'aria-label': t('nav.admin') }, items.map(([k, label]) => h('a', { href: '#/admin/' + k, class: k === active ? 'active' : '' }, t(label))))];
+    h('nav', { class: 'subnav', 'aria-label': t('nav.admin') }, items.map(([k, label]) => h('a', { href: '#/admin/' + k, 'aria-current': k === active ? 'page' : undefined }, t(label))))];
 }
 
 function shell(main, state, active, titleKey, ...body) {

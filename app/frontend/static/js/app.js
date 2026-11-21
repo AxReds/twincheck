@@ -83,7 +83,6 @@ function renderShell() {
     h('a', { class: 'brand', href: '#/home' }, h('img', { src: '/static/img/logo.svg', alt: '', class: 'logo' }), h('span', { class: 'brand-name' }, t('app.name'))),
     toggle, metrics, userMenu());
   const nav = h('nav', { class: 'mainnav', 'aria-label': t('nav.label') },
-    state.perms.manage_users ? h('a', { href: '#/admin/users', class: 'admin-link' }, t('nav.admin')) : null,
     NAV.map(([href, key]) => h('a', { href }, t(key))));
   shell = { header, nav, main, metrics };
   mount(root, header, nav, main);
@@ -187,6 +186,10 @@ export async function route() {
   if (state.view && state.view.destroy) state.view.destroy();
   state.view = null;
   const hash = location.hash || '#/home';
+  if ((hash === '#/admin' || hash.startsWith('#/admin/')) && !state.perms.manage_users) {
+    location.hash = '#/home';
+    return;
+  }
   highlightSection(hash);
   const main = clear(shell.main);
   const found = ROUTES.find(([re]) => re.test(hash));
@@ -204,8 +207,13 @@ export async function route() {
 
 function highlightSection(hash) {
   const section = hash === '#' || hash === '#/' ? '#/home' : hash;
+  const adminActive = state.perms.manage_users && (section === '#/admin' || section.startsWith('#/admin/'));
+  const userButton = shell.header.querySelector('.user-btn');
+  userButton.classList.toggle('active', Boolean(adminActive));
+  if (adminActive) userButton.setAttribute('aria-current', 'page');
+  else userButton.removeAttribute('aria-current');
   for (const a of shell.nav.querySelectorAll('a')) {
-    const href = a.classList.contains('admin-link') ? '#/admin' : a.getAttribute('href');
+    const href = a.getAttribute('href');
     const active = section === href || section.startsWith(href + '/');
     a.classList.toggle('active', active);
     if (active) a.setAttribute('aria-current', 'page');
