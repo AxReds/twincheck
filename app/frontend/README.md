@@ -24,6 +24,19 @@ locales/*.json             translations (see locales/README.md)
 * Paths, file names, metadata values, ExifTool tag names and log entries are shown as they are.
 * Insert text with `textContent` / `h()`; never `innerHTML`.
 
+## Theme
+
+Auto follows live OS/browser light/dark changes and is the default. A sun/moon
+button next to the user menu switches directly between Light and Dark; the menu
+also offers Auto / Light / Dark. The header and metrics use the selected palette
+as well as the content and native controls. Login offers the same controls without
+rebuilding the form or losing typed values.
+
+The per-user choice is validated and saved in the encrypted vault through
+`POST /api/me/theme`, without a database schema change. Local storage remembers
+the last choice for the login page; after login the authenticated user's vault
+preference takes precedence. Browser storage failures are reported explicitly.
+
 ## Header metrics
 
 Administration appears only in the administrative user menu, not the main

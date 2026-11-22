@@ -280,6 +280,22 @@ class Roles(unittest.TestCase):
             with self.inst.core.vault.transaction() as data:
                 data["users"][self.alice_id]["sources"][0]["path"] = "alice"
 
+    def test_theme_preference_is_validated_persistent_and_user_scoped(self):
+        for theme in ("dark", "light", "auto"):
+            response = self.alice.post("/api/me/theme", {"theme": theme})
+            self.assertEqual(response.status, 200, response.text)
+            self.assertEqual(self.alice.get("/api/bootstrap").json()["user"]["theme"], theme)
+        self.assertEqual(self.alice.post("/api/me/theme", {"theme": "invalid"}).status, 400)
+        self.assertEqual(self.alice.post("/api/me/theme", {"theme": ["dark"]}).status, 400)
+        self.assertEqual(self.alice.post("/api/me/theme", {"theme": "dark", "user_id": self.bob_id}).status, 200)
+        self.assertEqual(self.bob.get("/api/me").json()["theme"], "auto")
+        self.alice.post("/api/logout")
+        self.assertEqual(self.alice.post("/api/me/theme", {"theme": "light"}).status, 401)
+        self.assertEqual(self.alice.login("alice", self.alice.password).status, 200)
+        self.assertEqual(self.alice.get("/api/bootstrap").json()["user"]["theme"], "dark")
+        self.assertEqual(self.inst.core.vault.data["users"][self.alice_id]["theme"], "dark")
+        self.alice.post("/api/me/theme", {"theme": "auto"})
+
     def test_isolation_between_users(self):
         a_src = self.alice.get("/api/sources").json()["sources"][0]["id"]
         b_src = self.bob.get("/api/sources").json()["sources"][0]["id"]

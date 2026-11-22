@@ -72,5 +72,5 @@ def path_error(exc: PathError):
 
 def user_public(u: dict) -> dict:
     return {"id": u["id"], "username": u["username"], "role": u["role"], "active": u.get("active", True),
-            "groups": u.get("groups", []), "lang": u.get("lang"), "must_change_password": u.get("must_change_password", False),
+            "groups": u.get("groups", []), "lang": u.get("lang"), "theme": u.get("theme", "auto"), "must_change_password": u.get("must_change_password", False),
             "sources": u.get("sources", []), "created_at": u.get("created_at"), "fixed": u["username"] == "admin"}

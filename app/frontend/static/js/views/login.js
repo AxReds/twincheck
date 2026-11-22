@@ -2,6 +2,7 @@ import { h, mount, field, toast } from '../dom.js';
 import { t } from '../i18n.js';
 import { post } from '../api.js';
 import { langSelect } from '../app.js';
+import { themeSelect, themeToggle } from '../theme.js';
 
 export function renderLogin(root, state, reboot) {
   const render = () => {
@@ -24,7 +25,8 @@ export function renderLogin(root, state, reboot) {
     field('login.username', user), field('login.password', pass), msg,
     h('div', { class: 'actions' }, h('button', { type: 'submit', class: 'btn primary' }, t('login.submit'))));
     mount(root, h('div', { class: 'auth-page' }, h('div', { class: 'auth-card' },
-      h('div', { class: 'auth-head' }, h('img', { src: '/static/img/logo.svg', alt: '', class: 'logo' }), h('h1', {}, t('app.name')), langSelect(() => render())),
+      h('div', { class: 'auth-head' }, h('img', { src: '/static/img/logo.svg', alt: '', class: 'logo' }), h('h1', {}, t('app.name')), themeToggle(), langSelect(() => render())),
+      field('theme.label', themeSelect()),
       h('h2', {}, t('login.title')), form, h('p', { class: 'hint' }, t('login.plain_http_notice')))));
     user.focus();
   };

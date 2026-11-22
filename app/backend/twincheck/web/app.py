@@ -22,7 +22,7 @@ from .security import (LANG_COOKIE, SECURITY_HEADERS, SESSION_COOKIE, network_al
 router = Router()
 
 # routes that stay usable during maintenance or before a password change
-OPEN_PATHS = {"/api/login", "/api/logout", "/api/bootstrap", "/api/me", "/api/me/password", "/api/me/lang", "/healthz"}
+OPEN_PATHS = {"/api/login", "/api/logout", "/api/bootstrap", "/api/me", "/api/me/password", "/api/me/lang", "/api/me/theme", "/healthz"}
 
 
 class ASGIApp:
@@ -379,6 +379,16 @@ def set_lang(req: Request):
     with core.vault.transaction() as data:
         data["users"][req.user["id"]]["lang"] = code
     return JSONResponse({"ok": True, "lang": code})
+
+
+@router.post("/api/me/theme")
+def set_theme(req: Request):
+    theme = req.json().get("theme")
+    if theme not in ("auto", "light", "dark"):
+        fail(400, "invalid_theme")
+    with common.app().vault.transaction() as data:
+        data["users"][req.user["id"]]["theme"] = theme
+    return JSONResponse({"ok": True, "theme": theme})
 
 
 # ---------------------------------------------------------------------------------------

@@ -1,11 +1,14 @@
 /* TwinCheck - offline stylesheet. Logical properties only (RTL-safe). */
 :root {
   --bg: #f6f8fa; --fg: #1f2328; --muted: #59636e; --card: #ffffff; --line: #d1d9e0; --accent: #1f6feb; --accent-fg: #ffffff;
-  --ok: #1a7f37; --warn: #9a6700; --crit: #cf222e; --info: #0969da; --topbar: #0d1117; --topbar-fg: #e6edf3; --chip: #161b22;
+  --ok: #1a7f37; --warn: #9a6700; --crit: #cf222e; --info: #0969da; --topbar: #ffffff; --topbar-fg: #1f2328; --chip: #f6f8fa;
+  color-scheme: light;
   --radius: 8px; --gap: 0.75rem; font-size: 15px;
 }
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --card: #151b23; --line: #3d444d; --accent: #4493f8; --accent-fg: #0d1117; --ok: #3fb950; --warn: #d29922; --crit: #f85149; --info: #58a6ff; }
+:root[data-theme="dark"] {
+  --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --card: #151b23; --line: #3d444d; --accent: #4493f8; --accent-fg: #0d1117;
+  --ok: #3fb950; --warn: #d29922; --crit: #f85149; --info: #58a6ff; --topbar: #0d1117; --topbar-fg: #e6edf3; --chip: #161b22;
+  color-scheme: dark;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -24,21 +27,22 @@ h3 { font-size: 1.05rem; margin-block: 1rem 0.4rem; }
 .brand { display: flex; align-items: center; gap: 0.5rem; color: var(--topbar-fg); text-decoration: none; font-weight: 700; flex: 0 0 auto; }
 .logo { inline-size: 32px; block-size: 32px; }
 .metrics { display: grid; grid-column: 2; grid-row: 1; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.35rem; min-inline-size: 0; align-items: center; }
-.metrics > .chip { display: inline-flex; flex-direction: column; background: var(--chip); border: 1px solid #30363d; border-radius: 6px; padding-block: 0.15rem; padding-inline: 0.45rem;
+.metrics > .chip { display: inline-flex; flex-direction: column; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding-block: 0.15rem; padding-inline: 0.45rem;
   font-size: 0.75rem; color: var(--topbar-fg); text-decoration: none; min-inline-size: 0; max-inline-size: 100%; }
-.chip-label { color: #9198a1; font-size: 0.7rem; }
+.chip-label { color: var(--muted); font-size: 0.7rem; }
 .chip-label, .chip-value, .chip.disks summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chip.warn { border-color: var(--warn); } .chip.crit { border-color: var(--crit); }
-.chip .warn { color: #e3b341; } .chip .crit { color: #ff7b72; } .chip .ok { color: #56d364; }
+.chip .warn { color: var(--warn); } .chip .crit { color: var(--crit); } .chip .ok { color: var(--ok); }
 .chip.disks { position: relative; }
 .chip.disks summary { cursor: pointer; }
 .disk-panel { position: absolute; inset-inline-end: 0; inset-block-start: 100%; inline-size: min(90vw, 48rem);
-  padding: 0.5rem; display: grid; gap: 0.4rem; background: var(--chip); border: 1px solid #30363d; border-radius: 6px; }
+  padding: 0.5rem; display: grid; gap: 0.4rem; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; }
 .disk-row code { color: var(--topbar-fg); }
 .topbar .metrics-toggle { display: none; }
-.usermenu { position: relative; grid-column: 3; grid-row: 1; min-inline-size: 0; max-inline-size: min(30vw, 14rem); }
+.header-actions { display: flex; grid-column: 3; grid-row: 1; gap: 0.5rem; align-items: center; }
+.usermenu { position: relative; min-inline-size: 0; max-inline-size: min(30vw, 14rem); }
 .usermenu .user-btn { display: block; max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  background: #21262d; color: var(--topbar-fg); border-color: #30363d; }
+  background: var(--chip); color: var(--topbar-fg); border-color: var(--line); }
 .menu-panel { position: absolute; inset-inline-end: 0; inset-block-start: calc(100% + 4px); background: var(--card); color: var(--fg); border: 1px solid var(--line);
   border-radius: var(--radius); padding: 0.5rem; display: grid; gap: 0.4rem; min-inline-size: 15rem; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
 .menu-who { display: grid; } .menu-row { display: block; text-align: start; }

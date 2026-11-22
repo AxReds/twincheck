@@ -17,7 +17,7 @@ and [`backend/README.md`](backend/README.md) (all environment variables read by 
 
 | Data | Where | Protection |
 |------|-------|-----------|
-| accounts, roles, groups, sources, password hashes (scrypt), per-user language, settings, MariaDB credentials, admin audit log | `/state/vault.enc` | AES-256-GCM, key from `APP_MASTER_KEY` (HKDF; scrypt for passphrases), decrypted only in memory |
+| accounts, roles, groups, sources, password hashes (scrypt), per-user language/theme, settings, MariaDB credentials, admin audit log | `/state/vault.enc` | AES-256-GCM, key from `APP_MASTER_KEY` (HKDF; scrypt for passphrases), decrypted only in memory |
 | index, hashes, duplicates, jobs, checkpoints, execution log, move journal, manifest, metadata before/after, review decisions | operational database (SQLite in `/state` or MariaDB) | no credentials, no user names (only stable user ids); encrypt the disk/volume for encryption at rest |
 | previews | `/state/cache/previews/<user id>/` | deletable at any time |
 

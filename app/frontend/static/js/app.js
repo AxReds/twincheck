@@ -3,6 +3,7 @@ import { h, mount, clear, toast } from './dom.js';
 import { t, fmt, setLanguage, listLocales, browserLanguage, onLanguage, currentLang } from './i18n.js';
 import { get, post, setCsrf } from './api.js';
 import { poll, stopPolling, resumePolling } from './components.js';
+import { setThemeUser, themeSelect, themeToggle } from './theme.js';
 import { renderSetup } from './views/setup.js';
 import { renderLogin } from './views/login.js';
 import * as tool from './views/tool.js';
@@ -39,6 +40,7 @@ async function boot() {
   state.locales = await listLocales();
   const b = await get('/api/bootstrap', { allow401: true });
   state.boot = b;
+  setThemeUser(b.authenticated ? b.user : null);
   const cookieLang = (document.cookie.match(/(?:^|; )tc_lang=([^;]+)/) || [])[1];
   const preferred = (b.user && b.user.lang) || (cookieLang && decodeURIComponent(cookieLang)) || browserLanguage(state.locales) || b.default_lang || 'en';
   await setLanguage(state.locales.some((l) => l.code === preferred) ? preferred : (b.default_lang || 'en'));
@@ -66,6 +68,7 @@ function clearSession() {
   routeGeneration++;
   setCsrf('');
   state.user = null;
+  setThemeUser(null);
   state.perms = {};
   state.scanPath = null;
   lastMetrics = null;
@@ -81,7 +84,7 @@ function renderShell() {
   const main = h('main', { class: 'content', id: 'content', tabindex: '-1' });
   const header = h('header', { class: 'topbar' },
     h('a', { class: 'brand', href: '#/home' }, h('img', { src: '/static/img/logo.svg', alt: '', class: 'logo' }), h('span', { class: 'brand-name' }, t('app.name'))),
-    toggle, metrics, userMenu());
+    toggle, metrics, h('div', { class: 'header-actions' }, themeToggle(), userMenu()));
   const nav = h('nav', { class: 'mainnav', 'aria-label': t('nav.label') },
     NAV.map(([href, key]) => h('a', { href }, t(key))));
   shell = { header, nav, main, metrics };
@@ -99,6 +102,7 @@ function userMenu() {
     h('label', { class: 'menu-row' }, t('common.language'), ' ', langSelect(async (code) => {
       try { await post('/api/me/lang', { lang: code }); } catch (e) { toast(e.message, 'error'); }
     })),
+    h('label', { class: 'menu-row' }, t('theme.label'), ' ', themeSelect()),
     state.perms.manage_users ? h('a', { class: 'menu-row', href: '#/admin/users' }, t('nav.admin')) : null,
     h('a', { class: 'menu-row', href: '#/me' }, t('user.change_password')),
     h('button', { type: 'button', class: 'menu-row link', onclick: logout }, t('user.logout')));

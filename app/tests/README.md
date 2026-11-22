@@ -50,3 +50,10 @@ checks values, focus and caret, waits longer than the system refresh interval to
 check that polling stops, and verifies failed login, successful login and a late
 old-session response.
 Stop the server afterwards. These browser checks supplement the Python suite.
+
+Theme checks exercise Auto/Light/Dark, the sun/moon button, whole-header palette
+and active-section contrast (at least 4.5:1). An embedded synthetic app checks
+actual reload/logout/login persistence and authenticated preference precedence.
+For live system-preference changes, `frontend.html?interactive` leaves the
+synthetic app running and persists its synthetic user theme/session in local
+storage. No real credentials are used.

@@ -11,15 +11,17 @@
 <pre id="results"></pre>
 <script type="module">
 const realFetch = window.fetch.bind(window);
-const user = { id: 'test-admin', username: 'admin', role: 'admin', lang: 'en', sources: [], groups: [], fixed: true, active: true };
+const interactive = location.search.includes('interactive');
+const user = { id: 'test-admin', username: 'admin', role: 'admin', lang: 'en', sources: [], groups: [], fixed: true, active: true,
+  theme: interactive ? (localStorage.getItem('fixture_theme') || 'auto') : 'auto' };
 const permissions = { manage_users: true, see_all_sources: true };
 const requests = [];
 let browsePath = 'test-folder';
 let sourceData = { sources: [], can_browse: true, scan_selection: null };
 let duplicateGroups = [];
 let planKind = 'review_plan';
-let authenticated = true;
-let rejectLogin = true;
+let authenticated = interactive ? localStorage.getItem('fixture_signed_out') !== '1' : true;
+let rejectLogin = !interactive;
 let expiring = false;
 let expireMetrics;
 let expireJobs;
@@ -48,12 +50,23 @@ window.fetch = async (url, opts = {}) => {
   if (path === '/api/login') {
     if (rejectLogin) return new Response(JSON.stringify({ error: 'invalid_credentials' }), { status: 401 });
     authenticated = true;
+    if (interactive) localStorage.removeItem('fixture_signed_out');
+    return new Response('{}');
+  }
+  if (path === '/api/logout') {
+    authenticated = false;
+    if (interactive) localStorage.setItem('fixture_signed_out', '1');
     return new Response('{}');
   }
   let data;
   if (path === '/api/locales') data = [{ code: 'en', name: 'English' }, { code: 'it', name: 'Italiano' }];
   else if (path === '/api/bootstrap') data = { authenticated, user: authenticated ? user : null, permissions };
   else if (path === '/api/sysinfo') data = metrics;
+  else if (path === '/api/me/theme') {
+    user.theme = JSON.parse(opts.body).theme;
+    if (interactive) localStorage.setItem('fixture_theme', user.theme);
+    data = { ok: true, theme: user.theme };
+  }
   else if (path === '/api/report') data = { files: [], review: [], duplicates: {}, manifest: [] };
   else if (path === '/api/sources') data = sourceData;
   else if (path === '/api/fs/browse') data = { path: browsePath, dirs: [] };
@@ -80,9 +93,20 @@ location.hash = '#/home';
 const app = await import('../frontend/static/js/app.js');
 const { t } = await import('../frontend/static/js/i18n.js');
 const sleep = () => new Promise((resolve) => setTimeout(resolve, 30));
-for (let i = 0; i < 100 && !document.querySelector('.user-btn'); i++) await sleep();
+for (let i = 0; i < 100 && !document.querySelector('.user-btn, .auth-card'); i++) await sleep();
 const assert = (ok, message) => { if (!ok) throw new Error(message); };
 const visible = (el) => getComputedStyle(el).display !== 'none';
+const contrast = (el) => {
+  const css = getComputedStyle(el);
+  const lum = (color) => {
+    const rgb = color.match(/[\d.]+/g).slice(0, 3).map((v) => {
+      const x = Number(v) / 255; return x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4;
+    });
+    return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
+  };
+  const colors = [lum(css.color), lum(css.backgroundColor)].sort((a, b) => a - b);
+  return (colors[1] + .05) / (colors[0] + .05);
+};
 const go = async (hash) => { location.hash = hash; await sleep(); await app.route(); await sleep(); };
 const results = [];
 async function test(name, fn) {
@@ -90,6 +114,7 @@ async function test(name, fn) {
   catch (error) { results.push({ name, passed: false, error: error.message }); }
   document.getElementById('results').textContent = JSON.stringify(results, null, 2);
 }
+if (!interactive) {
 await test('B1: menu dismisses, keeps ARIA in sync and survives shell rebuild', async () => {
   for (let pass = 0; pass < 2; pass++) {
     const btn = document.querySelector('.user-btn');
@@ -203,15 +228,7 @@ await test('B5: direct plan links highlight their owning section', async () => {
     const active = [...document.querySelectorAll('.mainnav a.active')];
     assert(active.length === 1 && active[0].getAttribute('href') === '#/' + section, kind + ' has wrong active section');
     assert(active[0].getAttribute('aria-current') === 'page', 'active section is not announced');
-    const css = getComputedStyle(active[0]);
-    const lum = (color) => {
-      const rgb = color.match(/[\d.]+/g).slice(0, 3).map((v) => {
-        const x = Number(v) / 255; return x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4;
-      });
-      return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
-    };
-    const colors = [lum(css.color), lum(css.backgroundColor)].sort((a, b) => a - b);
-    assert((colors[1] + .05) / (colors[0] + .05) >= 4.5, 'active section contrast is below 4.5:1');
+    assert(contrast(active[0]) >= 4.5, 'active section contrast is below 4.5:1');
   }
   await go('#/home');
 });
@@ -367,8 +384,93 @@ await test('B26: expired sessions stop polling and keep login typing/focus until
   await sleep();
   assert(error.status === 401 && document.querySelector('.topbar') && !document.querySelector('.auth-card'), 'an old-session 401 signed out the new session');
 });
+await test('B10/U7: theme controls change the whole palette and preserve section contrast', async () => {
+  for (const mode of ['light', 'dark', 'auto']) {
+    const selector = document.querySelector('.theme-select');
+    selector.value = mode;
+    selector.dispatchEvent(new Event('change'));
+    await sleep();
+    const expected = mode === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : mode;
+    assert(document.documentElement.dataset.theme === expected, 'theme mode is not applied');
+    assert(getComputedStyle(document.documentElement).colorScheme === expected, 'native control theme disagrees');
+    assert(getComputedStyle(document.querySelector('.topbar')).backgroundColor === (expected === 'dark' ? 'rgb(13, 17, 23)' : 'rgb(255, 255, 255)'), 'header did not switch with content');
+    assert(localStorage.getItem('tc_theme') === mode && user.theme === mode, 'theme was not remembered locally and per user');
+    await go('#/plans/1');
+    assert(contrast(document.querySelector('.mainnav .active')) >= 4.5, 'active tab contrast below 4.5:1');
+    await go('#/admin/users');
+    assert(document.querySelectorAll('.active').length === 1 && contrast(document.querySelector('.user-btn.active')) >= 4.5, 'active Administration contrast/count wrong');
+    const toggle = document.querySelector('.theme-toggle');
+    const rect = toggle.getBoundingClientRect();
+    assert(visible(toggle) && rect.left >= 0 && rect.right <= innerWidth, 'theme icon is not always visible');
+    toggle.click();
+    await sleep();
+    assert(document.documentElement.dataset.theme !== expected, 'sun/moon button did not switch theme');
+    await go('#/home');
+  }
+  document.querySelector('.theme-select').value = 'auto';
+  document.querySelector('.theme-select').dispatchEvent(new Event('change'));
+  await sleep();
+});
+await test('B10/U7: theme persists through real reload and logout/login', async () => {
+  localStorage.removeItem('fixture_theme');
+  localStorage.removeItem('fixture_signed_out');
+  const frame = document.createElement('iframe');
+  frame.hidden = true;
+  const loaded = () => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('theme persistence fixture did not load')), 8000);
+    frame.addEventListener('load', () => { clearTimeout(timer); resolve(); }, { once: true });
+  });
+  const firstLoad = loaded();
+  frame.src = 'frontend.html?interactive';
+  document.body.appendChild(frame);
+  const ready = async (selector) => {
+    for (let i = 0; i < 100 && !frame.contentDocument.querySelector(selector); i++) await sleep();
+    assert(frame.contentDocument.querySelector(selector), 'theme fixture did not render ' + selector);
+  };
+  try {
+    await firstLoad;
+    await ready('.user-btn');
+    for (const mode of ['auto', 'light', 'dark']) {
+      let doc = frame.contentDocument;
+      const selector = doc.querySelector('.theme-select');
+      selector.value = mode;
+      selector.dispatchEvent(new frame.contentWindow.Event('change'));
+      await sleep();
+      const expected = mode === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : mode;
+      const reloaded = loaded();
+      frame.contentWindow.location.reload();
+      await reloaded;
+      await ready('.user-btn');
+      doc = frame.contentDocument;
+      assert(doc.documentElement.dataset.theme === expected && doc.querySelector('.theme-select').value === mode, 'theme preference lost after reload');
+      const loggedOut = loaded();
+      doc.querySelector('.menu-panel button').click();
+      await loggedOut;
+      await ready('.auth-card');
+      doc = frame.contentDocument;
+      assert(doc.querySelector('.auth-card') && doc.documentElement.dataset.theme === expected, 'login page lost remembered theme after logout');
+      const loginSelector = doc.querySelector('.theme-select');
+      loginSelector.value = expected === 'dark' ? 'light' : 'dark';
+      loginSelector.dispatchEvent(new frame.contentWindow.Event('change'));
+      await sleep();
+      const form = doc.querySelector('form');
+      form.querySelector('input[type="text"]').value = 'synthetic-user';
+      form.querySelector('input[type="password"]').value = 'synthetic-only';
+      form.requestSubmit();
+      for (let i = 0; i < 100 && !doc.querySelector('.topbar'); i++) await sleep();
+      assert(doc.querySelector('.topbar') && doc.documentElement.dataset.theme === expected &&
+        doc.querySelector('.theme-select').value === mode, 'authenticated per-user theme did not override login-page preference');
+    }
+  } finally {
+    frame.remove();
+    localStorage.removeItem('fixture_theme');
+    localStorage.removeItem('fixture_signed_out');
+    localStorage.setItem('tc_theme', 'auto');
+  }
+});
 if (app.state.view?.destroy) app.state.view.destroy();
 if (app.state.stopMetrics) app.state.stopMetrics();
+}
 window.testResults = results;
 window.testsDone = true;
 </script>
