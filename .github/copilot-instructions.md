@@ -83,7 +83,7 @@ Repository
 
 ## How to work
 
-The work plan is in ROADMAP.md; each item has a GitHub issue. Read it before starting a new feature.
+The work plan is in docs/ROADMAP.md; each item has a GitHub issue. Read it before starting a new feature.
 
 - Run the tests from the repository root before every commit:
   `python -B -m unittest discover -s app/tests`

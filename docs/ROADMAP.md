@@ -138,3 +138,17 @@ Issue: [#33](https://github.com/AxReds/twincheck/issues/33)
   [#25](https://github.com/AxReds/twincheck/issues/25),
   [#24](https://github.com/AxReds/twincheck/issues/24) and
   [#32](https://github.com/AxReds/twincheck/issues/32). Tracking only.
+
+## To be evaluated
+
+### U8. User groups
+Issue: [#37](https://github.com/AxReds/twincheck/issues/37)
+
+- Groups currently are labels only, with no permissions or shared folders.
+- Evaluate their value for 1.1.0: shared group folders, group policies such as
+  trash management, an administrators group, or removing groups altogether.
+- No design has been selected. Tracking only: rc.4 does not change group
+  semantics, access checks, source overlap safeguards or the never-delete rule.
+- Related: [#24](https://github.com/AxReds/twincheck/issues/24),
+  [#32](https://github.com/AxReds/twincheck/issues/32) and
+  [#33](https://github.com/AxReds/twincheck/issues/33).

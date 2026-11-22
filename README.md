@@ -39,7 +39,7 @@ overwritten, every write is previewed and needs your click, and everything can b
 
 ## Roadmap
 
-See the [TwinCheck roadmap](ROADMAP.md) for planned improvements.
+See the [TwinCheck roadmap](docs/ROADMAP.md) for planned improvements.
 [Vote on roadmap issues](https://github.com/AxReds/twincheck/issues?q=is:open+label:roadmap+sort:reactions-+1-desc)
 with a 👍, or propose new ideas in [Discussions](https://github.com/AxReds/twincheck/discussions/categories/ideas).
 

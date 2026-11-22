@@ -26,7 +26,7 @@ to record the results. The step IDs match the template.
   Use the checklist from the tested tag/commit when testing an older release.
 
 These are checks of existing behavior, not requirements for unfinished
-[roadmap](../ROADMAP.md) features. In particular, duplicates must be
+[roadmap](ROADMAP.md) features. In particular, duplicates must be
 byte-identical and file-system modification times are preserved, not reset
 to the capture date. Network-share write safeguards are not yet a release
 guarantee: use local disposable storage for these write tests.
