@@ -10,7 +10,7 @@ import os
 import stat
 
 from ..db.schema import utcnow
-from ..fsutil import ext_of, media_kind, path_hash, sha256_file
+from ..fsutil import ext_of, is_within, media_kind, path_hash, sha256_file
 from ..jobs import JobContext, register
 
 BATCH = 200
@@ -94,6 +94,7 @@ def index_dir(ctx: JobContext, source_id: str, files: list, scan_job: int) -> in
 def scan_job(ctx: JobContext) -> dict:
     roots: list[str] = ctx.params["roots"]
     source_id: str = ctx.params["source_id"]
+    partial = ctx.params.get("partial_scan", False)
     patterns = ctx.app.settings_section("scan").get("exclude", [])
     cp = ctx.checkpoint
     phase = cp.get("phase", "walk")
@@ -124,6 +125,8 @@ def scan_job(ctx: JobContext) -> dict:
                         "(last_scan_job IS NULL OR last_scan_job <> ?)", (ctx.owner_id, source_id, ctx.id))
         with db.transaction():
             for r in rows:
+                if partial and not any(is_within(r["cur_path"], root) for root in roots):
+                    continue
                 if not os.path.lexists(r["cur_path"]):
                     db.execute("UPDATE files SET present=0, updated_at=? WHERE id=?", (utcnow(), r["id"]))
                     ctx.log("FILE_MISSING", level="WARNING", path=r["cur_path"])
@@ -135,16 +138,18 @@ def scan_job(ctx: JobContext) -> dict:
         phase = "hash"
 
     hashed = cp.get("hashed", 0)
+    hash_scope = "owner_id=? AND source_id=? AND present=1" + (" AND last_scan_job=?" if partial else "")
+    hash_args = (ctx.owner_id, source_id) + ((ctx.id,) if partial else ())
     if phase == "hash":
         db = ctx.db
-        total = int(db.scalar("SELECT COUNT(*) AS n FROM files WHERE owner_id=? AND source_id=? AND present=1 AND phase_hash<>'done'",
-                              (ctx.owner_id, source_id)) or 0) + hashed
+        total = int(db.scalar(f"SELECT COUNT(*) AS n FROM files WHERE {hash_scope} AND phase_hash<>'done'",
+                              hash_args) or 0) + hashed
         ctx.progress(done=hashed, total=total, phase="hash", force=True)
         last_id = ctx.checkpoint.get("last_id", 0)
         while True:
             ctx.check()
-            rows = db.query("SELECT id, cur_path, size, mtime_ns FROM files WHERE owner_id=? AND source_id=? AND present=1 "
-                            "AND phase_hash<>'done' AND id>? ORDER BY id LIMIT ?", (ctx.owner_id, source_id, last_id, BATCH))
+            rows = db.query(f"SELECT id, cur_path, size, mtime_ns FROM files WHERE {hash_scope} "
+                            "AND phase_hash<>'done' AND id>? ORDER BY id LIMIT ?", hash_args + (last_id, BATCH))
             if not rows:
                 break
             for r in rows:
@@ -166,8 +171,8 @@ def scan_job(ctx: JobContext) -> dict:
                 hashed += 1
                 ctx.progress(done=hashed, total=total, phase="hash")
             ctx.save_checkpoint(phase="hash", last_id=last_id, hashed=hashed)
-    ready = int(ctx.db.scalar("SELECT COUNT(*) AS n FROM files WHERE owner_id=? AND source_id=? AND present=1 "
-                              "AND phase_hash='done' AND sha256 IS NOT NULL", (ctx.owner_id, source_id)) or 0)
-    unhashed = int(ctx.db.scalar("SELECT COUNT(*) AS n FROM files WHERE owner_id=? AND source_id=? AND present=1 "
-                                 "AND (phase_hash<>'done' OR sha256 IS NULL)", (ctx.owner_id, source_id)) or 0)
+    ready = int(ctx.db.scalar(f"SELECT COUNT(*) AS n FROM files WHERE {hash_scope} "
+                              "AND phase_hash='done' AND sha256 IS NOT NULL", hash_args) or 0)
+    unhashed = int(ctx.db.scalar(f"SELECT COUNT(*) AS n FROM files WHERE {hash_scope} "
+                                 "AND (phase_hash<>'done' OR sha256 IS NULL)", hash_args) or 0)
     return {"indexed": indexed, "missing": missing, "hashed": hashed, "reused": max(0, ready - hashed), "unhashed": unhashed}

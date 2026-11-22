@@ -62,6 +62,9 @@ selection is marked, and its label always matches the submitted source or path.
 Base users can browse each assigned source and select its subfolders. The tree
 stops at the source root; listing and scanning enforce that boundary server-side,
 including resolved symlinks. Assigned destinations are not additional scan roots.
+Selecting a subfolder scans and counts only that subtree; it does not scan the
+destination or change missing/hash bookkeeping for files outside the selection.
+Whole-source scans retain their existing source-plus-destination behaviour.
 
 `GET /api/sysinfo` every 5 s while the tab is visible (`document.visibilitychange` pauses it). On
 narrow screens the metrics collapse into a panel opened by the *System* button; logo and user menu

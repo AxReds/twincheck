@@ -1,5 +1,6 @@
 """Setup wizard, authentication, network restrictions, headers, roles, isolation."""
 import os
+import json
 import re
 import time
 import unittest
@@ -360,6 +361,13 @@ class Roles(unittest.TestCase):
         sources = base.get("/api/sources").json()
         self.assertTrue(sources["can_browse"])
         sid = sources["sources"][0]["id"]
+        sibling = inst.data / "mine/sibling.jpg"
+        sibling.write_bytes(b"synthetic sibling")
+        (inst.data / "mine-dest/destination.jpg").write_bytes(b"synthetic destination")
+        first_job = base.post("/api/scan", {"source_id": sid}).json()["job_id"]
+        self.assertEqual(wait_job(inst.core, first_job)["status"], "completed")
+        inst.core.db.execute("UPDATE files SET sha256=NULL, phase_hash='pending' WHERE owner_id=? AND cur_path=?", (owner, str(sibling)))
+        sibling.rename(inst.data / "mine/sibling-moved.jpg")
         for path, names in (("mine", ["child"]), ("mine/child", ["deeper"])):
             response = base.get("/api/fs/browse?path=" + quote(path, safe=""))
             self.assertEqual(response.status, 200, response.text)
@@ -369,7 +377,12 @@ class Roles(unittest.TestCase):
         self.assertEqual(response.status, 202, response.text)
         job = wait_job(inst.core, response.json()["job_id"])
         self.assertEqual(job["status"], "completed")
-        self.assertEqual(inst.core.db.scalar("SELECT COUNT(*) FROM files WHERE owner_id=?", (owner,)), 1)
+        saved = inst.core.db.query_one("SELECT params, result FROM jobs WHERE id=?", (response.json()["job_id"],))
+        self.assertEqual(json.loads(saved["params"])["roots"], [str(inst.data / "mine/child")])
+        self.assertEqual(json.loads(saved["result"]), {"indexed": 1, "missing": 0, "hashed": 0, "reused": 1, "unhashed": 0})
+        self.assertEqual(inst.core.db.scalar("SELECT COUNT(*) FROM files WHERE owner_id=?", (owner,)), 3)
+        outside = inst.core.db.query_one("SELECT present, phase_hash, last_scan_job FROM files WHERE owner_id=? AND cur_path=?", (owner, str(sibling)))
+        self.assertEqual(outside, {"present": 1, "phase_hash": "pending", "last_scan_job": first_job})
         self.assertEqual(base.get("/api/sources").json()["scan_selection"], {"path": "mine/child", "source_id": sid})
         for bad in ("", "foreign", "mine-dest", "../foreign", "mine/../../etc", "/etc",
                     str(inst.data / "foreign"), "mine/escape", "mine/outside"):

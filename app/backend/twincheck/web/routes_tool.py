@@ -194,11 +194,13 @@ def job_action(req: Request):
 def start_scan(req: Request):
     body = req.json()
     a = _area(req, body)
+    partial = False
     if not is_admin(req) and body.get("path") is not None:
         try:
             _, selected = access.source_for_path(common.app().settings.data_dir.as_posix(), req.user, body["path"], a["id"])
         except PathError as exc:
             fail(403 if exc.code in ("outside_source", "source_not_assigned") else 400, exc.code)
+        partial = selected != os.path.realpath(a["path"])
         a = {**a, "path": selected}
     if not os.path.isdir(a["path"]):
         fail(400, "not_found")
@@ -207,7 +209,10 @@ def start_scan(req: Request):
                         (req.user["id"], f'%"source_id": "{a["id"]}"%'))
     if busy:
         fail(409, "already_running", job_id=busy["id"])
-    return _submit(req, "scan", _area_params(a))
+    params = _area_params(a)
+    if partial:
+        params.update(roots=[a["path"]], partial_scan=True)
+    return _submit(req, "scan", params)
 
 
 @router.post("/api/duplicates/analyze")
