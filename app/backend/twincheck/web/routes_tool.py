@@ -57,7 +57,7 @@ def sources(req: Request):
     data_dir = core.settings.data_dir.as_posix()
     out = [{"id": a["id"], "label": a["label"], "path": disp(req, a["path"]), "path_rel": a["path_rel"], "dest": disp(req, a["dest"]),
             "same_as_source": a["path"] == a["dest"]} for a in access.areas(data_dir, req.user)]
-    return JSONResponse({"sources": out, "can_browse": is_admin(req), "scan_selection": _scan_selection(req)})
+    return JSONResponse({"sources": out, "can_browse": is_admin(req) or bool(out), "scan_selection": _scan_selection(req)})
 
 
 def _scan_selection(req: Request) -> dict | None:
@@ -80,9 +80,13 @@ def _scan_selection(req: Request) -> dict | None:
             continue                 # inaccessible history is not a usable default
         if not os.path.isdir(real) or not os.access(real, os.R_OK | os.X_OK):
             continue
-        area = next((a for a in assigned if os.path.realpath(a["path"]) == real), None)
-        if not area and not is_admin(req):
-            continue
+        if is_admin(req):
+            area = next((a for a in assigned if os.path.realpath(a["path"]) == real), None)
+        else:
+            try:
+                area, real = access.source_for_path(data_dir, req.user, real)
+            except PathError:
+                continue
         return {"path": os.path.relpath(real, os.path.realpath(data_dir)) if real != os.path.realpath(data_dir) else "",
                 "source_id": area["id"] if area else None}
     return None
@@ -90,14 +94,19 @@ def _scan_selection(req: Request) -> dict | None:
 
 @router.get("/api/fs/browse")
 def browse(req: Request):
-    """Directories under /data (admin roles only: they choose sources and ad-hoc roots)."""
-    require(req, "see_all_sources")
+    """Directories under /data for admins, or within an assigned source for users."""
     core = common.app()
+    data_dir = core.settings.data_dir.as_posix()
+    boundary = os.path.realpath(data_dir)
     try:
-        real = access.check_path_allowed(core.settings.data_dir.as_posix(), req.user, req.query.get("path", ""))
+        if is_admin(req):
+            real = access.check_path_allowed(data_dir, req.user, req.query.get("path", ""))
+        else:
+            area, real = access.source_for_path(data_dir, req.user, req.query.get("path", ""))
+            boundary = os.path.realpath(area["path"])
     except PathError as exc:
-        fail(400, exc.code)
-    root = os.path.realpath(core.settings.data_dir.as_posix())
+        fail(403 if not is_admin(req) and exc.code in ("outside_source", "source_not_assigned") else 400, exc.code)
+    root = os.path.realpath(data_dir)
     dirs = []
     try:
         for e in sorted(os.scandir(real), key=lambda e: e.name):
@@ -105,7 +114,8 @@ def browse(req: Request):
                 dirs.append(e.name)
     except OSError:
         fail(400, "not_readable")
-    return JSONResponse({"path": os.path.relpath(real, root) if real != root else "", "dirs": dirs[:2000]})
+    return JSONResponse({"path": os.path.relpath(real, root) if real != root else "", "dirs": dirs[:2000],
+                         "root": os.path.relpath(boundary, root) if boundary != root else "", "display_path": disp(req, real)})
 
 
 # --- jobs -------------------------------------------------------------------------------
@@ -182,7 +192,14 @@ def job_action(req: Request):
 # --- scan / duplicates / metadata / organise / undo / verify ---------------------------------
 @router.post("/api/scan")
 def start_scan(req: Request):
-    a = _area(req, req.json())
+    body = req.json()
+    a = _area(req, body)
+    if not is_admin(req) and body.get("path") is not None:
+        try:
+            _, selected = access.source_for_path(common.app().settings.data_dir.as_posix(), req.user, body["path"], a["id"])
+        except PathError as exc:
+            fail(403 if exc.code in ("outside_source", "source_not_assigned") else 400, exc.code)
+        a = {**a, "path": selected}
     if not os.path.isdir(a["path"]):
         fail(400, "not_found")
     db = need_db()

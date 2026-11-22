@@ -48,6 +48,9 @@ Scan initializes the selection from the current user's most recent scan when
 still accessible, then the first assigned source. Otherwise an inline message
 asks for a selection. Browsing alone does not select a folder: only the actual
 selection is marked, and its label always matches the submitted source or path.
+Base users can browse each assigned source and select its subfolders. The tree
+stops at the source root; listing and scanning enforce that boundary server-side,
+including resolved symlinks. Assigned destinations are not additional scan roots.
 
 `GET /api/sysinfo` every 5 s while the tab is visible (`document.visibilitychange` pauses it). On
 narrow screens the metrics collapse into a panel opened by the *System* button; logo and user menu

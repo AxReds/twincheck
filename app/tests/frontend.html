@@ -17,6 +17,7 @@ const user = { id: 'test-admin', username: 'admin', role: 'admin', lang: 'en', s
 const permissions = { manage_users: true, see_all_sources: true };
 const requests = [];
 let browsePath = 'test-folder';
+let browseTree = null;
 let sourceData = { sources: [], can_browse: true, scan_selection: null };
 let duplicateGroups = [];
 let planKind = 'review_plan';
@@ -69,7 +70,8 @@ window.fetch = async (url, opts = {}) => {
   }
   else if (path === '/api/report') data = { files: [], review: [], duplicates: {}, manifest: [] };
   else if (path === '/api/sources') data = sourceData;
-  else if (path === '/api/fs/browse') data = { path: browsePath, dirs: [] };
+  else if (path === '/api/fs/browse') data = browseTree ?
+    browseTree[new URL(String(url), location.href).searchParams.get('path')] : { path: browsePath, dirs: [] };
   else if (path === '/api/scan' && opts.method === 'POST') data = { job_id: 1 };
   else if (path === '/api/plans/1') data = {
     job: { id: 1, kind: planKind, status: 'completed' }, summary: [], items: [], apply_jobs: [], can_confirm: false,
@@ -231,6 +233,45 @@ await test('B5: direct plan links highlight their owning section', async () => {
     assert(contrast(active[0]) >= 4.5, 'active section contrast is below 4.5:1');
   }
   await go('#/home');
+});
+await test('B11: base-user tree stays within sources and submits the selected subfolder', async () => {
+  const perms = app.state.perms;
+  app.state.perms = {};
+  sourceData = { sources: [
+    { id: 'own', label: 'Mine', path: 'Mine', path_rel: 'mine', same_as_source: true },
+    { id: 'second', label: 'Other source', path: 'Other source', path_rel: 'second', same_as_source: true },
+  ], can_browse: true, scan_selection: { path: 'mine', source_id: 'own' } };
+  browseTree = {
+    mine: { path: 'mine', root: 'mine', display_path: 'Mine', dirs: ['child'] },
+    'mine/child': { path: 'mine/child', root: 'mine', display_path: 'Mine/child', dirs: [] },
+    second: { path: 'second', root: 'second', display_path: 'Other source', dirs: [] },
+  };
+  app.state.scanPath = null;
+  try {
+    await go('#/scan');
+    assert(![...document.querySelectorAll('.browser button')].some((b) => b.textContent === '..'), 'source root exposes parent navigation');
+    [...document.querySelectorAll('.browser button')].find((b) => b.textContent === 'child/').click();
+    await sleep();
+    assert(document.querySelector('.browser-head code').textContent === 'Mine/child', 'subfolder was not browsed within source label');
+    [...document.querySelectorAll('.browser button')].find((b) => b.textContent === t('browser.choose')).click();
+    [...document.querySelectorAll('main button')].find((b) => b.textContent === t('scan.start')).click();
+    await sleep();
+    const submitted = requests.filter((r) => r.url === '/api/scan').at(-1).body;
+    assert(submitted.source_id === 'own' && submitted.path === 'mine/child', 'selected subfolder was not submitted with its source');
+    assert(document.querySelector('main p code').textContent === 'Mine/child', 'selected label does not match subfolder');
+    const select = document.querySelector('main select');
+    select.value = 'second';
+    select.dispatchEvent(new Event('change'));
+    await sleep();
+    assert(document.querySelector('.browser-head code').textContent === 'Other source', 'switching assigned sources did not switch browser');
+    assert(![...document.querySelectorAll('.browser button')].some((b) => b.textContent === '..'), 'second source exposes parent navigation');
+  } finally {
+    app.state.perms = perms;
+    sourceData = { sources: [], can_browse: true, scan_selection: null };
+    browseTree = null;
+    app.state.scanPath = null;
+    await go('#/home');
+  }
 });
 await test('B6: choosing an organizing date discards stale date edits only', async () => {
   await go('#/review/1');

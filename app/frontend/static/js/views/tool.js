@@ -56,35 +56,40 @@ function noSources(state) {
 
 export async function scan(main, state) {
   const { select, sources, canBrowse, scanSelection } = await sourceSelect();
+  const adminBrowse = Boolean(state.perms.see_all_sources);
   if (state.scanPath === null && scanSelection) state.scanPath = scanSelection.path;
-  const selectedSource = () => sources.find((s) => s.path_rel === state.scanPath);
+  const selectedSource = () => sources.find((s) => s.path_rel === state.scanPath ||
+    (!adminBrowse && state.scanPath?.startsWith(s.path_rel + '/')));
   select.value = selectedSource()?.id || '';
   const adhocLabel = h('code', {});
   const noSelection = h('p', { class: 'notice warn', role: 'status' }, t('scan.choose_folder'));
   const updateSelection = () => {
-    adhocLabel.textContent = state.scanPath === null ? '' : (canBrowse ? '/data/' + state.scanPath : selectedSource()?.path || '');
+    const source = selectedSource();
+    adhocLabel.textContent = state.scanPath === null ? '' : (adminBrowse ? '/data/' + state.scanPath :
+      source ? source.path + state.scanPath.slice(source.path_rel.length) : '');
     noSelection.hidden = state.scanPath !== null;
     select.value = selectedSource()?.id || '';
     browser?.querySelector('.browser')?.dispatchEvent(new Event('po:folder-selected'));
   };
-  const browser = canBrowse ? h('details', { class: 'panel' }, h('summary', {}, t('scan.browse_data')),
-    folderBrowser((p) => { state.scanPath = p; updateSelection(); }, state.scanPath ?? '', () => state.scanPath)) : null;
+  const browser = canBrowse ? h('details', { class: 'panel' }, h('summary', {}, t(adminBrowse ? 'scan.browse_data' : 'scan.source')),
+    folderBrowser((p) => { state.scanPath = p; updateSelection(); }, state.scanPath ?? (adminBrowse ? '' : null), () => state.scanPath)) : null;
   select.addEventListener('change', () => {
     state.scanPath = sources.find((s) => s.id === select.value)?.path_rel ?? null;
     updateSelection();
+    browser?.querySelector('.browser')?.dispatchEvent(new CustomEvent('po:folder-browse', { detail: state.scanPath }));
   });
   updateSelection();
   const startSelected = () => {
     if (state.scanPath === null) { noSelection.hidden = false; return; }
     const source = selectedSource();
-    startJob('/api/scan', source ? { source_id: source.id } : { path: state.scanPath });
+    startJob('/api/scan', source ? { source_id: source.id, ...(state.scanPath !== source.path_rel ? { path: state.scanPath } : {}) } : { path: state.scanPath });
   };
   page(main, 'scan.title', 'scan.intro',
     sources.length ? field('scan.source', select) : noSources(state),
     browser, h('p', {}, t('scan.adhoc_selected'), ' ', adhocLabel), noSelection,
     h('div', { class: 'actions' },
       sources.length ? button('scan.start', startSelected, 'primary') : null,
-      canBrowse ? button('scan.start_adhoc', startSelected) : null),
+      adminBrowse ? button('scan.start_adhoc', startSelected) : null),
     h('h2', {}, t('scan.jobs')));
   const jl = jobList(main, 'kind=scan&limit=10');
   return { destroy: jl.stop };

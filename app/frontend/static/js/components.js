@@ -110,19 +110,21 @@ export function folderBrowser(onPick, start = '', selectedPath = null) {
   };
   box.addEventListener('po:folder-selected', mark);
   const load = async (path) => {
+    if (path === null) { mount(box); return; }
     let data;
     try { data = await get('/api/fs/browse?path=' + encodeURIComponent(path)); } catch (e) { toast(e.message, 'error'); return; }
     const parent = data.path.includes('/') ? data.path.slice(0, data.path.lastIndexOf('/')) : '';
     currentPath = data.path;
     choose = button('browser.choose', () => { onPick(data.path); mark(); }, selectedPath ? 'small' : 'primary small');
     mount(box,
-      h('div', { class: 'browser-head' }, h('code', {}, '/data/' + data.path),
+      h('div', { class: 'browser-head' }, h('code', {}, data.display_path || '/data/' + data.path),
         choose),
       h('ul', { class: 'browser-list' },
-        data.path ? h('li', {}, h('button', { type: 'button', class: 'link', onclick: () => load(parent) }, '..')) : null,
+        data.path && data.path !== data.root ? h('li', {}, h('button', { type: 'button', class: 'link', onclick: () => load(parent) }, '..')) : null,
         data.dirs.map((d) => h('li', {}, h('button', { type: 'button', class: 'link', onclick: () => load((data.path ? data.path + '/' : '') + d) }, d + '/')))));
     mark();
   };
+  box.addEventListener('po:folder-browse', (event) => load(event.detail));
   load(start);
   return box;
 }

@@ -77,6 +77,16 @@ def check_path_allowed(data_dir: str, user: dict, path: str, must_exist: bool = 
     raise PathError("outside_source")
 
 
+def source_for_path(data_dir: str, user: dict, path: str, source_id: str | None = None) -> tuple[dict, str]:
+    """Resolve a selected folder inside an assigned source, not its destination."""
+    assigned = [find_area(data_dir, user, source_id)] if source_id else areas(data_dir, user)
+    real = check_path_allowed(data_dir, user, path)
+    for area in assigned:
+        if is_within(real, os.path.realpath(area["path"])):
+            return area, real
+    raise PathError("outside_source")
+
+
 def display_path(data_dir: str, user: dict, path: str | None) -> str | None:
     """Base users see paths relative to their own source label; admins see /data paths."""
     if path is None:

@@ -4,6 +4,7 @@ import re
 import time
 import unittest
 from pathlib import Path
+from urllib.parse import quote
 
 from helpers import APP_DIR, STRONG, Client, Instance, make_user, sample_library, wait_job
 from test_crypto_vault import run_cli
@@ -303,7 +304,7 @@ class Roles(unittest.TestCase):
         wait_job(self.inst.core, self.bob.post("/api/scan", {"source_id": b_src}).json()["job_id"])
         # alice cannot scan bob's source nor an arbitrary path
         self.assertEqual(self.alice.post("/api/scan", {"source_id": b_src}).status, 403)
-        self.assertEqual(self.alice.post("/api/scan", {"source_id": a_src, "path": "bob"}).status in (202, 409), True)
+        self.assertEqual(self.alice.post("/api/scan", {"source_id": a_src, "path": "bob"}).status, 403)
         bob_file = self.inst.core.db.query_one("SELECT id FROM files WHERE owner_id=?", (self.bob_id,))["id"]
         self.assertEqual(self.alice.get(f"/api/files/{bob_file}/content").status, 404)
         self.assertEqual(self.bob.get(f"/api/files/{bob_file}/content").status, 200)
@@ -344,6 +345,45 @@ class Roles(unittest.TestCase):
             self.assertEqual((r.status, r.json()["error"]), (400, "source_overlap_other_user"))
         finally:
             os.unlink(self.inst.data / "alice" / "escape")
+
+    def test_base_user_browses_and_scans_only_assigned_source_subfolders(self):
+        inst = self.inst
+        admin = self.admin
+        for name in ("mine/child/deeper", "mine-dest", "second", "foreign"):
+            (inst.data / name).mkdir(parents=True)
+        photo = inst.data / "mine/child/deeper/sample.jpg"
+        photo.write_bytes(b"synthetic scan fixture")
+        os.symlink(inst.data / "foreign", inst.data / "mine/escape")
+        os.symlink("/etc", inst.data / "mine/outside")
+        owner, base = make_user(admin, "subfolder-user", [{"path": "mine", "dest": "mine-dest"}, {"path": "second"}])
+        self.addCleanup(lambda: self.assertEqual(admin.delete("/api/admin/users/" + owner).status, 200))
+        sources = base.get("/api/sources").json()
+        self.assertTrue(sources["can_browse"])
+        sid = sources["sources"][0]["id"]
+        for path, names in (("mine", ["child"]), ("mine/child", ["deeper"])):
+            response = base.get("/api/fs/browse?path=" + quote(path, safe=""))
+            self.assertEqual(response.status, 200, response.text)
+            self.assertEqual(response.json()["dirs"], names)
+            self.assertEqual(response.json()["root"], "mine")
+        response = base.post("/api/scan", {"source_id": sid, "path": "mine/child"})
+        self.assertEqual(response.status, 202, response.text)
+        job = wait_job(inst.core, response.json()["job_id"])
+        self.assertEqual(job["status"], "completed")
+        self.assertEqual(inst.core.db.scalar("SELECT COUNT(*) FROM files WHERE owner_id=?", (owner,)), 1)
+        self.assertEqual(base.get("/api/sources").json()["scan_selection"], {"path": "mine/child", "source_id": sid})
+        for bad in ("", "foreign", "mine-dest", "../foreign", "mine/../../etc", "/etc",
+                    str(inst.data / "foreign"), "mine/escape", "mine/outside"):
+            with self.subTest(path=bad):
+                listed = base.get("/api/fs/browse?path=" + quote(bad, safe=""))
+                scanned = base.post("/api/scan", {"source_id": sid, "path": bad})
+                self.assertIn(listed.status, (400, 403), listed.text)
+                self.assertIn(scanned.status, (400, 403), scanned.text)
+        self.assertEqual(base.post("/api/scan", {"source_id": sid, "path": "second"}).status, 403)
+        self.assertEqual(base.get("/api/fs/browse?path=second").status, 200)
+        self.assertEqual(admin.get("/api/fs/browse").status, 200)
+        response = admin.post("/api/scan", {"path": "foreign"})
+        self.assertEqual(response.status, 202, response.text)
+        self.assertEqual(wait_job(inst.core, response.json()["job_id"])["status"], "completed")
 
     def test_overlapping_sources_rejected(self):
         r = self.admin.post("/api/admin/users", {"username": "eve", "password": STRONG, "sources": [{"path": "alice/side"}]})
