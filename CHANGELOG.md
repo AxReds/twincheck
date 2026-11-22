@@ -4,6 +4,36 @@ All notable changes are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.1-rc.4] - 2026-11-22
+
+### Fixed
+
+- Base users can browse and scan subfolders of their assigned sources without leaving those source boundaries. Partial scans process and count only the chosen subtree; unrelated files and destinations are left alone ([#34](https://github.com/AxReds/twincheck/issues/34)).
+- After logout, the login page remembers the last authenticated user's theme in that browser, even when another user previously selected a different theme; a first visit defaults to Auto ([#35](https://github.com/AxReds/twincheck/issues/35)).
+
+### Changed
+
+- Main navigation, user-menu entries and Administration tabs now include bundled inline SVG icons with GPL-compatible ISC/MIT notices, visible labels, accessible names and readable light/dark contrast; no CDN or runtime network dependency ([#36](https://github.com/AxReds/twincheck/issues/36)).
+
+### Verified by owner
+
+- Initial scan selection, active-section highlighting, Administration placement, complete light/dark themes and the persistent theme selector were verified on rc.3 ([#15](https://github.com/AxReds/twincheck/issues/15), [#16](https://github.com/AxReds/twincheck/issues/16), [#19](https://github.com/AxReds/twincheck/issues/19), [#29](https://github.com/AxReds/twincheck/issues/29), [#31](https://github.com/AxReds/twincheck/issues/31)).
+- User-menu dismissal, stable header boxes, reserved user-button space and expired-session login remain verified on rc.2 ([#12](https://github.com/AxReds/twincheck/issues/12), [#13](https://github.com/AxReds/twincheck/issues/13), [#14](https://github.com/AxReds/twincheck/issues/14), [#26](https://github.com/AxReds/twincheck/issues/26)).
+
+### Awaiting owner retest
+
+- Review date edits, scan hash reporting and shared duplicate capture dates have not yet been retested by the owner; those issues remain open and were not updated in this task ([#17](https://github.com/AxReds/twincheck/issues/17), [#18](https://github.com/AxReds/twincheck/issues/18), [#28](https://github.com/AxReds/twincheck/issues/28)).
+- Assigned subfolder browsing/scanning, last-user login theme and menu icons need rc.4 acceptance ([#34](https://github.com/AxReds/twincheck/issues/34), [#35](https://github.com/AxReds/twincheck/issues/35), [#36](https://github.com/AxReds/twincheck/issues/36)).
+- This is the last planned candidate before stable 1.0.1, not a stable release or approval to merge draft PR #27. The current never-delete and offline rules remain unchanged.
+
+### Tracked for later
+
+- User groups: evaluate meaningful group folders/policies, an administrators group, or removal for 1.1.0; no design or permission change implemented ([#37](https://github.com/AxReds/twincheck/issues/37)).
+- Readable preview summaries ([#20](https://github.com/AxReds/twincheck/issues/20)), discarding previews and metadata undo links ([#21](https://github.com/AxReds/twincheck/issues/21)), side-by-side date decisions ([#22](https://github.com/AxReds/twincheck/issues/22)) and coordinated timestamp wording ([#23](https://github.com/AxReds/twincheck/issues/23)).
+- Admin Settings/user Preferences beyond themes ([#24](https://github.com/AxReds/twincheck/issues/24)), guarded duplicate management pending deletion design ([#25](https://github.com/AxReds/twincheck/issues/25)) and side-by-side media previews ([#30](https://github.com/AxReds/twincheck/issues/30)).
+- User folders/root analysis ([#32](https://github.com/AxReds/twincheck/issues/32)) and guarded file-system/trash management ([#33](https://github.com/AxReds/twincheck/issues/33)); tracking/design only, no user-file deletion.
+- Existing roadmap issues #1-#8 and CI enhancement [#10](https://github.com/AxReds/twincheck/issues/10) remain deferred.
+
 ## [1.0.1-rc.3] - 2026-11-22
 
 ### Fixed
@@ -90,6 +120,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Duplicates folder preview/restore and a design discussion on guarded deletion;
   the current "never delete" rule is unchanged ([#25](https://github.com/AxReds/twincheck/issues/25)).
 
+[1.0.1-rc.4]: https://github.com/AxReds/twincheck/compare/v1.0.1-rc.3...v1.0.1-rc.4
 [1.0.1-rc.3]: https://github.com/AxReds/twincheck/compare/v1.0.1-rc.2...v1.0.1-rc.3
 [1.0.1-rc.2]: https://github.com/AxReds/twincheck/compare/v1.0.1-rc.1...v1.0.1-rc.2
 [1.0.1-rc.1]: https://github.com/AxReds/twincheck/compare/v1.0.0...v1.0.1-rc.1
