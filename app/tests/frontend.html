@@ -112,13 +112,19 @@ const assert = (ok, message) => { if (!ok) throw new Error(message); };
 const visible = (el) => getComputedStyle(el).display !== 'none';
 const contrast = (el) => {
   const css = getComputedStyle(el);
+  let background = css.backgroundColor;
+  let parent = el.parentElement;
+  while (/rgba\([^)]*,\s*0\)$/.test(background) && parent) {
+    background = getComputedStyle(parent).backgroundColor;
+    parent = parent.parentElement;
+  }
   const lum = (color) => {
     const rgb = color.match(/[\d.]+/g).slice(0, 3).map((v) => {
       const x = Number(v) / 255; return x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4;
     });
     return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
   };
-  const colors = [lum(css.color), lum(css.backgroundColor)].sort((a, b) => a - b);
+  const colors = [lum(css.color), lum(background)].sort((a, b) => a - b);
   return (colors[1] + .05) / (colors[0] + .05);
 };
 const go = async (hash) => { location.hash = hash; await sleep(); await app.route(); await sleep(); };
@@ -546,6 +552,34 @@ await test('B12: login remembers the last authenticated user, not the previous s
         'logout login theme does not belong to the last user: ' + username);
     }
   }, true);
+});
+await test('U9: offline menu icons retain visible labels, accessible names and contrast', async () => {
+  const perms = app.state.perms;
+  app.state.perms = { ...perms, transfer_database: true, security_settings: true };
+  try {
+    await go('#/admin/users');
+    document.querySelector('.user-btn').click();
+    const links = [...document.querySelectorAll('.mainnav a, .subnav a, .menu-panel a, .menu-panel button')];
+    assert(document.querySelectorAll('.subnav a').length === 7, 'administration tabs missing');
+    for (const link of links) {
+      const svg = link.querySelector('svg.nav-icon');
+      const label = link.querySelector('.nav-label');
+      assert(svg?.namespaceURI === 'http://www.w3.org/2000/svg' && svg.children.length, 'menu icon is not an inline SVG');
+      assert(svg.getAttribute('aria-hidden') === 'true' && svg.getAttribute('focusable') === 'false', 'decorative icon is announced or focusable');
+      assert(!svg.querySelector('image, use, foreignObject'), 'icon has an external resource dependency');
+      assert(label?.textContent.trim() && visible(label) && label.getBoundingClientRect().width > 0, 'visible text label missing');
+      if (link.closest('nav')) assert(link.getAttribute('aria-label') === label.textContent && link.title === label.textContent, 'navigation accessible name/tooltip changed');
+      assert(getComputedStyle(svg).stroke === getComputedStyle(link).color && contrast(link) >= 4.5, 'icon/text contrast below 4.5:1');
+      const rect = link.getBoundingClientRect();
+      assert(rect.left >= 0 && rect.right <= innerWidth, 'menu icon or label overflows viewport');
+    }
+    for (const label of document.querySelectorAll('.menu-panel label.menu-row')) assert(label.querySelector('svg.nav-icon'), 'menu selector icon missing');
+    assert(document.documentElement.scrollWidth <= innerWidth, 'icons introduced horizontal page overflow');
+    document.querySelector('main').click();
+  } finally {
+    app.state.perms = perms;
+    await go('#/home');
+  }
 });
 if (app.state.view?.destroy) app.state.view.destroy();
 if (app.state.stopMetrics) app.state.stopMetrics();

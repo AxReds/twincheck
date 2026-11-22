@@ -4,6 +4,7 @@ import { t, fmt, setLanguage, listLocales, browserLanguage, onLanguage, currentL
 import { get, post, setCsrf } from './api.js';
 import { poll, stopPolling, resumePolling } from './components.js';
 import { setThemeUser, themeSelect, themeToggle } from './theme.js';
+import { icon } from './icons.js';
 import { renderSetup } from './views/setup.js';
 import { renderLogin } from './views/login.js';
 import * as tool from './views/tool.js';
@@ -25,8 +26,8 @@ const ROUTES = [
 ];
 
 const NAV = [
-  ['#/home', 'nav.home'], ['#/scan', 'nav.scan'], ['#/duplicates', 'nav.duplicates'], ['#/metadata', 'nav.metadata'],
-  ['#/review', 'nav.review'], ['#/organize', 'nav.organize'], ['#/report', 'nav.report'], ['#/jobs', 'nav.jobs'], ['#/logs', 'nav.logs'],
+  ['#/home', 'nav.home', 'house'], ['#/scan', 'nav.scan', 'folder-search'], ['#/duplicates', 'nav.duplicates', 'copy'], ['#/metadata', 'nav.metadata', 'file-text'],
+  ['#/review', 'nav.review', 'list-checks'], ['#/organize', 'nav.organize', 'folder-tree'], ['#/report', 'nav.report', 'undo-2'], ['#/jobs', 'nav.jobs', 'activity'], ['#/logs', 'nav.logs', 'scroll-text'],
 ];
 
 export function langSelect(onChange) {
@@ -86,7 +87,7 @@ function renderShell() {
     h('a', { class: 'brand', href: '#/home' }, h('img', { src: '/static/img/logo.svg', alt: '', class: 'logo' }), h('span', { class: 'brand-name' }, t('app.name'))),
     toggle, metrics, h('div', { class: 'header-actions' }, themeToggle(), userMenu()));
   const nav = h('nav', { class: 'mainnav', 'aria-label': t('nav.label') },
-    NAV.map(([href, key]) => h('a', { href }, t(key))));
+    NAV.map(([href, key, name]) => h('a', { href, title: t(key), 'aria-label': t(key) }, icon(name), h('span', { class: 'nav-label' }, t(key)))));
   shell = { header, nav, main, metrics };
   mount(root, header, nav, main);
   stopMetrics();
@@ -99,13 +100,13 @@ function userMenu() {
   const u = state.user;
   const panel = h('div', { class: 'menu-panel', hidden: true },
     h('div', { class: 'menu-who' }, h('strong', {}, u.username), h('span', { class: 'muted' }, t('role.' + u.role))),
-    h('label', { class: 'menu-row' }, t('common.language'), ' ', langSelect(async (code) => {
+    h('label', { class: 'menu-row' }, icon('languages'), t('common.language'), ' ', langSelect(async (code) => {
       try { await post('/api/me/lang', { lang: code }); } catch (e) { toast(e.message, 'error'); }
     })),
-    h('label', { class: 'menu-row' }, t('theme.label'), ' ', themeSelect()),
-    state.perms.manage_users ? h('a', { class: 'menu-row', href: '#/admin/users' }, t('nav.admin')) : null,
-    h('a', { class: 'menu-row', href: '#/me' }, t('user.change_password')),
-    h('button', { type: 'button', class: 'menu-row link', onclick: logout }, t('user.logout')));
+    h('label', { class: 'menu-row' }, icon('sun-moon'), t('theme.label'), ' ', themeSelect()),
+    state.perms.manage_users ? h('a', { class: 'menu-row', href: '#/admin/users' }, icon('shield'), h('span', { class: 'nav-label' }, t('nav.admin'))) : null,
+    h('a', { class: 'menu-row', href: '#/me' }, icon('key-round'), h('span', { class: 'nav-label' }, t('user.change_password'))),
+    h('button', { type: 'button', class: 'menu-row link', onclick: logout }, icon('log-out'), h('span', { class: 'nav-label' }, t('user.logout'))));
   const btn = h('button', { type: 'button', class: 'btn user-btn', 'aria-haspopup': 'true', 'aria-expanded': 'false' }, u.username, ' ▾');
   btn.addEventListener('click', () => { panel.hidden = !panel.hidden; btn.setAttribute('aria-expanded', String(!panel.hidden)); });
   return h('div', { class: 'usermenu' }, btn, panel);

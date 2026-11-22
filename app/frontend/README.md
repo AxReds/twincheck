@@ -11,6 +11,7 @@ static/js/i18n.js          minimal i18n: t(key, params), Intl.PluralRules, Intl 
 static/js/api.js           JSON client with CSRF header and translated errors
 static/js/dom.js           DOM helpers (text nodes only, never innerHTML)
 static/js/components.js    job cards, polling (paused when the tab is hidden), folder browser
+static/js/icons.js         bundled inline SVG menu icons (Lucide ISC / Feather MIT)
 static/js/views/*.js       setup, login, tool pages, review, administration, export & migration
 static/img/logo.svg        logo (folder + photo + calendar), readable on light and dark backgrounds
 static/img/favicon.svg     favicon
@@ -23,6 +24,13 @@ locales/*.json             translations (see locales/README.md)
   `python3 app/tools/check_locales.py` fails on hard-coded text and on keys missing from `en.json`.
 * Paths, file names, metadata values, ExifTool tag names and log entries are shown as they are.
 * Insert text with `textContent` / `h()`; never `innerHTML`.
+
+Navigation, user-menu rows and Administration tabs use bundled Lucide inline SVG
+icons. Geometry is constructed with `createElementNS`, not fetched at runtime.
+The [ISC/MIT notices](static/js/icons.LICENSE) ship with the app; both licenses
+are compatible with GPL-3.0. Icons inherit text color, are `aria-hidden` and
+non-focusable; visible labels remain at every width. Navigation links also keep
+translated accessible names and tooltips. Narrow layouts wrap without hiding text.
 
 ## Theme
 

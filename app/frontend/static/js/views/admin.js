@@ -4,14 +4,15 @@ import { t, fmt } from '../i18n.js';
 import { get, post, patch, del } from '../api.js';
 import { folderBrowser, kv, pager } from '../components.js';
 import { testResult } from './setup.js';
+import { icon } from '../icons.js';
 
 export function adminNav(state, active) {
-  const items = [['users', 'admin.users'], ['groups', 'admin.groups'], ['settings', 'admin.settings'], ['database', 'admin.database']];
-  if (state.perms.transfer_database) items.push(['transfer', 'admin.transfer']);
-  items.push(['audit', 'admin.audit']);
-  if (state.perms.security_settings) items.push(['security', 'admin.security']);
+  const items = [['users', 'admin.users', 'users-round'], ['groups', 'admin.groups', 'users-round'], ['settings', 'admin.settings', 'sliders-horizontal'], ['database', 'admin.database', 'database']];
+  if (state.perms.transfer_database) items.push(['transfer', 'admin.transfer', 'arrow-right-left']);
+  items.push(['audit', 'admin.audit', 'list-checks']);
+  if (state.perms.security_settings) items.push(['security', 'admin.security', 'shield']);
   return [h('p', { class: 'notice warn http-warning', role: 'note' }, t('admin.http_warning')),
-    h('nav', { class: 'subnav', 'aria-label': t('nav.admin') }, items.map(([k, label]) => h('a', { href: '#/admin/' + k, 'aria-current': k === active ? 'page' : undefined }, t(label))))];
+    h('nav', { class: 'subnav', 'aria-label': t('nav.admin') }, items.map(([k, label, name]) => h('a', { href: '#/admin/' + k, title: t(label), 'aria-label': t(label), 'aria-current': k === active ? 'page' : undefined }, icon(name), h('span', { class: 'nav-label' }, t(label)))))];
 }
 
 function shell(main, state, active, titleKey, ...body) {
