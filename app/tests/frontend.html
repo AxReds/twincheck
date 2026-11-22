@@ -12,8 +12,13 @@
 <script type="module">
 const realFetch = window.fetch.bind(window);
 const interactive = location.search.includes('interactive');
+const fixtureUsers = {
+  'dark-user': { id: 'synthetic-dark', username: 'dark-user', role: 'user', theme: 'dark' },
+  'light-user': { id: 'synthetic-light', username: 'light-user', role: 'admin', theme: 'light' },
+};
 const user = { id: 'test-admin', username: 'admin', role: 'admin', lang: 'en', sources: [], groups: [], fixed: true, active: true,
-  theme: interactive ? (localStorage.getItem('fixture_theme') || 'auto') : 'auto' };
+  theme: interactive ? (localStorage.getItem('fixture_theme') || 'auto') : 'auto',
+  ...(interactive ? fixtureUsers[localStorage.getItem('fixture_user')] : {}) };
 const permissions = { manage_users: true, see_all_sources: true };
 const requests = [];
 let browsePath = 'test-folder';
@@ -51,7 +56,14 @@ window.fetch = async (url, opts = {}) => {
   if (path === '/api/login') {
     if (rejectLogin) return new Response(JSON.stringify({ error: 'invalid_credentials' }), { status: 401 });
     authenticated = true;
-    if (interactive) localStorage.removeItem('fixture_signed_out');
+    if (interactive) {
+      const username = JSON.parse(opts.body).username;
+      if (fixtureUsers[username]) {
+        Object.assign(user, fixtureUsers[username]);
+        localStorage.setItem('fixture_user', username);
+      }
+      localStorage.removeItem('fixture_signed_out');
+    }
     return new Response('{}');
   }
   if (path === '/api/logout') {
@@ -452,9 +464,10 @@ await test('B10/U7: theme controls change the whole palette and preserve section
   document.querySelector('.theme-select').dispatchEvent(new Event('change'));
   await sleep();
 });
-await test('B10/U7: theme persists through real reload and logout/login', async () => {
-  localStorage.removeItem('fixture_theme');
-  localStorage.removeItem('fixture_signed_out');
+async function interactiveFixture(run, signedOut = false) {
+  const saved = ['fixture_theme', 'fixture_signed_out', 'fixture_user', 'tc_theme'].map((key) => [key, localStorage.getItem(key)]);
+  saved.forEach(([key]) => localStorage.removeItem(key));
+  if (signedOut) localStorage.setItem('fixture_signed_out', '1');
   const frame = document.createElement('iframe');
   frame.hidden = true;
   const loaded = () => new Promise((resolve, reject) => {
@@ -470,7 +483,15 @@ await test('B10/U7: theme persists through real reload and logout/login', async 
   };
   try {
     await firstLoad;
-    await ready('.user-btn');
+    await ready(signedOut ? '.auth-card' : '.user-btn');
+    await run({ frame, loaded, ready });
+  } finally {
+    frame.remove();
+    saved.forEach(([key, value]) => value === null ? localStorage.removeItem(key) : localStorage.setItem(key, value));
+  }
+}
+await test('B10/U7: theme persists through real reload and logout/login', async () => {
+  await interactiveFixture(async ({ frame, loaded, ready }) => {
     for (const mode of ['auto', 'light', 'dark']) {
       let doc = frame.contentDocument;
       const selector = doc.querySelector('.theme-select');
@@ -502,12 +523,29 @@ await test('B10/U7: theme persists through real reload and logout/login', async 
       assert(doc.querySelector('.topbar') && doc.documentElement.dataset.theme === expected &&
         doc.querySelector('.theme-select').value === mode, 'authenticated per-user theme did not override login-page preference');
     }
-  } finally {
-    frame.remove();
-    localStorage.removeItem('fixture_theme');
-    localStorage.removeItem('fixture_signed_out');
-    localStorage.setItem('tc_theme', 'auto');
-  }
+  });
+});
+await test('B12: login remembers the last authenticated user, not the previous selector choice', async () => {
+  await interactiveFixture(async ({ frame, loaded, ready }) => {
+    assert(frame.contentDocument.querySelector('.theme-select').value === 'auto', 'first visit with no history must use Auto');
+    for (const username of ['dark-user', 'light-user', 'dark-user']) {
+      let doc = frame.contentDocument;
+      const form = doc.querySelector('form');
+      form.querySelector('input[type="text"]').value = username;
+      form.querySelector('input[type="password"]').value = 'synthetic-only';
+      form.requestSubmit();
+      await ready('.user-btn');
+      const expected = fixtureUsers[username].theme;
+      assert(doc.documentElement.dataset.theme === expected, 'authenticated user theme was not restored');
+      const loggedOut = loaded();
+      doc.querySelector('.menu-panel button').click();
+      await loggedOut;
+      await ready('.auth-card');
+      doc = frame.contentDocument;
+      assert(doc.documentElement.dataset.theme === expected && doc.querySelector('.theme-select').value === expected,
+        'logout login theme does not belong to the last user: ' + username);
+    }
+  }, true);
 });
 if (app.state.view?.destroy) app.state.view.destroy();
 if (app.state.stopMetrics) app.state.stopMetrics();

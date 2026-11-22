@@ -38,9 +38,19 @@ function apply() {
   document.querySelectorAll('.theme-select, .theme-toggle').forEach(updateControl);
 }
 
+function rememberTheme(value) {
+  try { localStorage.setItem('tc_theme', value); }
+  catch (error) {
+    if (!(error instanceof DOMException)) throw error;
+    console.warn('THEME_STORAGE_UNAVAILABLE', error.name);
+    toast(t('theme.storage_unavailable'), 'error');
+  }
+}
+
 export function setThemeUser(value) {
   user = value;
   preference = value ? (choices.includes(value.theme) ? value.theme : 'auto') : storedTheme();
+  if (value) rememberTheme(preference);
   apply();
 }
 
@@ -54,12 +64,7 @@ async function changeTheme(value) {
     if (user !== currentUser) return;
     preference = value;
     if (currentUser) currentUser.theme = value;
-    try { localStorage.setItem('tc_theme', value); }
-    catch (error) {
-      if (!(error instanceof DOMException)) throw error;
-      console.warn('THEME_STORAGE_UNAVAILABLE', error.name);
-      toast(t('theme.storage_unavailable'), 'error');
-    }
+    rememberTheme(value);
   } catch (error) { toast(error.message, 'error'); }
   finally { saving = false; apply(); }
 }

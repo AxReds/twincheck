@@ -54,6 +54,8 @@ Stop the server afterwards. These browser checks supplement the Python suite.
 Theme checks exercise Auto/Light/Dark, the sun/moon button, whole-header palette
 and active-section contrast (at least 4.5:1). An embedded synthetic app checks
 actual reload/logout/login persistence and authenticated preference precedence.
+Alternating synthetic Dark/Light users in the same browser verifies that logout
+remembers the last authenticated user, including a first visit with no history.
 For live system-preference changes, `frontend.html?interactive` leaves the
 synthetic app running and persists its synthetic user theme/session in local
 storage. No real credentials are used.

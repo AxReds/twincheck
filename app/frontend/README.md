@@ -34,8 +34,11 @@ rebuilding the form or losing typed values.
 
 The per-user choice is validated and saved in the encrypted vault through
 `POST /api/me/theme`, without a database schema change. Local storage remembers
-the last choice for the login page; after login the authenticated user's vault
-preference takes precedence. Browser storage failures are reported explicitly.
+the last authenticated user's restored choice as well as selector changes for
+the login page; after login the authenticated user's vault preference takes
+precedence. Logout therefore retains that user's theme even when another user
+previously chose a different theme in this browser. Browser storage failures
+are reported explicitly.
 
 ## Header metrics
 
