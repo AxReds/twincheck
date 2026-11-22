@@ -10,7 +10,7 @@ from ..db.schema import utcnow
 from ..fsutil import PathError
 from ..previews import ensure as ensure_preview
 from ..services import access
-from ..services.dedupe import group_members, set_keeper
+from ..services.dedupe import group_members, keeper_decision, set_keeper
 from ..services.metadata import FIELDS, WRITABLE, field_table, parse_dt
 from . import common
 from .app import router
@@ -218,10 +218,14 @@ def duplicates(req: Request):
     groups = []
     for g in rows:
         members = group_members(db, g)
+        if not any(m["id"] == g["keeper_file_id"] for m in members):
+            fail(409, "file_changed")
+        decision = keeper_decision(members, g["keeper_file_id"])
         groups.append({"id": g["id"], "size": g["size"], "sha256": g["sha256"], "keeper_file_id": g["keeper_file_id"],
+                       **decision,
                        "recoverable": g["size"] * (len(members) - 1),
                        "members": [{"id": m["id"], "path": disp(req, m["cur_path"]) if (is_admin(req) or m["owner_id"] == req.user["id"]) else None,
-                                    "date": m["chosen_date"], "owner": (common.app().user(m["owner_id"]) or {}).get("username") if is_admin(req) else None}
+                                    "date": decision["capture_date"], "owner": (common.app().user(m["owner_id"]) or {}).get("username") if is_admin(req) else None}
                                    for m in members]})
     return JSONResponse({"groups": groups, "total": int(agg["n"] or 0), "recoverable": int(agg["rec"] or 0)})
 

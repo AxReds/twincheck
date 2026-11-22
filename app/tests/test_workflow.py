@@ -294,6 +294,62 @@ class Workflow(unittest.TestCase):
         result = client.get(f"/api/jobs/{fourth}").json()["result"]
         self.assertEqual((result["hashed"], result["reused"], result["unhashed"]), (0, 0, 1))
 
+    def test_duplicate_group_shared_capture_date_and_keeper_rule(self):
+        from helpers import jpeg_bytes
+
+        for mode in ("one-dated", "none-dated", "both-dated"):
+            with self.subTest(mode=mode):
+                root = self.inst.data / ("dup-" + mode)
+                first = root / "known" / "one.jpg"
+                second = root / "copies" / "nested" / "two.jpg"
+                first.parent.mkdir(parents=True)
+                second.parent.mkdir(parents=True)
+                first.write_bytes(jpeg_bytes(155))
+                if mode != "none-dated":
+                    set_tags(first, {"ExifIFD:DateTimeOriginal": "2007:07:31 10:00:00"})
+                shutil.copyfile(first, second)        # real ExifTool may have changed the bytes
+                self.assertEqual(first.read_bytes(), second.read_bytes())
+                os.utime(first, (1_700_000_000, 1_700_000_000))
+                os.utime(second, (1_000_000_000, 1_000_000_000))
+                uid, client = make_user(self.admin, "dup-" + mode,
+                                        [{"path": str(first.parent.relative_to(self.inst.data))},
+                                         {"path": str((root / "copies").relative_to(self.inst.data))}])
+                sources = client.get("/api/sources").json()["sources"]
+                for source in sources:
+                    self.run_job("/api/scan", {"source_id": source["id"]}, client)
+                if mode != "none-dated":
+                    self.run_job("/api/metadata/analyze", {"source_id": sources[0]["id"]} if mode == "one-dated" else {}, client)
+                if mode == "one-dated":
+                    copy = self.inst.core.db.query_one("SELECT chosen_date, phase_meta FROM files WHERE owner_id=? AND name='two.jpg'", (uid,))
+                    self.assertIsNone(copy["chosen_date"])
+                    self.assertEqual(copy["phase_meta"], "pending", "the unread copy reproduces n/a despite identical internal tags")
+                self.run_job("/api/duplicates/analyze", {}, client)
+                group = client.get("/api/duplicates").json()["groups"][0]
+                keeper = next(m for m in group["members"] if m["id"] == group["keeper_file_id"])
+                if mode != "none-dated":
+                    self.assertTrue(keeper["path"].endswith("one.jpg"), "shared capture date makes path tidiness decide, not missing metadata or mtime")
+                if mode == "none-dated":
+                    self.assertIsNone(group["capture_date"])
+                    self.assertEqual(group["keeper_rule"], "mtime")
+                    self.assertTrue(keeper["path"].endswith("two.jpg"))
+                    for photo in (first, second):
+                        os.utime(photo, (1_000_000_000, 1_000_000_000))
+                    for source in sources:
+                        self.run_job("/api/scan", {"source_id": source["id"]}, client)
+                    self.run_job("/api/duplicates/analyze", {}, client)
+                    tied = client.get("/api/duplicates").json()["groups"][0]
+                    self.assertEqual(tied["keeper_rule"], "mtime_tidy_path")
+                    self.assertTrue(next(m for m in tied["members"] if m["id"] == tied["keeper_file_id"])["path"].endswith("one.jpg"))
+                    other = next(m for m in tied["members"] if m["id"] != tied["keeper_file_id"])
+                    self.assertEqual(client.post(f"/api/duplicates/{tied['id']}/keeper", {"file_id": other["id"]}).status, 200)
+                    self.assertEqual(client.get("/api/duplicates").json()["groups"][0]["keeper_rule"], "manual")
+                else:
+                    self.assertEqual(group["capture_date"], "2007-07-31T10:00:00")
+                    self.assertEqual({m["date"] for m in group["members"]}, {"2007-07-31T10:00:00"})
+                    self.assertEqual(group["keeper_rule"], "capture_date_tidy_path")
+                    self.assertTrue(keeper["path"].endswith("one.jpg"), "shared capture date makes path tidiness decide, not missing metadata or mtime")
+                self.assertTrue(first.exists() and second.exists(), "analysis must not move or delete files")
+
     def test_cross_volume_move(self):
         """Different volumes: copy, verify hash, then delete the original."""
         import errno

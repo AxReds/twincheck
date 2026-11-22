@@ -106,6 +106,10 @@ export async function duplicates(main, state) {
   const group = (g) => h('fieldset', { class: 'dup-group' },
     h('legend', {}, t('dup.group_title', { size: fmt.bytes(g.size), count: g.members.length, recoverable: fmt.bytes(g.recoverable) })),
     h('code', { class: 'hash' }, g.sha256),
+    h('p', { class: 'keeper-decision' },
+      g.capture_date ? t('dup.capture_date', { date: fmt.localDate(g.capture_date) }) : t('dup.date_unknown'),
+      g.date_flags === 'utc_ambiguous' ? ' · ' + t('review.utc') : '',
+      ' · ', t('dup.keeper_date', { date: fmt.localDate(g.keeper_date) }), ' · ', t('dup.keeper_rule.' + g.keeper_rule)),
     h('ul', {}, g.members.map((m) => {
       const r = h('input', { type: 'radio', name: 'keep' + g.id, checked: m.id === g.keeper_file_id, 'aria-label': t('dup.keep') });
       r.addEventListener('change', async () => { try { await post(`/api/duplicates/${g.id}/keeper`, { file_id: m.id }); load(); } catch (e) { toast(e.message, 'error'); } });

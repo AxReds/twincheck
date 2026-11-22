@@ -16,6 +16,7 @@ const permissions = { manage_users: true, see_all_sources: true };
 const requests = [];
 let browsePath = 'test-folder';
 let sourceData = { sources: [], can_browse: true, scan_selection: null };
+let duplicateGroups = [];
 let planKind = 'review_plan';
 let authenticated = true;
 let rejectLogin = true;
@@ -70,6 +71,7 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/admin/users' && opts.method !== 'PATCH') data = { users: [user], groups: [] };
   else if (path === '/api/admin/users/test-admin' && opts.method === 'PATCH') data = { ok: true };
   else if (path === '/api/jobs') data = { items: [], total: 0 };
+  else if (path === '/api/duplicates') data = { groups: duplicateGroups, total: duplicateGroups.length, recoverable: 12 };
   else throw new Error('Unmocked request: ' + url);
   requests.push({ url: String(url), body: opts.body && JSON.parse(opts.body) });
   return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
@@ -291,6 +293,23 @@ await test('B8: admin can discover Administration and edit own source assignment
   app.state.perms = perms;
   await setLanguage('en');
   await sleep();
+});
+await test('B9: duplicate groups explain shared dates, unknown dates and keeper rules', async () => {
+  duplicateGroups = [
+    { id: 1, size: 12, recoverable: 12, sha256: 'synthetic', keeper_file_id: 1, capture_date: '2007-07-31T10:00:00',
+      keeper_date: '2007-07-31T10:00:00', keeper_rule: 'capture_date_tidy_path',
+      members: [{ id: 1, path: 'one.jpg', date: '2007-07-31T10:00:00' }, { id: 2, path: 'two.jpg', date: '2007-07-31T10:00:00' }] },
+    { id: 2, size: 12, recoverable: 12, sha256: 'synthetic', keeper_file_id: 3, capture_date: null,
+      keeper_date: '2001-09-09T01:46:40', keeper_rule: 'mtime',
+      members: [{ id: 3, path: 'three.jpg', date: null }, { id: 4, path: 'four.jpg', date: null }] },
+  ];
+  await go('#/duplicates');
+  const decisions = document.querySelectorAll('.keeper-decision');
+  assert(decisions.length === 2, 'duplicate decision explanations missing');
+  assert(decisions[0].textContent.includes(t('dup.keeper_rule.capture_date_tidy_path')), 'shared-date rule missing');
+  assert(decisions[1].textContent.includes(t('dup.date_unknown')) && decisions[1].textContent.includes(t('dup.keeper_rule.mtime')), 'unknown-date fallback unclear');
+  duplicateGroups = [];
+  await go('#/home');
 });
 await test('B26: expired sessions stop polling and keep login typing/focus until successful sign-in', async () => {
   await go('#/jobs');

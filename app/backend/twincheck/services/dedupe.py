@@ -1,7 +1,7 @@
 """Duplicate detection: same size + same SHA-256 + byte-by-byte comparison.
 
 Never visual similarity, names, dates or EXIF.  The keeper is the file with the
-oldest date (capture date if known, otherwise modification time); ties are
+shared internal capture date if known, otherwise oldest modification time; ties are
 broken by the "tidiest" path: fewer components, then shorter, then
 lexicographic.  Duplicates are moved to the "Duplicates" folder, never deleted.
 """
@@ -9,21 +9,49 @@ from __future__ import annotations
 
 import os
 import time
+import json
 
 from ..db.schema import utcnow
 from ..fsutil import same_bytes
 from ..jobs import JobContext, register
+from .metadata import analyse_file
 
 
 def _date_key(f: dict) -> str:
-    if f.get("chosen_date"):
-        return f["chosen_date"]
     return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime((f.get("mtime_ns") or 0) / 1e9))
 
 
-def keeper_order(f: dict):
+def keeper_order(f: dict, capture_date: str | None = None):
     p = f["cur_path"]
-    return (_date_key(f), p.count("/"), len(p), p)
+    return (capture_date or _date_key(f), p.count("/"), len(p), p)
+
+
+def group_capture_date(members: list[dict]) -> dict:
+    dates = []
+    for member in members:
+        fields = json.loads(member.get("meta_read") or "{}").get("fields", {})
+        own = {field: [c for c in info.get("candidates", []) if c.get("source") == "file"]
+               for field, info in fields.items()}
+        result = analyse_file(member, own, [], set())
+        if result["chosen"]:
+            dates.append(result)
+    if not dates:
+        return {"capture_date": None, "date_flags": ""}
+    chosen = min(dates, key=lambda r: r["chosen"])
+    return {"capture_date": chosen["chosen"], "date_flags": chosen["flags"]}
+
+
+def keeper_decision(members: list[dict], keeper_id: int) -> dict:
+    date = group_capture_date(members)
+    ordered = sorted(members, key=lambda f: keeper_order(f, date["capture_date"]))
+    keeper = next(m for m in members if m["id"] == keeper_id)
+    if keeper_id != ordered[0]["id"]:
+        rule = "manual"
+    elif date["capture_date"]:
+        rule = "capture_date_tidy_path"
+    else:
+        rule = "mtime_tidy_path" if len(ordered) > 1 and _date_key(ordered[0]) == _date_key(ordered[1]) else "mtime"
+    return {**date, "keeper_rule": rule, "keeper_date": date["capture_date"] or _date_key(keeper)}
 
 
 def _groups(db, owner_id: str | None, after: tuple):
@@ -58,7 +86,7 @@ def analyze(ctx: JobContext, scope: str, owner_filter: str | None) -> dict:
     total = len(pending) + groups
     for g in pending:
         ctx.check()
-        members = db.query("SELECT id, owner_id, cur_path, size, mtime_ns, chosen_date FROM files WHERE size=? AND sha256=? AND present=1 "
+        members = db.query("SELECT id, owner_id, cur_path, name, ext, media_kind, size, mtime_ns, meta_read FROM files WHERE size=? AND sha256=? AND present=1 "
                            "AND media_kind IN ('image','video') AND status<>'dup_moved'" + (" AND owner_id=?" if owner_filter else ""),
                            (g["size"], g["sha256"], owner_filter) if owner_filter else (g["size"], g["sha256"]))
         if not owner_filter and len({m["owner_id"] for m in members}) < 2:
@@ -77,6 +105,9 @@ def analyze(ctx: JobContext, scope: str, owner_filter: str | None) -> dict:
             else:
                 ctx.log("DUP_MISMATCH", level="WARNING", a=keeper["cur_path"], b=m["cur_path"])
         if len(confirmed) > 1:
+            capture_date = group_capture_date(confirmed)["capture_date"]
+            confirmed.sort(key=lambda f: keeper_order(f, capture_date))
+            keeper = confirmed[0]
             with db.transaction():
                 gid = db.insert("INSERT INTO dup_groups (owner_id, scope, sha256, size, keeper_file_id, members, verified, status, job_id, created_at) "
                                 "VALUES (?,?,?,?,?,?,?,?,?,?)",
@@ -118,7 +149,7 @@ def set_keeper(db, group_id: int, file_id: int) -> None:
 
 
 def group_members(db, g: dict) -> list[dict]:
-    sql = ("SELECT id, owner_id, cur_path, size, mtime_ns, chosen_date, status FROM files WHERE size=? AND sha256=? AND present=1 "
+    sql = ("SELECT id, owner_id, cur_path, name, ext, media_kind, size, mtime_ns, chosen_date, meta_read, status FROM files WHERE size=? AND sha256=? AND present=1 "
            "AND media_kind IN ('image','video')")
     params: list = [g["size"], g["sha256"]]
     if g["scope"] != "global":

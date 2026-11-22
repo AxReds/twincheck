@@ -17,7 +17,8 @@ overwritten, every write is previewed and needs your click, and everything can b
   (works offline, no CDN). The console is needed only to generate the key and to reset a password.
 * **Multi-user** with three roles (admin, administrator, base user), groups and per-user source
   folders that can never overlap; strict isolation of files, previews, logs and manifests.
-* **Exact duplicates** (same size + SHA-256 + byte comparison), oldest file kept, the others moved to
+* **Exact duplicates** (same size + SHA-256 + byte comparison), shared internal capture date
+  then tidiest path (otherwise oldest mtime then tidiest path), the others moved to
   `Duplicates/`, CSV export.
 * **Metadata without inventing** (EXIF, IPTC, XMP, QuickTime via ExifTool): missing fields are copied
   only from equivalent tags or linked files (`.xmp`, Google Takeout `.json`); guesses are proposals
@@ -85,6 +86,11 @@ On a server with **Portainer** you do not need the source code: use the publishe
    close the browser, the job resumes after a restart.
 5. **Duplicates** - *Analyze*, check the groups (change which file to keep), *Preview move*, confirm.
    Duplicates go to `<destination>/Duplicates/<original relative path>`.
+   A capture date read from any copy's internal metadata applies to all byte-identical
+   copies for the keeper decision; unread metadata is not treated as an older date.
+   Without an internal capture date the oldest mtime wins, then the tidiest path
+   (fewest components, shortest length, lexicographic order). The group shows the
+   effective date and rule. Metadata is not written by duplicate analysis.
 6. **Metadata** - *Analyze and preview*: see what would be completed and from which source; confirm
    to write (original values are saved first). Doubtful files go to review.
 7. **Review** - for each file: media on one side, every field on the other; save, skip, leave as it
