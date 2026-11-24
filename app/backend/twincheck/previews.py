@@ -16,11 +16,12 @@ from .fsutil import BROWSER_IMAGE, ext_of
 BROWSER_VIDEO_CODECS = {"h264", "vp8", "vp9", "av1"}
 _running: set[str] = set()
 _lock = threading.Lock()
+_codec_cache: dict[tuple, str | None] = {}
 
 
-def cache_path(cache_dir, owner_id: str, sha: str, kind: str) -> str:
+def cache_path(cache_dir, owner_id: str, signature: str, kind: str) -> str:
     d = os.path.join(str(cache_dir), "previews", owner_id)
-    return os.path.join(d, f"{sha}.{'mp4' if kind == 'video' else 'jpg'}")
+    return os.path.join(d, f"{signature}.{'mp4' if kind == 'video' else 'jpg'}")
 
 
 def probe_codec(ffmpeg: str, path: str) -> str | None:
@@ -41,7 +42,16 @@ def needs_preview(f: dict, ffmpeg: str) -> bool:
     if f["media_kind"] == "video":
         if ext not in ("mp4", "m4v", "webm"):
             return True
-        return probe_codec(ffmpeg, f["cur_path"]) not in BROWSER_VIDEO_CODECS
+        key = (f.get("sha256"), f.get("size"), f.get("mtime_ns"), f["cur_path"])
+        with _lock:
+            codec = _codec_cache.get(key, ...)
+        if codec is ...:
+            codec = probe_codec(ffmpeg, f["cur_path"])
+            with _lock:
+                if len(_codec_cache) > 5000:
+                    _codec_cache.clear()
+                _codec_cache[key] = codec
+        return codec not in BROWSER_VIDEO_CODECS
     return False
 
 
@@ -64,7 +74,7 @@ def h264_encoder(ffmpeg: str) -> str:
     return _ENCODER[0]
 
 
-def _generate(ffmpeg: str, src: str, dst: str, kind: str, height: int, crf: int, on_done) -> None:
+def _generate(ffmpeg: str, src: str, dst: str, kind: str, height: int, crf: int, cache_dir, max_bytes: int, on_done) -> None:
     tmp = dst + ".part"
     os.makedirs(os.path.dirname(dst), mode=0o700, exist_ok=True)
     if kind == "video":
@@ -79,6 +89,7 @@ def _generate(ffmpeg: str, src: str, dst: str, kind: str, height: int, crf: int,
                              env={"PATH": os.environ.get("PATH", "/usr/bin"), "TMPDIR": "/tmp", "HOME": "/tmp"})
         if res.returncode == 0 and os.path.getsize(tmp) > 0:
             os.replace(tmp, dst)
+            prune(cache_dir, max_bytes)
             if on_done:
                 on_done()
     except (OSError, subprocess.TimeoutExpired):
@@ -90,17 +101,20 @@ def _generate(ffmpeg: str, src: str, dst: str, kind: str, height: int, crf: int,
             _running.discard(dst)
 
 
-def ensure(ffmpeg: str, cache_dir, f: dict, height: int = 720, crf: int = 28, on_done=None) -> tuple[str, str | None]:
+def ensure(ffmpeg: str, cache_dir, f: dict, height: int = 720, crf: int = 28,
+           max_bytes: int = 2 * 1024 ** 3, on_done=None) -> tuple[str, str | None]:
     """-> ("original", None) | ("ready", path) | ("pending", None)"""
     if not needs_preview(f, ffmpeg):
         return "original", None
-    dst = cache_path(cache_dir, f["owner_id"], f["sha256"] or str(f["id"]), f["media_kind"])
+    signature = f"{f.get('sha256') or f['id']}-{f['size']}-{f['mtime_ns']}"
+    dst = cache_path(cache_dir, f["owner_id"], signature, f["media_kind"])
     if os.path.exists(dst):
         return "ready", dst
     with _lock:
         if dst not in _running:
             _running.add(dst)
-            threading.Thread(target=_generate, args=(ffmpeg, f["cur_path"], dst, f["media_kind"], height, crf, on_done),
+            threading.Thread(target=_generate, args=(ffmpeg, f["cur_path"], dst, f["media_kind"], height, crf,
+                                                       cache_dir, max_bytes, on_done),
                              daemon=True).start()
     return "pending", None
 

@@ -5,6 +5,19 @@ import { get, post } from '../api.js';
 import { pager, waitForJob, poll } from '../components.js';
 
 const KINDS = ['', 'meta_conflict', 'no_date', 'date_utc', 'move_conflict', 'verify_mismatch', 'reconcile_missing', 'reconcile_modified', 'reconcile_new', 'reconcile_moved'];
+const previewRequests = new Map();
+
+function requestPreview(id) {
+  if (!previewRequests.has(id)) {
+    previewRequests.set(id, get(`/api/review/${id}/preview`, { raw: true }).then(async (response) => {
+      if (response.status === 202) return { pending: true };
+      if (!response.ok) throw new Error(t('review.preview_error', { status: response.status }));
+      const blob = await response.blob();
+      return { url: URL.createObjectURL(blob), type: blob.type };
+    }));
+  }
+  return previewRequests.get(id);
+}
 
 export async function list(main) {
   let offset = 0;
@@ -36,27 +49,32 @@ export async function list(main) {
   await load();
 }
 
-function mediaView(f) {
+function mediaView(reviewId, f) {
   const box = h('div', { class: 'media' }, h('p', { class: 'muted' }, t('review.loading_preview')));
   const show = async () => {
-    let probe;
-    try { probe = await get(`/api/files/${f.id}/preview?probe=1`); } catch (e) { stop(); mount(box, h('p', { class: 'notice error' }, e.message)); return; }
-    if (probe.status === 'pending') {
+    let preview;
+    try { preview = await requestPreview(reviewId); }
+    catch (e) { stop(); mount(box, h('p', { class: 'notice error' }, e.message)); return; }
+    if (preview.pending) {
+      previewRequests.delete(reviewId);
       mount(box, h('p', { class: 'muted' }, t('review.generating_preview')));
       return;
     }
     stop();
-    const src = `/api/files/${f.id}/preview`;
     if (f.media_kind === 'video') {
-      const v = h('video', { src, controls: true, preload: 'metadata', playsinline: true });
+      const v = h('video', { src: preview.url, controls: true, preload: 'metadata', playsinline: true });
       v.addEventListener('error', () => box.appendChild(h('p', { class: 'notice warn' }, t('review.cannot_play'))));
       mount(box, v);
     } else {
-      mount(box, h('img', { src, alt: f.name, loading: 'lazy' }));
+      mount(box, h('img', { src: preview.url, alt: f.name, loading: 'lazy' }));
     }
   };
   const stop = poll(show, 2500);
-  return { el: box, stop };
+  return { el: box, stop, destroy: () => {
+    const current = previewRequests.get(reviewId);
+    if (current) current.then((value) => { if (value?.url) URL.revokeObjectURL(value.url); });
+    previewRequests.delete(reviewId);
+  } };
 }
 
 function candidateList(cands) {
@@ -66,7 +84,9 @@ function candidateList(cands) {
 }
 
 export async function item(main, state, [id]) {
+  requestPreview(id).catch(() => {});
   const r = await get('/api/review/' + id);
+  if (r.next_id) requestPreview(r.next_id).catch(() => {});
   const f = r.file;
   const inputs = {};
   const dateChoice = h('select', {}, h('option', { value: '' }, t('review.date_keep')));
@@ -110,7 +130,7 @@ export async function item(main, state, [id]) {
       location.hash = res.next_id ? '#/review/' + res.next_id : '#/review';
     } catch (e) { toast(e.message, 'error'); }
   };
-  const media = f ? mediaView(f) : null;
+  const media = f ? mediaView(Number(id), f) : null;
   mount(main,
     h('div', { class: 'review-head' }, h('a', { href: '#/review' }, '← ', t('review.back')), ' ', badge(t('review.kind.' + r.kind), 'warn'), ' ', badge(t('review.status.' + r.status), '')),
     h('div', { class: 'review' },
@@ -122,7 +142,11 @@ export async function item(main, state, [id]) {
           h('dt', {}, t('review.chosen_date')), h('dd', {}, fmt.localDate(f.chosen_date), f.chosen_date_source ? h('span', { class: 'muted small' }, ' · ' + f.chosen_date_source) : null,
             f.date_flags === 'utc_ambiguous' ? h('div', { class: 'notice warn small' }, t('review.utc_ambiguous')) : null),
           f.duration ? [h('dt', {}, t('field.duration')), h('dd', {}, fmt.number(f.duration, { maximumFractionDigits: 1 }))] : null) : null,
-        Object.keys(r.details).length ? h('pre', { class: 'details', dir: 'ltr' }, JSON.stringify(r.details, null, 1)) : null,
+        Object.keys(r.details).length ? h('dl', { class: 'details' },
+          Object.entries(r.details).map(([key, value]) => [
+            h('dt', {}, t('review.detail_label', { name: key })),
+            h('dd', {}, typeof value === 'object' ? t('review.detail_values', { count: Object.keys(value || {}).length }) : String(value)),
+          ])) : null,
         rows.length ? table(['review.col_field', 'review.col_values', 'review.col_edit'], rows) : null,
         field('review.date_choice', dateChoice, 'review.date_choice_hint'),
         field('review.apply_scope', scope),
@@ -131,5 +155,5 @@ export async function item(main, state, [id]) {
           button('review.leave', () => decide('keep')),
           r.status !== 'pending' ? button('review.reopen', async () => { try { await post(`/api/review/${id}/reopen`); location.reload(); } catch (e) { toast(e.message, 'error'); } }) : null),
         h('p', { class: 'hint' }, t('review.empty_stays_empty')))));
-  return { destroy: () => { if (media) media.stop(); } };
+  return { destroy: () => { if (media) { media.stop(); media.destroy(); } } };
 }

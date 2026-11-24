@@ -19,6 +19,7 @@ from .web.security import LoginLimiter, SessionStore
 # importing the services registers the job kinds
 from .services import dedupe, metadata, moves, scan, undo, verify  # noqa: F401,E402
 from .db import transfer  # noqa: F401,E402
+from .exif import ExifTool
 
 
 class StartupError(Exception):
@@ -38,6 +39,7 @@ class App:
         self.instance_lock: dbm.InstanceLock | None = None
         self.instance_id = dbm.new_instance_id()
         self.jobs = JobManager(self, settings.job_workers)
+        self.exiftool = ExifTool(settings.exiftool, persistent=True)
         self.sessions = SessionStore()
         self.limiter = LoginLimiter()
         self.setup_token: str | None = None
@@ -131,6 +133,7 @@ class App:
 
     def shutdown(self) -> None:
         self.jobs.stop()
+        self.exiftool.close()
         if self.db_ready:
             try:
                 dbm.log(self.db, "APP_STOPPED")

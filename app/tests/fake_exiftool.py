@@ -38,12 +38,30 @@ def save(db):
 
 
 def main(argv):
+    if argv[:4] == ["-stay_open", "True", "-@", "-"]:
+        command = []
+        for line in sys.stdin:
+            line = line.rstrip("\n")
+            if line.startswith("-execute"):
+                marker = line.removeprefix("-execute")
+                main(command)
+                sys.stdout.write("{ready" + marker + "}\n")
+                sys.stdout.flush()
+                command = []
+            elif line == "-stay_open":
+                action = next(sys.stdin, "").strip()
+                if action == "False":
+                    return 0
+            elif line:
+                command.append(line)
+        return 0
     if argv == ["-ver"]:
         print("13.00")
         return 0
     db = load()
     if "-j" in argv:
-        paths = [line.strip("\n") for line in sys.stdin.read().splitlines() if line.strip()]
+        paths = ([line.strip("\n") for line in sys.stdin.read().splitlines() if line.strip()]
+                 if "-@" in argv else [arg for arg in argv if arg.startswith("/")])
         out = []
         for p in paths:
             if os.path.exists(p):
