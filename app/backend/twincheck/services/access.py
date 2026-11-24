@@ -77,6 +77,31 @@ def check_path_allowed(data_dir: str, user: dict, path: str, must_exist: bool = 
     raise PathError("outside_source")
 
 
+def path_in_scope(data_dir: str, user: dict, path: str | None) -> bool:
+    """Whether a stored path is still inside the user's assigned areas."""
+    if not path:
+        return False
+    if is_admin_role(user):
+        return True
+    try:
+        real = os.path.realpath(path)
+        data_real = os.path.realpath(data_dir)
+        if not is_within(real, data_real):
+            return False
+        return any(is_within(real, os.path.realpath(a["path"])) or is_within(real, os.path.realpath(a["dest"]))
+                   for a in areas(data_dir, user))
+    except (OSError, TypeError):
+        return False
+
+
+def file_in_scope(data_dir: str, user: dict, row: dict | None) -> bool:
+    if not row:
+        return False
+    if is_admin_role(user):
+        return True
+    return row.get("owner_id") == user.get("id") and path_in_scope(data_dir, user, row.get("cur_path") or row.get("src") or row.get("path"))
+
+
 def source_for_path(data_dir: str, user: dict, path: str, source_id: str | None = None) -> tuple[dict, str]:
     """Resolve a selected folder inside an assigned source, not its destination."""
     assigned = [find_area(data_dir, user, source_id)] if source_id else areas(data_dir, user)
@@ -98,7 +123,7 @@ def display_path(data_dir: str, user: dict, path: str | None) -> str | None:
             if is_within(path, root):
                 rel = os.path.relpath(path, root)
                 return a["label"] + ("" if rel == "." else "/" + rel)
-    return "…/" + os.path.basename(path)
+    return None
 
 
 def validate_sources(vault_data: dict, user_id: str, sources: list[dict], data_dir: str) -> list[dict]:

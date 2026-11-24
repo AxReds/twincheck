@@ -53,6 +53,18 @@ def own_row(req: Request, row: dict | None) -> dict:
     return row
 
 
+def scoped_file(req: Request, row: dict | None) -> dict:
+    row = own_row(req, row)
+    if not access.file_in_scope(app().settings.data_dir.as_posix(), req.user, row):
+        fail(404, "not_found")
+    return row
+
+
+def scoped_rows(req: Request, rows: list[dict]) -> list[dict]:
+    data_dir = app().settings.data_dir.as_posix()
+    return [row for row in rows if access.file_in_scope(data_dir, req.user, row)]
+
+
 def disp(req: Request, path: str | None) -> str | None:
     return access.display_path(app().settings.data_dir.as_posix(), req.user, path)
 

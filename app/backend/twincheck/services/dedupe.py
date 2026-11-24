@@ -54,7 +54,7 @@ def keeper_decision(members: list[dict], keeper_id: int) -> dict:
     return {**date, "keeper_rule": rule, "keeper_date": date["capture_date"] or _date_key(keeper)}
 
 
-def _groups(db, owner_id: str | None, after: tuple):
+def _groups(db, owner_id: str | None, after: tuple, scope_filter=None):
     where = "present=1 AND sha256 IS NOT NULL AND media_kind IN ('image','video') AND status<>'dup_moved'"
     params: list = []
     if owner_id:
@@ -65,11 +65,20 @@ def _groups(db, owner_id: str | None, after: tuple):
     for g in db.query(sql, params):
         if after and (g["size"], g["sha256"]) <= after:
             continue
+        if scope_filter:
+            scoped = db.query("SELECT cur_path FROM files WHERE size=? AND sha256=? AND present=1 "
+                              "AND media_kind IN ('image','video') AND status<>'dup_moved' AND owner_id=?",
+                              (g["size"], g["sha256"], owner_id))
+            if sum(1 for row in scoped if scope_filter(row)) < 2:
+                continue
         yield g
 
 
 def analyze(ctx: JobContext, scope: str, owner_filter: str | None) -> dict:
     db = ctx.db
+    from . import access
+    user = ctx.app.user(owner_filter) if owner_filter else None
+    scope_filter = (lambda row: access.path_in_scope(ctx.app.settings.data_dir.as_posix(), user, row["cur_path"])) if user else None
     cp = ctx.checkpoint
     if not cp.get("started"):
         with db.transaction():
@@ -82,13 +91,15 @@ def analyze(ctx: JobContext, scope: str, owner_filter: str | None) -> dict:
         ctx.save_checkpoint(started=True, after=None, groups=0, dups=0)
     after = tuple(ctx.checkpoint.get("after") or ())
     groups, dups = ctx.checkpoint.get("groups", 0), ctx.checkpoint.get("dups", 0)
-    pending = list(_groups(db, owner_filter, after))
+    pending = list(_groups(db, owner_filter, after, scope_filter))
     total = len(pending) + groups
     for g in pending:
         ctx.check()
         members = db.query("SELECT id, owner_id, cur_path, name, ext, media_kind, size, mtime_ns, meta_read FROM files WHERE size=? AND sha256=? AND present=1 "
                            "AND media_kind IN ('image','video') AND status<>'dup_moved'" + (" AND owner_id=?" if owner_filter else ""),
                            (g["size"], g["sha256"], owner_filter) if owner_filter else (g["size"], g["sha256"]))
+        if scope_filter:
+            members = [member for member in members if scope_filter(member)]
         if not owner_filter and len({m["owner_id"] for m in members}) < 2:
             ctx.save_checkpoint(after=[g["size"], g["sha256"]])
             continue
@@ -134,13 +145,20 @@ def global_dedupe_analyze(ctx: JobContext) -> dict:
     return analyze(ctx, "global", None)
 
 
-def set_keeper(db, group_id: int, file_id: int) -> None:
+def set_keeper(db, group_id: int, file_id: int, user=None, data_dir=None) -> None:
     g = db.query_one("SELECT * FROM dup_groups WHERE id=?", (group_id,))
     if not g or g["status"] != "pending":
         raise ValueError("group_not_pending")
     f = db.query_one("SELECT id, owner_id FROM files WHERE id=? AND sha256=? AND size=?", (file_id, g["sha256"], g["size"]))
     if not f:
         raise ValueError("not_in_group")
+    if user and not f["owner_id"] == user["id"]:
+        raise ValueError("not_in_group")
+    if user and data_dir:
+        from . import access
+        row = db.query_one("SELECT id, owner_id, cur_path FROM files WHERE id=?", (file_id,))
+        if not access.file_in_scope(data_dir, user, row):
+            raise ValueError("not_in_group")
     with db.transaction():
         db.execute("UPDATE dup_groups SET keeper_file_id=? WHERE id=?", (file_id, group_id))
         if g["scope"] != "global":
@@ -148,7 +166,7 @@ def set_keeper(db, group_id: int, file_id: int) -> None:
             db.execute("UPDATE files SET dup_of=NULL, status='unique' WHERE id=?", (file_id,))
 
 
-def group_members(db, g: dict) -> list[dict]:
+def group_members(db, g: dict, user=None, data_dir=None) -> list[dict]:
     sql = ("SELECT id, owner_id, cur_path, name, ext, media_kind, size, mtime_ns, chosen_date, meta_read, status FROM files WHERE size=? AND sha256=? AND present=1 "
            "AND media_kind IN ('image','video')")
     params: list = [g["size"], g["sha256"]]
@@ -156,6 +174,9 @@ def group_members(db, g: dict) -> list[dict]:
         sql += " AND owner_id=?"
         params.append(g["owner_id"])
     rows = db.query(sql, params)
+    if user and data_dir:
+        from . import access
+        rows = [row for row in rows if access.file_in_scope(data_dir, user, row)]
     rows.sort(key=lambda r: (r["id"] != g["keeper_file_id"], keeper_order(r)))
     return rows
 

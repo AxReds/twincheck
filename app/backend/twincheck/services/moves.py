@@ -9,7 +9,7 @@ import os
 
 from ..db.manager import log
 from ..db.schema import utcnow
-from ..fsutil import path_hash
+from ..fsutil import path_hash, sha256_file
 from ..jobs import JobContext, register
 from ..mover import MoveError, move_file
 from . import access
@@ -122,9 +122,10 @@ def dedupe_plan(ctx: JobContext) -> dict:
     reserved: set[str] = set()
     seq, recoverable = 0, 0
     users = ctx.app.vault.snapshot()["users"]
+    actor = users.get(ctx.owner_id)
     for g in db.query("SELECT * FROM dup_groups WHERE scope=? AND status='pending' ORDER BY id", (scope,)):
         ctx.check()
-        for m in group_members(db, g):
+        for m in group_members(db, g, actor, ctx.app.settings.data_dir.as_posix()):
             if m["id"] == g["keeper_file_id"] or m["status"] == "dup_moved":
                 continue
             owner = users.get(m["owner_id"])
@@ -134,6 +135,8 @@ def dedupe_plan(ctx: JobContext) -> dict:
                     if m["cur_path"].startswith(a["path"].rstrip("/") + "/") or m["cur_path"].startswith(a["dest"].rstrip("/") + "/"):
                         area = a
                         break
+            if area is None and not access.is_admin_role(actor):
+                continue
             if area is None:
                 root = ctx.params.get("root") or os.path.dirname(m["cur_path"])
                 area = {"path": root, "dest": ctx.params.get("dest") or root}
@@ -160,17 +163,23 @@ def dedupe_plan(ctx: JobContext) -> dict:
     return {"planned": seq, "recoverable_bytes": recoverable}
 
 
-def _validate(db, owner_id: str, entries: list[dict]) -> str | None:
+def _validate(ctx: JobContext, owner_id: str, entries: list[dict]) -> str | None:
+    db = ctx.db
+    user = ctx.app.user(owner_id)
     for e in entries:
         if not os.path.lexists(e["src"]):
             return "source_missing"
         if os.path.islink(e["src"]) or not os.path.isfile(e["src"]):
             return "source_not_regular"
+        if not access.file_in_scope(ctx.app.settings.data_dir.as_posix(), user, {"owner_id": owner_id, "cur_path": e["src"]}):
+            return "outside_source"
         if os.path.lexists(e["dst"]):
             return "destination_exists"
         if e.get("file_id"):
-            f = db.query_one("SELECT size, cur_path FROM files WHERE id=?", (e["file_id"],))
-            if f and (f["cur_path"] != e["src"] or os.path.getsize(e["src"]) != f["size"]):
+            f = db.query_one("SELECT size, sha256, owner_id, cur_path FROM files WHERE id=?", (e["file_id"],))
+            if not f or f["owner_id"] != owner_id or not access.file_in_scope(ctx.app.settings.data_dir.as_posix(), user, f):
+                return "outside_source"
+            if f["cur_path"] != e["src"] or os.path.getsize(e["src"]) != f["size"] or sha256_file(e["src"]) != f["sha256"]:
                 return "file_changed"
     return None
 
@@ -188,7 +197,7 @@ def run_move_plan(ctx: JobContext) -> dict:
         ctx.check()
         payload = json.loads(item["payload"] or "{}")
         entries = [{"file_id": item["file_id"], "src": item["src"], "dst": item["dst"]}] + payload.get("companions", [])
-        problem = _validate(db, item["owner_id"], entries)
+        problem = _validate(ctx, item["owner_id"], entries)
         if problem:
             with db.transaction():
                 db.execute("UPDATE plan_items SET status='skipped', note=? WHERE id=?", (problem, item["id"]))

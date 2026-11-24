@@ -344,13 +344,24 @@ def metadata_analyze(ctx: JobContext) -> dict:
     if source_id:
         where += " AND source_id=?"
         args.append(source_id)
+    from . import access
+    user = ctx.app.user(ctx.owner_id)
+    in_scope = (lambda row: access.file_in_scope(ctx.app.settings.data_dir.as_posix(), user, row)) if user else (lambda row: True)
     last_id = ctx.checkpoint.get("last_id", 0)
     stats = ctx.checkpoint.get("stats") or {"analysed": 0, "fills": 0, "review": 0}
     total = int(db.scalar(f"SELECT COUNT(*) AS n FROM files WHERE {where}", args) or 0)
     seq = ctx.checkpoint.get("seq", 0)
     while True:
         ctx.check()
-        rows = db.query(f"SELECT * FROM files WHERE {where} AND id>? ORDER BY id LIMIT 50", (*args, last_id))
+        rows = [row for row in db.query(f"SELECT * FROM files WHERE {where} AND id>? ORDER BY id LIMIT 50", (*args, last_id))
+                if in_scope(row)]
+        if not rows:
+            max_row = db.query_one(f"SELECT MAX(id) AS id FROM files WHERE {where} AND id>?", (*args, last_id))
+            if not max_row or max_row["id"] is None:
+                break
+            last_id = max_row["id"]
+            ctx.save_checkpoint(last_id=last_id, stats=stats, seq=seq)
+            continue
         if not rows:
             break
         # read the batch (+ XMP sidecars) with one ExifTool call
@@ -433,6 +444,10 @@ def apply_fill(ctx: JobContext, item: dict, et: ExifTool) -> str:
     f = db.query_one("SELECT * FROM files WHERE id=?", (item["file_id"],))
     if not f or not f["present"] or f["cur_path"] != item["src"]:
         return "file_changed"
+    user = ctx.app.user(item["owner_id"])
+    from . import access
+    if f["owner_id"] != item["owner_id"] or not access.file_in_scope(ctx.app.settings.data_dir.as_posix(), user, f):
+        return "outside_source"
     try:
         st = os.stat(f["cur_path"])
     except OSError:
@@ -513,9 +528,13 @@ def review_plan(ctx: JobContext) -> dict:
     db = ctx.db
     seq, n = 0, 0
     db.execute("DELETE FROM plan_items WHERE plan_job_id=?", (ctx.id,))
-    for it in db.query("SELECT r.*, f.media_kind, f.ext, f.cur_path, f.meta_read FROM review_items r JOIN files f ON f.id=r.file_id "
+    from . import access
+    user = ctx.app.user(ctx.owner_id)
+    for it in db.query("SELECT r.*, f.media_kind, f.ext, f.cur_path, f.meta_read, f.owner_id, f.size, f.mtime_ns, f.present FROM review_items r JOIN files f ON f.id=r.file_id "
                        "WHERE r.owner_id=? AND r.status='saved' AND r.applied=0 AND f.present=1 ORDER BY r.id", (ctx.owner_id,)):
         ctx.check()
+        if not access.file_in_scope(ctx.app.settings.data_dir.as_posix(), user, it):
+            continue
         decision = json.loads(it["decision"] or "{}")
         values = decision.get("fields") or {}
         meta = json.loads(it["meta_read"] or "{}").get("fields", {})

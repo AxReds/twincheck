@@ -561,5 +561,127 @@ class ResetPassword(unittest.TestCase):
             inst.cleanup()
 
 
+class UserScopeIsolation(unittest.TestCase):
+    def test_stale_same_owner_rows_are_hidden_and_rejected_at_execution(self):
+        inst = Instance().start()
+        try:
+            inst.setup()
+            admin = inst.admin()
+            source = inst.data / "userone" / "source"
+            source.mkdir(parents=True)
+            payload = b"identical synthetic scope fixture"
+            outside_names = ["03.jpg", "IMG_3437.JPG"]
+            (source / "inside.jpg").write_bytes(payload)
+            for name in outside_names:
+                (inst.data / name).write_bytes(payload)
+
+            scan = admin.post("/api/scan", {"path": ""})
+            self.assertEqual(scan.status, 202, scan.text)
+            wait_job(inst.core, scan.json()["job_id"])
+            r = admin.post("/api/admin/users", {
+                "username": "userone", "password": STRONG,
+                "sources": [{"path": "userone/source", "dest": "userone/source"}],
+            })
+            self.assertEqual(r.status, 201, r.text)
+            uid = r.json()["id"]
+            user = inst.client()
+            self.assertEqual(user.login("userone", STRONG).status, 200)
+            changed = STRONG + "x"
+            self.assertEqual(user.post("/api/me/password", {
+                "current": STRONG, "password": changed, "password_confirm": changed,
+            }).status, 200)
+            own_scan = user.post("/api/scan", {"source_id": user.get("/api/sources").json()["sources"][0]["id"]})
+            self.assertEqual(own_scan.status, 202, own_scan.text)
+            wait_job(inst.core, own_scan.json()["job_id"])
+
+            outside = inst.core.db.query_one(
+                "SELECT * FROM files WHERE owner_id=(SELECT owner_id FROM files WHERE owner_id<>? LIMIT 1) "
+                "AND cur_path=?",
+                (uid, str(inst.data / outside_names[0])),
+            )
+            if not outside:
+                outside = inst.core.db.query_one("SELECT * FROM files WHERE cur_path=?", (str(inst.data / outside_names[0]),))
+            self.assertIsNotNone(outside)
+            inst.core.db.execute("UPDATE files SET owner_id=? WHERE id=?", (uid, outside["id"]))
+            from twincheck.db.manager import log
+            log(inst.core.db, "FILE_HASHED", owner_id=uid, path=outside["cur_path"], sha256="private-out-of-scope")
+
+            analysis = user.post("/api/duplicates/analyze")
+            self.assertEqual(analysis.status, 202, analysis.text)
+            wait_job(inst.core, analysis.json()["job_id"])
+            response = user.get("/api/duplicates")
+            body = response.text
+            self.assertEqual(response.status, 200)
+            for secret in outside_names:
+                self.assertNotIn(secret, body)
+                self.assertNotIn(secret, user.get("/api/duplicates.csv").text)
+            self.assertEqual(response.json()["total"], 0)
+            self.assertEqual(response.json()["recoverable"], 0)
+
+            for endpoint in ("/api/report", "/api/review", "/api/logs?limit=1000", "/api/jobs?limit=1000",
+                             "/api/manifest.csv", "/api/duplicates.csv"):
+                with self.subTest(endpoint=endpoint):
+                    text = user.get(endpoint).text
+                    self.assertNotIn("03.jpg", text)
+                    self.assertNotIn("IMG_3437.JPG", text)
+                    self.assertNotIn("private-out-of-scope", text)
+
+            meta = user.post("/api/metadata/analyze")
+            self.assertEqual(meta.status, 202, meta.text)
+            wait_job(inst.core, meta.json()["job_id"])
+            outside["owner_id"] = uid
+            self.assertEqual(user.get(f"/api/files/{outside['id']}/content").status, 404)
+            self.assertEqual(user.get(f"/api/files/{outside['id']}/preview").status, 404)
+
+            review = user.get("/api/review?limit=1000").json()
+            self.assertFalse(any(item["file_id"] == outside["id"] for item in review["items"]))
+
+            plan_payload = {
+                "source": outside["cur_path"], "file_id": outside["id"],
+                "path": "../03.jpg", "confirm": True,
+            }
+            self.assertIn(user.post("/api/duplicates/plan", plan_payload).status, (202, 404))
+            plans = inst.core.db.query(
+                "SELECT * FROM plan_items WHERE file_id=? AND owner_id=?", (outside["id"], uid))
+            self.assertFalse(plans, "an out-of-scope file must never enter a plan")
+
+            original = (source / "inside.jpg")
+            duplicate = source / "copy.jpg"
+            duplicate.write_bytes(payload)
+            user.post("/api/scan", {"source_id": user.get("/api/sources").json()["sources"][0]["id"]})
+            for job in inst.core.db.query(
+                    "SELECT id FROM jobs WHERE owner_id=? AND kind='scan' ORDER BY id DESC LIMIT 1", (uid,)):
+                wait_job(inst.core, job["id"])
+            analyze = user.post("/api/duplicates/analyze")
+            wait_job(inst.core, analyze.json()["job_id"])
+            group = user.get("/api/duplicates").json()["groups"][0]
+            inside_ids = {member["id"] for member in group["members"]}
+            self.assertNotIn(outside["id"], inside_ids)
+            preview = user.post("/api/duplicates/plan")
+            wait_job(inst.core, preview.json()["job_id"])
+            plan_id = preview.json()["job_id"]
+            item = inst.core.db.query_one(
+                "SELECT * FROM plan_items WHERE plan_job_id=? AND status='planned' LIMIT 1", (plan_id,))
+            self.assertIsNotNone(item)
+
+            with inst.core.vault.transaction() as data:
+                old = data["users"][uid]["sources"][0]
+                (inst.data / "userone" / "other").mkdir(exist_ok=True)
+                old["path"] = "userone/other"
+                old["dest"] = "userone/other"
+            confirm = user.post(f"/api/plans/{plan_id}/confirm", {"confirm": True})
+            self.assertEqual(confirm.status, 202, confirm.text)
+            applied = wait_job(inst.core, confirm.json()["job_id"])
+            self.assertEqual(applied["status"], "completed")
+            self.assertTrue(os.path.exists(original) and os.path.exists(duplicate))
+            skipped = inst.core.db.query_one("SELECT status, note FROM plan_items WHERE id=?", (item["id"],))
+            self.assertEqual((skipped["status"], skipped["note"]), ("skipped", "outside_source"))
+
+            admin_scope = admin.get("/api/duplicates?scope=global")
+            self.assertEqual(admin_scope.status, 200)
+        finally:
+            inst.cleanup()
+
+
 if __name__ == "__main__":
     unittest.main()

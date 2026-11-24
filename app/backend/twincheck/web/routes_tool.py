@@ -14,7 +14,7 @@ from ..services.dedupe import group_members, keeper_decision, set_keeper
 from ..services.metadata import FIELDS, WRITABLE, field_table, parse_dt
 from . import common
 from .app import router
-from .common import disp, fail, is_admin, need_db, own_row, owner_filter, paging, require
+from .common import disp, fail, is_admin, need_db, own_row, owner_filter, paging, require, scoped_file, scoped_rows
 from .framework import JSONResponse, Request, StreamResponse, file_response
 
 APPLY_KIND = {"organize_plan": "organize_apply", "dedupe_plan": "dedupe_apply", "metadata_analyze": "metadata_apply",
@@ -235,21 +235,25 @@ def duplicates(req: Request):
         sc = "global"
     else:
         sc = f"user:{req.user['id']}"
-    rows = db.query(f"SELECT * FROM dup_groups WHERE scope=? AND status='pending' ORDER BY size DESC, id LIMIT {lim} OFFSET {off}", (sc,))
-    agg = db.query_one("SELECT COUNT(*) AS n, COALESCE(SUM(size*(members-1)),0) AS rec FROM dup_groups WHERE scope=? AND status='pending'", (sc,))
-    groups = []
-    for g in rows:
-        members = group_members(db, g)
+    candidates = db.query("SELECT * FROM dup_groups WHERE scope=? AND status='pending' ORDER BY size DESC, id", (sc,))
+    visible = []
+    data_dir = common.app().settings.data_dir.as_posix()
+    for g in candidates:
+        members = group_members(db, g, None if is_admin(req) else req.user, data_dir if not is_admin(req) else None)
+        if len(members) < 2:
+            continue
         if not any(m["id"] == g["keeper_file_id"] for m in members):
-            fail(409, "file_changed")
+            continue
         decision = keeper_decision(members, g["keeper_file_id"])
-        groups.append({"id": g["id"], "size": g["size"], "sha256": g["sha256"], "keeper_file_id": g["keeper_file_id"],
-                       **decision,
-                       "recoverable": g["size"] * (len(members) - 1),
-                       "members": [{"id": m["id"], "path": disp(req, m["cur_path"]) if (is_admin(req) or m["owner_id"] == req.user["id"]) else None,
-                                    "date": decision["capture_date"], "owner": (common.app().user(m["owner_id"]) or {}).get("username") if is_admin(req) else None}
-                                   for m in members]})
-    return JSONResponse({"groups": groups, "total": int(agg["n"] or 0), "recoverable": int(agg["rec"] or 0)})
+        visible.append({"id": g["id"], "size": g["size"], "sha256": g["sha256"], "keeper_file_id": g["keeper_file_id"],
+                        **decision, "recoverable": g["size"] * (len(members) - 1),
+                        "members": [{"id": m["id"], "path": disp(req, m["cur_path"]),
+                                     "date": decision["capture_date"],
+                                     "owner": (common.app().user(m["owner_id"]) or {}).get("username") if is_admin(req) else None}
+                                    for m in members]})
+    groups = visible[off:off + lim]
+    recoverable = sum(group["recoverable"] for group in visible)
+    return JSONResponse({"groups": groups, "total": len(visible), "recoverable": recoverable})
 
 
 @router.post("/api/duplicates/{gid:int}/keeper")
@@ -259,9 +263,11 @@ def dup_keeper(req: Request):
     if not g or (g["scope"] != f"user:{req.user['id']}" and not (g["scope"] == "global" and req.user["role"] == "admin")):
         fail(404, "not_found")
     try:
-        set_keeper(db, g["id"], int(req.json().get("file_id") or 0))
+        set_keeper(db, g["id"], int(req.json().get("file_id") or 0),
+                   None if is_admin(req) else req.user,
+                   common.app().settings.data_dir.as_posix() if not is_admin(req) else None)
     except ValueError as exc:
-        fail(400, str(exc))
+        fail(404 if str(exc) == "not_in_group" else 400, str(exc))
     return JSONResponse({"ok": True})
 
 
@@ -282,7 +288,13 @@ def duplicates_csv(req: Request):
                     break
                 for g in rows:
                     last = g["id"]
-                    for m in group_members(db, g):
+                    members = group_members(db, g, None if is_admin(req) else req.user,
+                                            None if is_admin(req) else common.app().settings.data_dir.as_posix())
+                    if len(members) < 2:
+                        continue
+                    for m in members:
+                        if disp(req, m["cur_path"]) is None:
+                            continue
                         w.writerow([g["id"], g["sha256"], g["size"], "keep" if m["id"] == g["keeper_file_id"] else "duplicate",
                                     m["id"], disp(req, m["cur_path"]), m["chosen_date"] or ""])
                 yield buf.getvalue().encode("utf-8")
@@ -343,9 +355,20 @@ def plan(req: Request):
     if req.query.get("status"):
         where += " AND status=?"
         args.append(req.query["status"])
-    items = db.query(f"SELECT * FROM plan_items WHERE {where} ORDER BY seq LIMIT {lim} OFFSET {off}", args)
-    summary = db.query(f"SELECT kind, status, COUNT(*) AS n FROM plan_items WHERE plan_job_id=?{' AND owner_id=?' if owner else ''} "
-                       "GROUP BY kind, status", [j["id"]] + ([owner] if owner else []))
+    items = db.query(f"SELECT * FROM plan_items WHERE {where} ORDER BY seq", args)
+    if not is_admin(req):
+        scoped_ids = {row["id"] for row in scoped_rows(req, db.query(
+            "SELECT f.* FROM files f JOIN plan_items p ON p.file_id=f.id WHERE p.plan_job_id=?", (j["id"],)))}
+        items = [item for item in items if item["file_id"] is None or item["file_id"] in scoped_ids]
+    summary = []
+    for it in items:
+        key = (it["kind"], it["status"])
+        found = next((s for s in summary if (s["kind"], s["status"]) == key), None)
+        if found:
+            found["n"] += 1
+        else:
+            summary.append({"kind": it["kind"], "status": it["status"], "n": 1})
+    items = items[off:off + lim]
     out = []
     for it in items:
         p = json.loads(it["payload"] or "{}")
@@ -387,6 +410,8 @@ def plan_confirm(req: Request):
 def _review_row(req: Request, r: dict, full: bool = False) -> dict:
     db = common.app().db
     f = db.query_one("SELECT * FROM files WHERE id=?", (r["file_id"],)) if r["file_id"] else None
+    if not is_admin(req) and f and not access.file_in_scope(common.app().settings.data_dir.as_posix(), req.user, f):
+        fail(404, "not_found")
     out = {"id": r["id"], "kind": r["kind"], "status": r["status"], "created_at": r["created_at"],
            "details": json.loads(r["details"] or "{}"), "proposals": json.loads(r["proposals"] or "[]"),
            "decision": json.loads(r["decision"]) if r["decision"] else None, "file_id": r["file_id"]}
@@ -411,26 +436,34 @@ def _review_row(req: Request, r: dict, full: bool = False) -> dict:
 def review_list(req: Request):
     db = need_db()
     off, lim = paging(req)
-    where, args = ["owner_id=?"], [req.user["id"]]
+    where, args = ["r.owner_id=?"], [req.user["id"]]
     if is_admin(req) and req.query.get("owner"):
         args[0] = req.query["owner"]
     st = req.query.get("status", "pending")
-    where.append("status=?")
+    where.append("r.status=?")
     args.append(st)
     if req.query.get("kind"):
-        where.append("kind=?")
+        where.append("r.kind=?")
         args.append(req.query["kind"])
     w = " AND ".join(where)
-    rows = db.query(f"SELECT * FROM review_items WHERE {w} ORDER BY id LIMIT {lim} OFFSET {off}", args)
-    counts = db.query("SELECT status, COUNT(*) AS n FROM review_items WHERE owner_id=? GROUP BY status", (args[0],))
-    return JSONResponse({"items": [_review_row(req, r) for r in rows], "total": int(db.scalar(f"SELECT COUNT(*) AS n FROM review_items WHERE {w}", args) or 0),
-                         "counts": {c["status"]: c["n"] for c in counts}, "fields": FIELDS, "writable": sorted(WRITABLE)})
+    rows = db.query(f"SELECT r.* FROM review_items r JOIN files f ON f.id=r.file_id WHERE {w} ORDER BY r.id", args)
+    rows = [r for r in rows if is_admin(req) or access.file_in_scope(
+        common.app().settings.data_dir.as_posix(), req.user,
+        db.query_one("SELECT * FROM files WHERE id=?", (r["file_id"],)))]
+    counts = {}
+    for row in rows:
+        counts[row["status"]] = counts.get(row["status"], 0) + 1
+    page = rows[off:off + lim]
+    return JSONResponse({"items": [_review_row(req, r) for r in page], "total": len(rows),
+                         "counts": counts, "fields": FIELDS, "writable": sorted(WRITABLE)})
 
 
 @router.get("/api/review/{id:int}")
 def review_get(req: Request):
     db = need_db()
     r = own_row(req, db.query_one("SELECT * FROM review_items WHERE id=?", (req.path_params["id"],)))
+    if not is_admin(req):
+        scoped_file(req, db.query_one("SELECT * FROM files WHERE id=?", (r["file_id"],)))
     out = _review_row(req, r, full=True)
     nxt = db.query_one("SELECT id FROM review_items WHERE owner_id=? AND status='pending' AND id>? ORDER BY id LIMIT 1", (r["owner_id"], r["id"]))
     out["next_id"] = nxt["id"] if nxt else None
@@ -476,6 +509,8 @@ def validate_fields(fields: dict) -> dict:
 def review_decide(req: Request):
     db = need_db()
     r = own_row(req, db.query_one("SELECT * FROM review_items WHERE id=?", (req.path_params["id"],)))
+    if not is_admin(req):
+        scoped_file(req, db.query_one("SELECT * FROM files WHERE id=?", (r["file_id"],)))
     if r["owner_id"] != req.user["id"] and not is_admin(req):
         fail(404, "not_found")
     body = req.json()
@@ -525,6 +560,8 @@ def review_decide(req: Request):
 def review_reopen(req: Request):
     db = need_db()
     r = own_row(req, db.query_one("SELECT * FROM review_items WHERE id=?", (req.path_params["id"],)))
+    if not is_admin(req):
+        scoped_file(req, db.query_one("SELECT * FROM files WHERE id=?", (r["file_id"],)))
     if r["applied"]:
         fail(409, "already_applied")
     db.execute("UPDATE review_items SET status='pending' WHERE id=?", (r["id"],))
@@ -534,7 +571,7 @@ def review_reopen(req: Request):
 # --- files (originals and previews, permission-checked) -------------------------------------
 def _file(req: Request) -> dict:
     db = need_db()
-    f = own_row(req, db.query_one("SELECT * FROM files WHERE id=?", (req.path_params["id"],)))
+    f = scoped_file(req, db.query_one("SELECT * FROM files WHERE id=?", (req.path_params["id"],)))
     core = common.app()
     try:
         access.check_path_allowed(core.settings.data_dir.as_posix(), req.user, f["cur_path"])
@@ -570,14 +607,47 @@ def report(req: Request):
     db = need_db()
     owner = owner_filter(req)
     w, a = ("owner_id=?", [owner]) if owner else ("1=1", [])
-    by_status = db.query(f"SELECT status, media_kind, COUNT(*) AS n, COALESCE(SUM(size),0) AS bytes FROM files WHERE {w} AND present=1 GROUP BY status, media_kind", a)
-    manifest = db.query(f"SELECT action, COUNT(*) AS n, SUM(CASE WHEN undone_at IS NULL THEN 0 ELSE 1 END) AS undone FROM manifest WHERE {w} GROUP BY action", a)
-    review = db.query(f"SELECT status, COUNT(*) AS n FROM review_items WHERE {w} GROUP BY status", a)
-    dups = db.query_one("SELECT COUNT(*) AS n, COALESCE(SUM(size*(members-1)),0) AS rec FROM dup_groups WHERE status='pending'" +
-                        (" AND scope=?" if owner else ""), [f"user:{owner}"] if owner else [])
-    missing = db.scalar(f"SELECT COUNT(*) AS n FROM files WHERE {w} AND present=0", a)
+    files = scoped_rows(req, db.query(f"SELECT * FROM files WHERE {w}", a))
+    by_status = []
+    for f in files:
+        if not f["present"]:
+            continue
+        found = next((x for x in by_status if x["status"] == f["status"] and x["media_kind"] == f["media_kind"]), None)
+        if found:
+            found["n"] += 1
+            found["bytes"] += f["size"]
+        else:
+            by_status.append({"status": f["status"], "media_kind": f["media_kind"], "n": 1, "bytes": f["size"]})
+    allowed_ids = {f["id"] for f in files}
+    manifest_rows = [m for m in db.query(f"SELECT * FROM manifest WHERE {w}", a) if m["file_id"] in allowed_ids]
+    manifest = []
+    for m in manifest_rows:
+        found = next((x for x in manifest if x["action"] == m["action"]), None)
+        if found:
+            found["n"] += 1
+            found["undone"] += 1 if m["undone_at"] else 0
+        else:
+            manifest.append({"action": m["action"], "n": 1, "undone": 1 if m["undone_at"] else 0})
+    review_rows = [r for r in db.query(f"SELECT * FROM review_items WHERE {w}", a) if r["file_id"] in allowed_ids]
+    review = []
+    for r in review_rows:
+        found = next((x for x in review if x["status"] == r["status"]), None)
+        if found:
+            found["n"] += 1
+        else:
+            review.append({"status": r["status"], "n": 1})
+    duplicate_groups = 0
+    recoverable = 0
+    data_dir = common.app().settings.data_dir.as_posix()
+    for g in db.query("SELECT * FROM dup_groups WHERE status='pending'" + (" AND scope=?" if owner else ""),
+                      [f"user:{owner}"] if owner else []):
+        members = group_members(db, g, None if is_admin(req) else req.user, data_dir if not is_admin(req) else None)
+        if len(members) > 1:
+            duplicate_groups += 1
+            recoverable += g["size"] * (len(members) - 1)
+    missing = sum(1 for f in files if not f["present"])
     return JSONResponse({"files": by_status, "manifest": manifest, "review": review, "missing": int(missing or 0),
-                         "duplicates": {"groups": int(dups["n"] or 0), "recoverable": int(dups["rec"] or 0)}})
+                         "duplicates": {"groups": duplicate_groups, "recoverable": recoverable}})
 
 
 @router.get("/api/logs")
@@ -594,15 +664,23 @@ def logs(req: Request):
             where.append(f"{k}=?")
             args.append(int(req.query[k]) if k == "job_id" else req.query[k])
     w = " AND ".join(where)
-    rows = db.query(f"SELECT id, ts, level, event, message, params, job_id, owner_id, actor FROM run_log WHERE {w} ORDER BY id DESC LIMIT {lim} OFFSET {off}", args)
+    rows = db.query(f"SELECT id, ts, level, event, message, params, job_id, owner_id, actor FROM run_log WHERE {w} ORDER BY id DESC", args)
     if not is_admin(req):
-        for r in rows:  # paths in English messages are made relative for base users
+        filtered = []
+        for r in rows:
             p = json.loads(r["params"] or "{}")
+            paths = [v for v in p.values() if isinstance(v, str) and v.startswith("/")]
+            if any(not access.path_in_scope(common.app().settings.data_dir.as_posix(), req.user, path) for path in paths):
+                continue
             for k, v in p.items():
                 if isinstance(v, str) and v.startswith("/"):
                     r["message"] = r["message"].replace(v, disp(req, v) or v)
             r["params"] = None
-    return JSONResponse({"items": rows, "total": int(db.scalar(f"SELECT COUNT(*) AS n FROM run_log WHERE {w}", args) or 0)})
+            filtered.append(r)
+        rows = filtered
+    total = len(rows)
+    rows = rows[off:off + lim]
+    return JSONResponse({"items": rows, "total": total})
 
 
 @router.get("/api/manifest.csv")
@@ -624,6 +702,9 @@ def manifest_csv(req: Request):
                     break
                 for m in rows:
                     last = m["id"]
+                    if not is_admin(req) and not access.path_in_scope(
+                            common.app().settings.data_dir.as_posix(), req.user, m["orig_path"]):
+                        continue
                     w.writerow([m["id"], m["job_id"], m["file_id"], m["action"], disp(req, m["orig_path"]), disp(req, m["new_path"]),
                                 m["sha256_before"] or "", m["sha256_after"] or "", m["meta_before"] or "", m["meta_after"] or "",
                                 m["created_at"], m["undone_at"] or ""])
