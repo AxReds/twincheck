@@ -42,7 +42,13 @@ const metrics = {
 };
 window.fetch = async (url, opts = {}) => {
   const path = String(url).split('?')[0];
-  if (path.startsWith('/api/locales/')) return realFetch('../frontend/locales/' + path.split('/').pop() + '.json');
+  if (path.startsWith('/api/locales/')) return realFetch('../frontend/locales/' + path.split('/').pop() + '.json?rc6');
+  if (/^\/api\/review\/\d+\/preview$/.test(path)) {
+    requests.push({ url: String(url), at: performance.now() });
+    return new Response(new Blob(['synthetic-image'], { type: 'image/jpeg' }), {
+      headers: { 'Content-Type': 'image/jpeg' },
+    });
+  }
   if (path === '/api/late-session-response') return new Promise((resolve) => {
     expireLate = () => resolve(new Response(JSON.stringify({ error: 'unauthenticated' }), { status: 401 }));
   });
@@ -90,6 +96,9 @@ window.fetch = async (url, opts = {}) => {
     data = { ok: true, theme: user.theme };
   }
   else if (path === '/api/report') data = { files: [], review: [], duplicates: {}, manifest: [] };
+  else if (path === '/api/metadata/results') data = {
+    analyzed_at: '2026-11-24T20:00:00Z', summary: { analysed: 54, fills: 0, review: 50 }, review_pending: 50,
+  };
   else if (path === '/api/sources') data = sourceData;
   else if (path === '/api/fs/browse') data = browseTree ?
     browseTree[new URL(String(url), location.href).searchParams.get('path')] : { path: browsePath, dirs: [] };
@@ -98,10 +107,10 @@ window.fetch = async (url, opts = {}) => {
     job: { id: 1, kind: planKind, status: 'completed' }, summary: [], items: [], apply_jobs: [], can_confirm: false,
   };
   else if (path === '/api/review/1' && opts.method === 'POST') data = { updated: 1, next_id: null };
-  else if (path === '/api/review/1') data = {
+  else if (/^\/api\/review\/\d+$/.test(path) && opts.method !== 'POST') data = {
     file: null, fields: ['datetime_original', 'create_date', 'title'].map((field) => ({ field, candidates: [], writable: true, present: false })),
     proposals: [{ field: 'datetime_original', value: '2020-01-02T03:04:05', origin: 'mtime_utc' }],
-    status: 'pending', kind: 'no_date', details: {},
+    status: 'pending', kind: 'no_date', details: {}, next_id: Number(path.split('/').at(-1)) + 1,
   };
   else if (path === '/api/review') data = { items: [], total: 0, counts: {} };
   else if (path === '/api/admin/users' && opts.method !== 'PATCH') data = { users: [user], groups: [] };
@@ -109,7 +118,7 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/jobs') data = { items: [], total: 0 };
   else if (path === '/api/duplicates') data = { groups: duplicateGroups, total: duplicateGroups.length, recoverable: 12 };
   else throw new Error('Unmocked request: ' + url);
-  requests.push({ url: String(url), body: opts.body && JSON.parse(opts.body) });
+  requests.push({ url: String(url), body: opts.body && JSON.parse(opts.body), at: performance.now() });
   return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
 };
 location.hash = '#/home';
@@ -391,12 +400,55 @@ await test('B9: duplicate groups explain shared dates, unknown dates and keeper 
       keeper_date: '2001-09-09T01:46:40', keeper_rule: 'mtime',
       members: [{ id: 3, path: 'three.jpg', date: null }, { id: 4, path: 'four.jpg', date: null }] },
   ];
+  for (const group of duplicateGroups) group.members.forEach((member, i) => {
+    member.exif_date = group.capture_date;
+    member.filesystem_date = i === 0 ? '2000-01-01T00:00:00' : '2001-09-09T01:46:40';
+  });
+  await test('B16: review item and preview start concurrently with next preview prefetched', async () => {
+    const before = requests.length;
+    await go('#/review/9');
+    const calls = requests.slice(before).filter((r) => r.url.startsWith('/api/review/'));
+    assert(calls.some((r) => r.url === '/api/review/9') && calls.some((r) => r.url === '/api/review/9/preview'),
+      'review item and preview were not requested together');
+    const itemCall = calls.find((r) => r.url === '/api/review/9');
+    const previewCall = calls.find((r) => r.url === '/api/review/9/preview');
+    assert(Math.abs((itemCall.at || performance.now()) - (previewCall.at || performance.now())) < 50,
+      'review preview request was delayed behind the item response');
+    assert(calls.some((r) => r.url === '/api/review/10/preview'), 'next review preview was not prefetched');
+    await go('#/home');
+  });
   await go('#/duplicates');
   const decisions = document.querySelectorAll('.keeper-decision');
   assert(decisions.length === 2, 'duplicate decision explanations missing');
   assert(decisions[0].textContent.includes(t('dup.keeper_rule.capture_date_tidy_path')), 'shared-date rule missing');
   assert(decisions[1].textContent.includes(t('dup.date_unknown')) && decisions[1].textContent.includes(t('dup.keeper_rule.mtime')), 'unknown-date fallback unclear');
+  assert(document.querySelectorAll('.dup-date-exif').length === 4, 'EXIF dates are missing from duplicate rows');
+  assert(document.querySelectorAll('.dup-date-filesystem').length === 4, 'file-system dates are missing from duplicate rows');
+  assert(document.querySelectorAll('.dup-date-exif strong, strong.dup-date-exif').length > 0,
+    'the keeper deciding date is not highlighted');
   duplicateGroups = [];
+  await go('#/home');
+});
+await test('U10/U11: duplicate dates and readable metadata summary are shown', async () => {
+  await go('#/metadata');
+  assert(document.querySelector('main .summary').textContent.includes(t('meta.summary', { analysed: 54, fills: 0, review: 50 })),
+    'metadata result is not human-readable');
+  assert([...document.querySelectorAll('main a[href="#/review"]')].some((a) => a.textContent.includes('50')),
+    'metadata summary has no direct review link');
+  await go('#/home');
+});
+await test('U12: pipeline button and five-phase progress are available', async () => {
+  await go('#/scan');
+  const analyze = [...document.querySelectorAll('main button')].find((b) => b.textContent === t('scan.analyze_library'));
+  assert(analyze, 'Analyze library button is missing');
+  const { jobCard } = await import('../frontend/static/js/components.js');
+  const names = ['scan', 'hash', 'capture_dates', 'duplicates', 'metadata'];
+  for (let phase = 0; phase < 5; phase++) {
+    const card = jobCard({ id: phase + 1, kind: 'analyze_library', status: 'running', progress_done: phase + 1, progress_total: 5,
+      phase: `${phase + 1}/5 ${names[phase]}` });
+    assert(card.textContent.includes(t('job.pipeline_phase', { phase: phase + 1, name: t('job.analysis_phase.' + names[phase]) })),
+      'pipeline phase is not translated');
+  }
   await go('#/home');
 });
 await test('B26: expired sessions stop polling and keep login typing/focus until successful sign-in', async () => {
