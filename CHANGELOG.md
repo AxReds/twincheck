@@ -4,6 +4,30 @@ All notable changes are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.1-rc.5] - 2026-11-24
+
+### Fixed
+
+- A user required to change a password now gets one stable password-change page with no navigation, live metrics or polling; errors keep the form, and a successful change restores normal use without reloading. Web password resets clear login throttling, and password hashing no longer holds the vault transaction lock ([#39](https://github.com/AxReds/twincheck/issues/39)).
+- Administration password resets now emit the English `PASSWORD_RESET` console event with the target user and administrator while keeping the existing audit entry; neither the generated password nor its hash is logged ([#39](https://github.com/AxReds/twincheck/issues/39)).
+
+### Verified by owner
+
+- Login now remembers the last authenticated user's theme after logout; B12 was verified on rc.4 ([#35](https://github.com/AxReds/twincheck/issues/35)).
+- Initial scan selection, active-section highlighting, Administration placement, whole-interface themes and persistent theme controls were verified on rc.3 ([#15](https://github.com/AxReds/twincheck/issues/15), [#16](https://github.com/AxReds/twincheck/issues/16), [#19](https://github.com/AxReds/twincheck/issues/19), [#29](https://github.com/AxReds/twincheck/issues/29), [#31](https://github.com/AxReds/twincheck/issues/31)).
+- User-menu dismissal, stable header boxes, reserved user-button space and expired-session login remain verified from rc.2 ([#12](https://github.com/AxReds/twincheck/issues/12), [#13](https://github.com/AxReds/twincheck/issues/13), [#14](https://github.com/AxReds/twincheck/issues/14), [#26](https://github.com/AxReds/twincheck/issues/26)).
+
+### Awaiting owner retest
+
+- Assigned subfolder browsing/scanning and offline menu icons await owner retest ([#34](https://github.com/AxReds/twincheck/issues/34), [#36](https://github.com/AxReds/twincheck/issues/36)).
+- Review date edits, scan hash reporting and shared duplicate capture dates remain open and untouched for retest ([#17](https://github.com/AxReds/twincheck/issues/17), [#18](https://github.com/AxReds/twincheck/issues/18), [#28](https://github.com/AxReds/twincheck/issues/28)).
+- The required-password hotfix awaits owner retest on rc.5 and remains open ([#39](https://github.com/AxReds/twincheck/issues/39)).
+
+### Tracked for later
+
+- The implemented U9 item is listed above awaiting retest; all other open enhancements remain deferred: readable preview summaries ([#20](https://github.com/AxReds/twincheck/issues/20)), review preview/undo navigation ([#21](https://github.com/AxReds/twincheck/issues/21)), side-by-side date decisions ([#22](https://github.com/AxReds/twincheck/issues/22)), timestamp wording ([#23](https://github.com/AxReds/twincheck/issues/23)), side-by-side media previews ([#30](https://github.com/AxReds/twincheck/issues/30)), CI package-install resilience ([#10](https://github.com/AxReds/twincheck/issues/10)) and roadmap enhancements [#1](https://github.com/AxReds/twincheck/issues/1) through [#8](https://github.com/AxReds/twincheck/issues/8).
+- All open feature/design items remain tracking only: Settings/Preferences ([#24](https://github.com/AxReds/twincheck/issues/24)), guarded duplicate management ([#25](https://github.com/AxReds/twincheck/issues/25)), user folders/root analysis ([#32](https://github.com/AxReds/twincheck/issues/32)), guarded file-system/trash management ([#33](https://github.com/AxReds/twincheck/issues/33)), group semantics ([#37](https://github.com/AxReds/twincheck/issues/37)) and optional Microsoft AI evaluation ([#38](https://github.com/AxReds/twincheck/issues/38)).
+
 ## [1.0.1-rc.4] - 2026-11-22
 
 ### Fixed
@@ -120,6 +144,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Duplicates folder preview/restore and a design discussion on guarded deletion;
   the current "never delete" rule is unchanged ([#25](https://github.com/AxReds/twincheck/issues/25)).
 
+[1.0.1-rc.5]: https://github.com/AxReds/twincheck/compare/v1.0.1-rc.4...v1.0.1-rc.5
 [1.0.1-rc.4]: https://github.com/AxReds/twincheck/compare/v1.0.1-rc.3...v1.0.1-rc.4
 [1.0.1-rc.3]: https://github.com/AxReds/twincheck/compare/v1.0.1-rc.2...v1.0.1-rc.3
 [1.0.1-rc.2]: https://github.com/AxReds/twincheck/compare/v1.0.1-rc.1...v1.0.1-rc.2
