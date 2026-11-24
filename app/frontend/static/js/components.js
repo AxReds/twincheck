@@ -30,11 +30,15 @@ export function jobCard(job, onChange) {
     : t('job.progress_items', { count: job.progress_done || 0 });
   const scanResult = job.kind === 'scan' && job.status === 'completed' && job.result
     ? t(job.result.reused === undefined ? 'job.scan_result_legacy' : 'job.scan_result', job.result) : null;
+  const phaseMatch = String(job.phase || '').match(/^([1-5])\/5\s+(.+)$/);
+  const phaseText = phaseMatch
+    ? t('job.pipeline_phase', { phase: phaseMatch[1], name: t('job.analysis_phase.' + phaseMatch[2]) })
+    : job.phase ? t('job.phase', { phase: job.phase }) : '';
   return h('div', { class: 'job-card' },
     h('div', { class: 'job-head' }, h('strong', {}, t('job.kind.' + job.kind)), ' ', h('span', { class: 'muted' }, '#' + job.id), ' ', jobBadge(job.status),
       job.owner ? h('span', { class: 'muted' }, ' · ' + job.owner) : null),
     job.status === 'running' || job.status === 'queued' ? progress(job.progress_done, job.progress_total) : null,
-    h('div', { class: 'job-meta' }, scanResult || [(job.phase ? t('job.phase', { phase: job.phase }) + ' · ' : ''), count].join(''),
+    h('div', { class: 'job-meta' }, scanResult || [(phaseText ? phaseText + ' · ' : ''), count].join(''),
       job.updated_at ? ' · ' + fmt.date(job.updated_at) : ''),
     job.status === 'interrupted' && !['scan', 'verify', 'reconcile'].includes(job.kind) ? h('p', { class: 'notice warn' }, t('job.needs_confirmation')) : null,
     job.error ? h('p', { class: 'notice error' }, h('code', {}, job.error)) : null,

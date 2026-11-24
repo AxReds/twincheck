@@ -176,3 +176,118 @@ def scan_job(ctx: JobContext) -> dict:
     unhashed = int(ctx.db.scalar(f"SELECT COUNT(*) AS n FROM files WHERE {hash_scope} "
                                  "AND (phase_hash<>'done' OR sha256 IS NULL)", hash_args) or 0)
     return {"indexed": indexed, "missing": missing, "hashed": hashed, "reused": max(0, ready - hashed), "unhashed": unhashed}
+
+
+class PipelineContext:
+    """A staged view of one persistent job checkpoint."""
+
+    def __init__(self, parent: JobContext, stage: str, index: int, label: str):
+        self.parent = parent
+        self.stage = stage
+        self.index = index
+        self.label = label
+        self.app = parent.app
+        self.db = parent.db
+        self.id = parent.id
+        self.kind = parent.kind
+        self.owner_id = parent.owner_id
+        self.params = dict(parent.params)
+        self.checkpoint = dict(parent.checkpoint.get("stages", {}).get(stage) or {})
+        self.done = 0
+        self.total = 0
+
+    def check(self) -> None:
+        self.parent.check()
+
+    def progress(self, done=None, total=None, phase=None, force=False) -> None:
+        if done is not None:
+            self.done = done
+        if total is not None:
+            self.total = total
+        phase_name = phase or self.label
+        if self.stage == "scan":
+            if phase == "hash":
+                phase_name, index = "hash", 2
+            else:
+                phase_name, index = "scan", 1
+        else:
+            index = self.index
+        self.parent.progress(done=self.done, total=self.total, phase=f"{index}/5 {phase_name}", force=force)
+
+    def save_checkpoint(self, cp: dict | None = None, **updates) -> None:
+        if cp is not None:
+            self.checkpoint = cp
+        self.checkpoint.update(updates)
+        stages = dict(self.parent.checkpoint.get("stages") or {})
+        stages[self.stage] = dict(self.checkpoint)
+        self.parent.save_checkpoint(stages=stages, current=self.stage)
+
+    def log(self, event: str, level: str = "INFO", **params):
+        return self.parent.log(event, level=level, **params)
+
+
+@register("analyze_library", auto_resume=True)
+def analyze_library(ctx: JobContext) -> dict:
+    """Read-only scan/hash/date/dedupe/metadata chain with resumable stages."""
+    from . import access
+    from .dedupe import dedupe_analyze
+    from .metadata import ensure_capture_dates, metadata_analyze
+
+    results = dict(ctx.checkpoint.get("results") or {})
+    stages = dict(ctx.checkpoint.get("stages") or {})
+    completed = set(ctx.checkpoint.get("completed") or [])
+
+    if "scan" not in completed:
+        scan_ctx = PipelineContext(ctx, "scan", 1, "scan")
+        results["scan"] = scan_job(scan_ctx)
+        completed.add("scan")
+        ctx.save_checkpoint(stages=dict(ctx.checkpoint.get("stages") or {}), current="capture_dates",
+                            completed=sorted(completed), results=results)
+        stages = dict(ctx.checkpoint.get("stages") or {})
+
+    if "capture_dates" not in completed:
+        db = ctx.db
+        user = ctx.app.user(ctx.owner_id)
+        source_id = ctx.params.get("source_id")
+        cp = dict(stages.get("capture_dates") or {})
+        last_id = int(cp.get("last_id") or 0)
+        read = int(cp.get("read") or 0)
+        while True:
+            ctx.check()
+            rows = db.query("SELECT * FROM files WHERE owner_id=? AND source_id=? AND present=1 "
+                            "AND media_kind IN ('image','video') AND id>? ORDER BY id LIMIT 50",
+                            (ctx.owner_id, source_id, last_id))
+            rows = [row for row in rows if access.file_in_scope(ctx.app.settings.data_dir.as_posix(), user, row)]
+            if not rows:
+                maximum = db.query_one("SELECT MAX(id) AS id FROM files WHERE owner_id=? AND source_id=? AND id>?",
+                                       (ctx.owner_id, source_id, last_id))
+                if maximum and maximum["id"] is not None:
+                    last_id = maximum["id"]
+                    stages["capture_dates"] = {"last_id": last_id, "read": read}
+                    ctx.save_checkpoint(stages=stages, current="capture_dates", completed=sorted(completed), results=results)
+                    continue
+                break
+            read += ensure_capture_dates(ctx, rows)
+            last_id = rows[-1]["id"]
+            ctx.progress(done=read, total=0, phase="3/5 capture_dates")
+            stages["capture_dates"] = {"last_id": last_id, "read": read}
+            ctx.save_checkpoint(stages=stages, current="capture_dates", completed=sorted(completed), results=results)
+        results["capture_dates"] = {"read": read}
+        completed.add("capture_dates")
+        ctx.save_checkpoint(stages=stages, current="duplicates", completed=sorted(completed), results=results)
+
+    if "duplicates" not in completed:
+        duplicate_ctx = PipelineContext(ctx, "duplicates", 4, "duplicates")
+        results["duplicates"] = dedupe_analyze(duplicate_ctx)
+        completed.add("duplicates")
+        ctx.save_checkpoint(stages=dict(ctx.checkpoint.get("stages") or {}), current="metadata",
+                            completed=sorted(completed), results=results)
+
+    if "metadata" not in completed:
+        metadata_ctx = PipelineContext(ctx, "metadata", 5, "metadata")
+        results["metadata"] = metadata_analyze(metadata_ctx)
+        completed.add("metadata")
+        ctx.save_checkpoint(stages=dict(ctx.checkpoint.get("stages") or {}), current="complete",
+                            completed=sorted(completed), results=results)
+    ctx.progress(done=5, total=5, phase="5/5 complete", force=True)
+    return results

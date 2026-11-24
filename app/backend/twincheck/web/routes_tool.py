@@ -5,12 +5,13 @@ import csv
 import io
 import json
 import os
+import time
 
 from ..db.schema import utcnow
 from ..fsutil import PathError
 from ..previews import ensure as ensure_preview
 from ..services import access
-from ..services.dedupe import group_members, keeper_decision, set_keeper
+from ..services.dedupe import group_capture_date, group_members, keeper_decision, set_keeper
 from ..services.metadata import FIELDS, WRITABLE, field_table, parse_dt
 from . import common
 from .app import router
@@ -19,6 +20,10 @@ from .framework import JSONResponse, Request, StreamResponse, file_response
 
 APPLY_KIND = {"organize_plan": "organize_apply", "dedupe_plan": "dedupe_apply", "metadata_analyze": "metadata_apply",
               "review_plan": "metadata_apply", "undo_moves_plan": "undo_moves_apply", "undo_meta_plan": "undo_meta_apply"}
+
+
+def utcnow_from_mtime(mtime_ns) -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime((mtime_ns or 0) / 1e9))
 
 
 def _submit(req: Request, kind: str, params: dict, owner: str | None = None) -> JSONResponse:
@@ -215,6 +220,20 @@ def start_scan(req: Request):
     return _submit(req, "scan", params)
 
 
+@router.post("/api/library/analyze")
+def analyze_library(req: Request):
+    body = req.json()
+    a = _area(req, body)
+    if not os.path.isdir(a["path"]):
+        fail(400, "not_found")
+    db = need_db()
+    busy = db.query_one("SELECT id FROM jobs WHERE kind='analyze_library' AND owner_id=? "
+                        "AND status IN ('queued','running','paused','interrupted')", (req.user["id"],))
+    if busy:
+        fail(409, "already_running", job_id=busy["id"])
+    return _submit(req, "analyze_library", _area_params(a))
+
+
 @router.post("/api/duplicates/analyze")
 def dup_analyze(req: Request):
     return _submit(req, "dedupe_analyze", {})
@@ -245,15 +264,24 @@ def duplicates(req: Request):
         if not any(m["id"] == g["keeper_file_id"] for m in members):
             continue
         decision = keeper_decision(members, g["keeper_file_id"])
+        member_rows = []
+        for m in members:
+            member_date = group_capture_date([m])["capture_date"]
+            member_rows.append({"id": m["id"], "path": disp(req, m["cur_path"]),
+                                "exif_date": member_date,
+                                "filesystem_date": utcnow_from_mtime(m["mtime_ns"]),
+                                "date": decision["capture_date"],
+                                "owner": (common.app().user(m["owner_id"]) or {}).get("username") if is_admin(req) else None})
         visible.append({"id": g["id"], "size": g["size"], "sha256": g["sha256"], "keeper_file_id": g["keeper_file_id"],
                         **decision, "recoverable": g["size"] * (len(members) - 1),
-                        "members": [{"id": m["id"], "path": disp(req, m["cur_path"]),
-                                     "date": decision["capture_date"],
-                                     "owner": (common.app().user(m["owner_id"]) or {}).get("username") if is_admin(req) else None}
-                                    for m in members]})
+                        "members": member_rows})
+    latest = db.query_one("SELECT finished_at, result FROM jobs WHERE owner_id=? AND kind IN "
+                          "('dedupe_analyze','analyze_library') AND status='completed' ORDER BY id DESC LIMIT 1",
+                          (req.user["id"],))
     groups = visible[off:off + lim]
     recoverable = sum(group["recoverable"] for group in visible)
-    return JSONResponse({"groups": groups, "total": len(visible), "recoverable": recoverable})
+    return JSONResponse({"groups": groups, "total": len(visible), "recoverable": recoverable,
+                         "analyzed_at": latest["finished_at"] if latest else None})
 
 
 @router.post("/api/duplicates/{gid:int}/keeper")
@@ -280,7 +308,7 @@ def duplicates_csv(req: Request):
         def gen():
             buf = io.StringIO()
             w = csv.writer(buf)
-            w.writerow(["group_id", "sha256", "size", "role", "file_id", "path", "date"])
+            w.writerow(["group_id", "sha256", "size", "role", "file_id", "path", "exif_date", "filesystem_date"])
             last = 0
             while True:
                 rows = db.query("SELECT * FROM dup_groups WHERE scope=? AND status='pending' AND id>? ORDER BY id LIMIT 200", (sc, last))
@@ -296,7 +324,8 @@ def duplicates_csv(req: Request):
                         if disp(req, m["cur_path"]) is None:
                             continue
                         w.writerow([g["id"], g["sha256"], g["size"], "keep" if m["id"] == g["keeper_file_id"] else "duplicate",
-                                    m["id"], disp(req, m["cur_path"]), m["chosen_date"] or ""])
+                                    m["id"], disp(req, m["cur_path"]), group_capture_date([m])["capture_date"] or "",
+                                    utcnow_from_mtime(m["mtime_ns"])])
                 yield buf.getvalue().encode("utf-8")
                 buf.seek(0)
                 buf.truncate()
@@ -313,6 +342,26 @@ def meta_analyze(req: Request):
     if body.get("source_id"):
         params["source_id"] = _area(req, body)["id"]
     return _submit(req, "metadata_analyze", params)
+
+
+@router.get("/api/metadata/results")
+def meta_results(req: Request):
+    db = need_db()
+    latest = db.query_one("SELECT id, finished_at, result FROM jobs WHERE owner_id=? AND kind IN "
+                          "('metadata_analyze','analyze_library') AND status='completed' ORDER BY id DESC LIMIT 1",
+                          (req.user["id"],))
+    summary = None
+    if latest:
+        result = json.loads(latest["result"] or "{}")
+        if latest and isinstance(result.get("metadata"), dict):
+            result = result["metadata"]
+        summary = {"analysed": int(result.get("analysed") or 0),
+                   "fills": int(result.get("fills") or 0),
+                   "review": int(result.get("review") or 0)}
+    return JSONResponse({"analyzed_at": latest["finished_at"] if latest else None, "summary": summary,
+                         "review_pending": int(db.scalar(
+                             "SELECT COUNT(*) AS n FROM review_items WHERE owner_id=? AND status='pending'",
+                             (req.user["id"],)) or 0)})
 
 
 @router.post("/api/organize/plan")
@@ -568,6 +617,31 @@ def review_reopen(req: Request):
     return JSONResponse({"ok": True})
 
 
+def _preview_response(req: Request, f: dict):
+    core = common.app()
+    pv = core.settings_section("previews")
+    status, path = ensure_preview(core.settings.ffmpeg, core.settings.cache_dir, f,
+                                  int(pv.get("transcode_height", 720)), int(pv.get("crf", 28)),
+                                  core.settings.preview_cache_max_bytes)
+    if req.query.get("probe"):
+        return JSONResponse({"status": status, "media_kind": f["media_kind"]})
+    if status == "original":
+        return file_response(f["cur_path"], req)
+    if status == "ready":
+        return file_response(path, req, "video/mp4" if f["media_kind"] == "video" else "image/jpeg")
+    return JSONResponse({"status": "pending"}, 202)
+
+
+@router.get("/api/review/{id:int}/preview")
+def review_preview(req: Request):
+    db = need_db()
+    r = own_row(req, db.query_one("SELECT * FROM review_items WHERE id=?", (req.path_params["id"],)))
+    f = scoped_file(req, db.query_one("SELECT * FROM files WHERE id=?", (r["file_id"],))) if r["file_id"] else None
+    if not f:
+        fail(404, "not_found")
+    return _preview_response(req, f)
+
+
 # --- files (originals and previews, permission-checked) -------------------------------------
 def _file(req: Request) -> dict:
     db = need_db()
@@ -589,16 +663,7 @@ def file_content(req: Request):
 @router.get("/api/files/{id:int}/preview")
 def file_preview(req: Request):
     f = _file(req)
-    core = common.app()
-    pv = core.settings_section("previews")
-    status, path = ensure_preview(core.settings.ffmpeg, core.settings.cache_dir, f, int(pv.get("transcode_height", 720)), int(pv.get("crf", 28)))
-    if req.query.get("probe"):
-        return JSONResponse({"status": status, "media_kind": f["media_kind"]})
-    if status == "original":
-        return file_response(f["cur_path"], req)
-    if status == "ready":
-        return file_response(path, req, "video/mp4" if f["media_kind"] == "video" else "image/jpeg")
-    return JSONResponse({"status": "pending"}, 202)
+    return _preview_response(req, f)
 
 
 # --- report, logs, manifest ---------------------------------------------------------------------

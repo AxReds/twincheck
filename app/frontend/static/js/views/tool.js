@@ -89,9 +89,14 @@ export async function scan(main, state) {
     browser, h('p', {}, t('scan.adhoc_selected'), ' ', adhocLabel), noSelection,
     h('div', { class: 'actions' },
       sources.length ? button('scan.start', startSelected, 'primary') : null,
-      adminBrowse ? button('scan.start_adhoc', startSelected) : null),
+      adminBrowse ? button('scan.start_adhoc', startSelected) : null,
+      (sources.length || canBrowse) ? button('scan.analyze_library', () => {
+        if (state.scanPath === null) { noSelection.hidden = false; return; }
+        const source = selectedSource();
+        startJob('/api/library/analyze', source ? { source_id: source.id } : { path: state.scanPath });
+      }, 'primary') : null),
     h('h2', {}, t('scan.jobs')));
-  const jl = jobList(main, 'kind=scan&limit=10');
+  const jl = jobList(main, 'kind=analyze_library&limit=10');
   return { destroy: jl.stop };
 }
 
@@ -105,7 +110,10 @@ export async function duplicates(main, state) {
   const load = async () => {
     const d = await get(`/api/duplicates?scope=${scope()}&offset=${offset}&limit=20`);
     summary.textContent = t('dup.summary', { count: d.total, size: fmt.bytes(d.recoverable) });
-    mount(list, d.groups.length ? d.groups.map((g) => group(g)) : h('p', { class: 'muted' }, t('dup.none')),
+    const last = d.analyzed_at
+      ? h('p', { class: 'notice' }, t('analysis.results_from', { date: fmt.date(d.analyzed_at) }), ' ', t('analysis.recheck_before_action'))
+      : h('p', { class: 'notice warn' }, t('dup.no_analysis'), ' ', h('a', { href: '#/scan' }, t('analysis.go_scan')));
+    mount(list, last, d.groups.length ? d.groups.map((g) => group(g)) : h('p', { class: 'muted' }, t('dup.none')),
       pager(d.total, offset, 20, (o) => { offset = o; load(); }));
   };
   const group = (g) => h('fieldset', { class: 'dup-group' },
@@ -118,8 +126,13 @@ export async function duplicates(main, state) {
     h('ul', {}, g.members.map((m) => {
       const r = h('input', { type: 'radio', name: 'keep' + g.id, checked: m.id === g.keeper_file_id, 'aria-label': t('dup.keep') });
       r.addEventListener('change', async () => { try { await post(`/api/duplicates/${g.id}/keeper`, { file_id: m.id }); load(); } catch (e) { toast(e.message, 'error'); } });
+      const exif = h(g.keeper_rule.startsWith('capture_date_') ? 'strong' : 'span', { class: 'dup-date-exif' },
+        t('dup.exif_date', { date: m.exif_date ? fmt.localDate(m.exif_date) : t('dup.unknown_date') }));
+      const filesystem = h(g.keeper_rule.startsWith('mtime') ? 'strong' : 'span', { class: 'dup-date-filesystem' },
+        t('dup.filesystem_date', { date: fmt.localDate(m.filesystem_date) }));
       return h('li', { class: m.id === g.keeper_file_id ? 'keeper' : '' }, h('label', {}, r, ' ', m.id === g.keeper_file_id ? badge(t('dup.kept'), 'ok') : badge(t('dup.duplicate'), 'warn'), ' ',
-        h('code', {}, m.path || t('dup.other_user')), m.owner ? h('span', { class: 'muted' }, ' · ' + m.owner) : null, ' · ', h('span', { class: 'muted' }, fmt.localDate(m.date))));
+        h('code', {}, m.path || t('dup.other_user')), m.owner ? h('span', { class: 'muted' }, ' · ' + m.owner) : null,
+        ' · ', exif, ' · ', filesystem));
     })));
   if (scopeSel) scopeSel.addEventListener('change', () => { offset = 0; load(); });
   page(main, 'dup.title', 'dup.intro',
@@ -137,14 +150,29 @@ export async function duplicates(main, state) {
 // --- metadata --------------------------------------------------------------------------------
 export async function metadata(main) {
   const { select } = await sourceSelect(true);
+  const results = h('div', {});
+  const loadResults = async () => {
+    const data = await get('/api/metadata/results');
+    if (!data.analyzed_at || !data.summary) {
+      mount(results, h('p', { class: 'notice warn' }, t('meta.no_analysis'), ' ', h('a', { href: '#/scan' }, t('analysis.go_scan'))));
+      return;
+    }
+    mount(results,
+      h('p', { class: 'notice' }, t('analysis.results_from', { date: fmt.date(data.analyzed_at) }), ' ', t('analysis.recheck_before_action')),
+      h('p', { class: 'summary' }, t('meta.summary', data.summary)),
+      data.review_pending > 0 ? h('a', { class: 'btn', href: '#/review' }, t('meta.review_items', { count: data.review_pending })) : null);
+  };
   page(main, 'meta.title', 'meta.intro',
     h('ul', { class: 'rules' }, ['meta.rule_copy', 'meta.rule_never_invent', 'meta.rule_never_overwrite', 'meta.rule_conflicts', 'meta.rule_video_utc', 'meta.rule_backup']
       .map((k) => h('li', {}, t(k)))),
     field('scan.source', select),
-    h('div', { class: 'actions' }, button('meta.analyze', () => startJob('/api/metadata/analyze', { source_id: select.value || undefined }, openPlanWhenReady), 'primary'),
-      h('a', { class: 'btn', href: '#/review' }, t('meta.open_review'))),
+    h('div', { class: 'actions' },
+      h('a', { class: 'btn primary', href: '#/review' }, t('meta.open_review')),
+      button('meta.analyze', () => startJob('/api/metadata/analyze', { source_id: select.value || undefined }, openPlanWhenReady))),
+    results,
     h('h2', {}, t('meta.jobs')));
   const jl = jobList(main, 'kind=metadata_analyze&limit=5');
+  await loadResults();
   return { destroy: jl.stop };
 }
 
@@ -187,7 +215,9 @@ export async function plan(main, state, [id]) {
       h('td', {}, badge(t('plan.status.' + it.status), it.status === 'done' ? 'ok' : it.status === 'planned' ? 'info' : 'warn'), it.note ? h('div', { class: 'small muted' }, t('plan.note.' + it.note)) : null)));
     mount(box,
       h('div', { class: 'job-head' }, h('strong', {}, t('job.kind.' + d.job.kind)), ' #' + d.job.id, ' ', jobBadge(d.job.status)),
-      d.job.result ? h('pre', { class: 'result' }, JSON.stringify(d.job.result, null, 1)) : null,
+      d.job.result && d.job.kind === 'metadata_analyze'
+        ? h('p', { class: 'notice' }, t('meta.summary', d.job.result))
+        : null,
       h('p', { class: 'summary' }, t('plan.summary', { count: total, planned: counts.planned || 0, done: counts.done || 0, blocked: (counts.blocked || 0) + (counts.skipped || 0) })),
       field('plan.filter', filter),
       table(['plan.col_action', 'plan.col_from', 'plan.col_to', 'plan.col_status'], rows),
