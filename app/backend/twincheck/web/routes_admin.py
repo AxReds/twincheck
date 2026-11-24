@@ -68,6 +68,7 @@ def create_user(req: Request):
         errs = check_strength(pw, username, minlen)
         if errs:
             fail(400, "weak_password", reasons=errs, min_length=minlen)
+    password_hash = hash_password(pw)
     uid = access.new_id("usr")
     with core.vault.transaction() as data:
         try:
@@ -75,7 +76,7 @@ def create_user(req: Request):
         except PathError as exc:
             raise HTTPError(400, exc.code) from None
         groups = [g for g in body.get("groups", []) if g in data.get("groups", {})]
-        data["users"][uid] = {"id": uid, "username": username, "role": role, "password_hash": hash_password(pw), "active": True,
+        data["users"][uid] = {"id": uid, "username": username, "role": role, "password_hash": password_hash, "active": True,
                               "lang": body.get("lang") or None, "groups": groups, "sources": srcs, "session_epoch": 0,
                               "must_change_password": True, "created_at": utcnow()}
         audit(data, req.user["username"], "USER_CREATED", username=username, role=role)
@@ -143,13 +144,18 @@ def reset_user_password(req: Request):
     if target["username"] == "admin" and req.user["username"] != "admin":
         fail(403, "forbidden")
     pw = generate_password()
+    password_hash = hash_password(pw)
     with core.vault.transaction() as data:
         u = data["users"][uid]
-        u["password_hash"] = hash_password(pw)
+        u["password_hash"] = password_hash
         u["must_change_password"] = True
         u["session_epoch"] = u.get("session_epoch", 0) + 1
+        data["auth_epoch"] = data.get("auth_epoch", 0) + 1
+        auth_epoch = data["auth_epoch"]
         audit(data, req.user["username"], "PASSWORD_RESET", username=u["username"])
+    core.limiter.sync_epoch(auth_epoch)
     core.sessions.drop_user(uid)
+    events.console("PASSWORD_RESET", username=target["username"], actor=req.user["username"])
     return JSONResponse({"generated_password": pw})
 
 

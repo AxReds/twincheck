@@ -360,9 +360,10 @@ def change_password(req: Request):
     errs = check_strength(new, req.user["username"], minlen)
     if errs:
         fail(400, "weak_password", reasons=errs, min_length=minlen)
+    password_hash = hash_password(new)
     with core.vault.transaction() as data:
         u = data["users"][req.user["id"]]
-        u["password_hash"] = hash_password(new)
+        u["password_hash"] = password_hash
         u["must_change_password"] = False
         from ..vault import audit
         audit(data, u["username"], "PASSWORD_CHANGED", username=u["username"])

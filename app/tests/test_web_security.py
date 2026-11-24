@@ -2,9 +2,12 @@
 import os
 import json
 import re
+import threading
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from unittest import mock
 from urllib.parse import quote
 
 from helpers import APP_DIR, STRONG, Client, Instance, make_user, sample_library, wait_job
@@ -420,6 +423,99 @@ class Roles(unittest.TestCase):
 
 
 class ResetPassword(unittest.TestCase):
+    def test_required_password_change_flows_and_responsive_server(self):
+        inst = Instance().start()
+        try:
+            inst.setup()
+            admin = inst.admin()
+            r = admin.post("/api/admin/users", {"username": "required", "password": STRONG, "sources": []})
+            self.assertEqual(r.status, 201, r.text)
+            uid = r.json()["id"]
+            user = inst.client()
+            self.assertEqual(user.login("required", STRONG).status, 200)
+            self.assertTrue(user.get("/api/me").json()["must_change_password"])
+            self.assertEqual(user.get("/api/sysinfo").json()["error"], "password_change_required")
+
+            wrong = user.post("/api/me/password", {
+                "current": "wrong", "password": STRONG + "1", "password_confirm": STRONG + "1",
+            })
+            self.assertEqual(wrong.json()["error"], "bad_current_password")
+            self.assertTrue(user.get("/api/me").json()["must_change_password"])
+            weak = user.post("/api/me/password", {
+                "current": STRONG, "password": "weak", "password_confirm": "weak",
+            })
+            self.assertEqual(weak.json()["error"], "weak_password")
+            self.assertTrue(user.get("/api/me").json()["must_change_password"])
+
+            changed = STRONG + "1"
+            self.assertEqual(user.post("/api/me/password", {
+                "current": STRONG, "password": changed, "password_confirm": changed,
+            }).status, 200)
+            self.assertFalse(user.get("/api/me").json()["must_change_password"])
+            self.assertEqual(user.get("/api/sysinfo").status, 200)
+
+            failures = inst.client(ip="10.10.10.10")
+            for _ in range(5):
+                failures.post("/api/login", {"username": "required", "password": "wrong"})
+            self.assertGreater(inst.core.limiter.retry_after(["user:required"]), 0)
+            observer = inst.admin()
+            hashing = threading.Event()
+            release = threading.Event()
+            from twincheck.web import routes_admin
+            real_reset_hash = routes_admin.hash_password
+
+            def slow_reset_hash(password):
+                hashing.set()
+                release.wait(5)
+                return real_reset_hash(password)
+
+            with mock.patch.object(routes_admin, "hash_password", slow_reset_hash):
+                with ThreadPoolExecutor(max_workers=2) as executor, self.assertLogs("twincheck", level="INFO") as logs:
+                    resetting = executor.submit(admin.post, f"/api/admin/users/{uid}/password")
+                    self.assertTrue(hashing.wait(2), "reset password hashing did not start")
+                    other = executor.submit(observer.post, "/api/me/theme", {"theme": "dark"})
+                    try:
+                        self.assertEqual(other.result(timeout=2).status, 200,
+                                         "another user's request waited for admin reset hashing")
+                    finally:
+                        release.set()
+                    reset = resetting.result(timeout=5)
+            self.assertEqual(reset.status, 200, reset.text)
+            temporary = reset.json()["generated_password"]
+            self.assertTrue(any("[PASSWORD_RESET]" in line and "required" in line and "admin" in line for line in logs.output))
+            self.assertNotIn(temporary, "\n".join(logs.output))
+            self.assertIn("PASSWORD_RESET", [item["event"] for item in inst.core.vault.data["audit"]])
+            relogin = inst.client(ip="10.10.10.10")
+            self.assertEqual(relogin.login("required", temporary).status, 200)
+            self.assertTrue(relogin.get("/api/me").json()["must_change_password"])
+
+            from twincheck.web import app as web_app
+            hashing = threading.Event()
+            release = threading.Event()
+            real_hash = web_app.hash_password
+
+            def slow_hash(password):
+                hashing.set()
+                release.wait(5)
+                return real_hash(password)
+
+            with mock.patch.object(web_app, "hash_password", slow_hash):
+                with ThreadPoolExecutor(max_workers=2) as executor:
+                    changing = executor.submit(relogin.post, "/api/me/password", {
+                        "current": temporary, "password": changed + "2", "password_confirm": changed + "2",
+                    })
+                    self.assertTrue(hashing.wait(2), "password hashing did not start")
+                    other = executor.submit(admin.post, "/api/me/theme", {"theme": "dark"})
+                    try:
+                        self.assertEqual(other.result(timeout=2).status, 200,
+                                         "another user's request waited for password hashing")
+                    finally:
+                        release.set()
+                    self.assertEqual(changing.result(timeout=5).status, 200)
+            self.assertEqual(inst.client().get("/healthz").status, 200)
+        finally:
+            inst.cleanup()
+
     def test_reset_while_running(self):
         inst = Instance().start()
         try:

@@ -102,9 +102,14 @@ Opening a preview or a confirmation dialog must not itself write media files.
 - [ ] 1.4 Require the first password change.
   - Action: Sign in as each new account in a separate browser session and
     complete "Change password" using "Current password", "New password",
-    "Confirm new password" and "Save".
+    "Confirm new password" and "Save". While the form is open, type into it,
+    try a wrong current password and a weak password, and keep it open while
+    another account uses the application.
   - Expected: Normal use is blocked until the password is changed; the new
-    password works and the temporary password no longer does.
+    password works and the temporary password no longer does. The form is
+    rendered once without live metrics or polling, errors keep its values and
+    focus, and normal use resumes without reloading the page. Health checks
+    and other users remain responsive.
 - [ ] 1.5 Enforce role and file isolation.
   - Action: Compare the two base-user sessions, the administrator and admin.
     Check sources, "Review", "Logs", "Report & undo", previews and downloads;
@@ -356,7 +361,9 @@ repeat with a larger fresh set.
   - Action: Open "Administration" > "Audit log"; locate the account, group,
     settings and password-reset actions performed during this run.
   - Expected: Entries identify the actions with English event codes/messages,
-    including `PASSWORD_RESET_CLI`, without passwords, keys or setup tokens.
+    including web `PASSWORD_RESET` and console `PASSWORD_RESET_CLI`, without
+    passwords, keys or setup tokens. Web resets also emit the English
+    `PASSWORD_RESET` console event with only the target user and actor.
 - [ ] 8.4 Persist a user's language independently.
   - Action: Change "Language" in one user's menu, navigate and sign in again;
     compare a second user. Return the checklist session to English afterwards.

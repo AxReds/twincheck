@@ -70,6 +70,12 @@ Whole-source scans retain their existing source-plus-destination behaviour.
 narrow screens the metrics collapse into a panel opened by the *System* button; logo and user menu
 stay visible.
 
+When an account must change its password, the normal shell and every poller are
+replaced once by a header without live metrics and the password-change form.
+Repeated `password_change_required` responses cannot recreate the form while
+the user is typing. Validation errors keep the values and focus. A successful
+change restores navigation and polling in place, without reloading the page.
+
 On session expiry, the first unauthorized response stops all polling and opens the
 login form once. Late responses cannot replace that form or sign out a newly
 authenticated session. Typed values and focus stay intact; a failed login does

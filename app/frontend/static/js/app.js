@@ -52,7 +52,7 @@ async function boot() {
   if (!state.user || state.user.id !== b.user.id) state.scanPath = null;
   state.user = b.user;
   state.perms = b.permissions;
-  renderShell();
+  await renderShell();
 }
 
 function stopMetrics() { if (state.stopMetrics) { state.stopMetrics(); state.stopMetrics = null; } }
@@ -75,7 +75,16 @@ function clearSession() {
   lastMetrics = null;
 }
 
-function renderShell() {
+async function renderShell() {
+  stopPolling();
+  stopMetrics();
+  routeGeneration++;
+  if (state.view?.destroy) state.view.destroy();
+  state.view = null;
+  if (state.user?.must_change_password) {
+    await renderPasswordRequired();
+    return;
+  }
   const metrics = h('div', { class: 'metrics', id: 'metrics' });
   const toggle = h('button', { type: 'button', class: 'btn small metrics-toggle', 'aria-expanded': 'false', 'aria-controls': 'metrics' }, t('header.system'));
   toggle.addEventListener('click', () => {
@@ -94,6 +103,19 @@ function renderShell() {
   resumePolling();
   state.stopMetrics = poll(refreshMetrics, 5000);
   route();
+}
+
+async function renderPasswordRequired() {
+  const main = h('main', { class: 'content password-required', id: 'content', tabindex: '-1' });
+  const logoutButton = h('button', { type: 'button', class: 'btn small', onclick: logout },
+    icon('log-out'), h('span', { class: 'nav-label' }, t('user.logout')));
+  const header = h('header', { class: 'topbar' },
+    h('a', { class: 'brand', href: '#/me' }, h('img', { src: '/static/img/logo.svg', alt: '', class: 'logo' }), h('span', { class: 'brand-name' }, t('app.name'))),
+    h('div', { class: 'header-actions' }, themeToggle(), logoutButton));
+  shell = { header, nav: null, main, metrics: null, passwordRequired: true };
+  history.replaceState(null, '', '#/me');
+  mount(root, header, main);
+  state.view = await tool.me(main, state);
 }
 
 function userMenu() {
@@ -185,6 +207,10 @@ function drawMetrics() {
 
 export async function route() {
   if (!shell) return;
+  if (state.user?.must_change_password) {
+    if (!shell.passwordRequired) await renderShell();
+    return;
+  }
   const generation = ++routeGeneration;
   const activeShell = shell;
   closeUserMenu();
@@ -232,7 +258,17 @@ window.addEventListener('po:unauthenticated', () => {
   clearSession();
   renderLogin(root, state, boot);
 });
-window.addEventListener('po:password-required', () => { if (location.hash !== '#/me') location.hash = '#/me'; });
+window.addEventListener('po:password-required', async () => {
+  if (!state.user) return;
+  state.user.must_change_password = true;
+  if (!shell?.passwordRequired) await renderShell();
+});
+window.addEventListener('po:password-changed', async () => {
+  if (!state.user) return;
+  state.user.must_change_password = false;
+  history.replaceState(null, '', '#/home');
+  await renderShell();
+});
 onLanguage(() => {
   document.title = t('app.name');
   if (shell) { renderShell(); }            // instant language switch, no reload

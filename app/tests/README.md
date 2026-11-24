@@ -51,6 +51,11 @@ check that polling stops, and verifies failed login, successful login and a late
 old-session response.
 Stop the server afterwards. These browser checks supplement the Python suite.
 
+The required-password regression covers a new account and an admin reset,
+including five preceding failed logins. It checks the single change-password
+page, stopped polling, preserved values on wrong/weak passwords, in-place
+recovery and continued responsiveness for health checks and another user.
+
 Theme checks exercise Auto/Light/Dark, the sun/moon button, whole-header palette
 and active-section contrast (at least 4.5:1). An embedded synthetic app checks
 actual reload/logout/login persistence and authenticated preference precedence.

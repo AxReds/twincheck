@@ -275,14 +275,18 @@ export async function me(main, state) {
     kv([['me.username', state.user.username], ['me.role', t('role.' + state.user.role)]]),
     h('form', { class: 'form', onsubmit: async (e) => {
       e.preventDefault();
+      const submit = e.submitter;
+      if (submit) submit.disabled = true;
       try {
         await post('/api/me/password', { current: cur.value, password: p1.value, password_confirm: p2.value });
         toast(t('me.password_changed'), 'ok');
-        state.user.must_change_password = false;
         cur.value = p1.value = p2.value = '';
-        location.hash = '#/home';
-        location.reload();
-      } catch (err) { toast(err.message, 'error'); }
+        window.dispatchEvent(new CustomEvent('po:password-changed'));
+      } catch (err) {
+        toast(err.message, 'error');
+      } finally {
+        if (submit?.isConnected) submit.disabled = false;
+      }
     } }, h('h2', {}, t('user.change_password')), field('me.current', cur), field('me.new', p1, 'setup.password_rules'), field('me.confirm', p2),
     h('div', { class: 'actions' }, h('button', { type: 'submit', class: 'btn primary' }, t('common.save')))));
 }
