@@ -4,6 +4,23 @@ All notable changes are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.1-rc.6] - 2026-11-25
+
+### Security
+
+- Base-user duplicate, metadata, review, report, log, export, preview and action results are now restricted to both the current owner and the user's current assigned paths. Cached and historical results outside that scope are hidden, and every move/metadata action is revalidated immediately before execution ([#40](https://github.com/AxReds/twincheck/issues/40)).
+
+### Added
+
+- The Scan page can start one resumable **Analyze library** job: scan, hash, capture dates, exact duplicates and metadata proposals. Reading steps are combined; duplicate moves, metadata writes and organization remain separate preview-and-confirm actions ([#44](https://github.com/AxReds/twincheck/issues/44)).
+- Duplicate rows and CSV exports show both the EXIF capture date and file-system date, with the date that controlled the automatic keeper choice highlighted in the UI ([#42](https://github.com/AxReds/twincheck/issues/42)).
+- Metadata results use a readable summary with the count of items requiring Review instead of raw JSON ([#43](https://github.com/AxReds/twincheck/issues/43)).
+
+### Fixed
+
+- Duplicate analysis reads missing or changed capture dates before choosing a keeper, so the result does not depend on whether Metadata analysis ran first. Empty, zeroed and unparsable EXIF dates are treated as unknown ([#41](https://github.com/AxReds/twincheck/issues/41)).
+- Review item and preview requests now run in parallel, use a scope-checked preview endpoint and prefetch the next review preview. Generated previews are cached once under `/state`, bounded, and invalidated by file content/size/mtime. ExifTool uses one thread-safe persistent process and restarts it after a crash ([#45](https://github.com/AxReds/twincheck/issues/45)).
+
 ## [1.0.1-rc.5] - 2026-11-24
 
 ### Fixed
@@ -144,6 +161,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Duplicates folder preview/restore and a design discussion on guarded deletion;
   the current "never delete" rule is unchanged ([#25](https://github.com/AxReds/twincheck/issues/25)).
 
+[1.0.1-rc.6]: https://github.com/AxReds/twincheck/compare/v1.0.1-rc.5...v1.0.1-rc.6
 [1.0.1-rc.5]: https://github.com/AxReds/twincheck/compare/v1.0.1-rc.4...v1.0.1-rc.5
 [1.0.1-rc.4]: https://github.com/AxReds/twincheck/compare/v1.0.1-rc.3...v1.0.1-rc.4
 [1.0.1-rc.3]: https://github.com/AxReds/twincheck/compare/v1.0.1-rc.2...v1.0.1-rc.3

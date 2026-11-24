@@ -81,6 +81,16 @@ login form once. Late responses cannot replace that form or sign out a newly
 authenticated session. Typed values and focus stay intact; a failed login does
 not restart polling. Polling resumes only after a successful login and bootstrap.
 
+The Review screen starts the item request and its preview request in parallel,
+without a separate probe request. A completed preview of the next review item is
+prefetched. The request is still scope-checked through the review item and file
+before reading a generated preview. Preview artifacts live only under
+`/state/cache/previews/<owner>/<size-mtime-hash>`, are pruned to the configured
+limit, and are invalidated when the file signature changes.
+
+ExifTool reads and writes share one long-lived `-stay_open` process. It is
+protected by a lock, restarted when it exits, and closed with the application.
+
 Completed scan cards show indexed files, newly computed hashes, reused hashes and
 files still without a hash. Older scans show their recorded indexed/hashed counts
 and explain that reused hashes were not counted; a stale phase is not shown as a

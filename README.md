@@ -82,17 +82,21 @@ On a server with **Portainer** you do not need the source code: use the publishe
    Edit → Sources*. Administration is available only in the administrative user menu,
    above Change password; empty Scan and Organize pages link to source assignment
    for admin roles. Base users get an instruction to ask an administrator instead.
-4. **Scan** - pick a source; files are indexed and hashed (SHA-256) in the background; you can
-   close the browser, the job resumes after a restart.
-5. **Duplicates** - *Analyze*, check the groups (change which file to keep), *Preview move*, confirm.
+4. **Analyze library** - on *Scan*, pick a source and start *Analyze library*. One resumable,
+   read-only job performs scan, SHA-256 hashing, capture-date reading, duplicate grouping and
+   metadata proposals in order. Unchanged files reuse their stored hash and capture date. Advanced
+   users can still run the individual analyses from the review pages.
+5. **Duplicates** - review the last results, including EXIF and file-system dates (change the
+   keeper if needed), *Preview move*, confirm.
    Duplicates go to `<destination>/Duplicates/<original relative path>`.
    A capture date read from any copy's internal metadata applies to all byte-identical
    copies for the keeper decision; unread metadata is not treated as an older date.
    Without an internal capture date the oldest mtime wins, then the tidiest path
    (fewest components, shortest length, lexicographic order). The group shows the
    effective date and rule. Metadata is not written by duplicate analysis.
-6. **Metadata** - *Analyze and preview*: see what would be completed and from which source; confirm
-   to write (original values are saved first). Doubtful files go to review.
+6. **Metadata** - review the last readable summary, open the items requiring review, or
+   *Re-analyze* if needed. Preview the automatic completions and confirm to write (original values
+   are saved first). Doubtful files go to review.
 7. **Review** - for each file: media on one side, every field on the other; save, skip, leave as it
    is, or apply to the whole folder/group. Decisions are stored immediately; *Preview writing*
    writes the values you entered (only into missing fields).
@@ -125,6 +129,10 @@ On a server with **Portainer** you do not need the source code: use the publishe
   The key never lives in `/state`, the image or the repository. **A lost key cannot be recovered.**
 * **Network**: plain HTTP only (see below), `BIND_ADDRESS`, `ALLOWED_NETWORKS`, login throttling,
   short sessions, CSRF protection, strict CSP, no Internet calls.
+* **Per-user isolation**: database ownership is not enough on its own. Every read, result, export,
+  preview and file action is re-checked against the user's current assigned source/destination
+  paths immediately before use. Stale rows, cached preview files and files that leave the scope
+  between preview and confirmation are hidden or skipped, never exposed or moved.
 * **Backups**: back up your photos before the first run; back up `/state` (and MariaDB) regularly;
   keep the key separately.
 

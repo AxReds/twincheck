@@ -21,6 +21,26 @@ and [`backend/README.md`](backend/README.md) (all environment variables read by 
 | index, hashes, duplicates, jobs, checkpoints, execution log, move journal, manifest, metadata before/after, review decisions | operational database (SQLite in `/state` or MariaDB) | no credentials, no user names (only stable user ids); encrypt the disk/volume for encryption at rest |
 | previews | `/state/cache/previews/<user id>/` | deletable at any time |
 
+## Library analysis pipeline
+
+`analyze_library` is a read-only, auto-resuming job started from the Scan page. It runs the
+existing components in this order:
+
+1. scan the selected source;
+2. hash changed or new files by size + SHA-256, reusing unchanged hashes;
+3. read capture dates with ExifTool, reusing valid stored metadata for unchanged files;
+4. build exact duplicate groups by byte comparison and choose the keeper only after every candidate
+   has capture-date data or a confirmed unknown result;
+5. compute metadata fills, conflicts and review items.
+
+The job stores a separate checkpoint for every completed phase/batch. After interruption it resumes
+from the last checkpoint; it never moves, writes metadata or organizes files. Those actions remain
+separate plan-and-confirm jobs and revalidate the file immediately before execution.
+
+Base-user pipeline results and all stored historical results are filtered through the current
+assigned source/destination paths, not only `owner_id`. The same check is applied while reading
+duplicates, metadata, reviews, plans, logs, exports, previews, report data and cache entries.
+
 ## Operational database schema (version 3)
 
 Column types are portable: `key` = indexable text (VARCHAR(191) utf8mb4_bin on MariaDB), `hash` =

@@ -56,6 +56,11 @@ including five preceding failed logins. It checks the single change-password
 page, stopped polling, preserved values on wrong/weak passwords, in-place
 recovery and continued responsiveness for health checks and another user.
 
+The rc.6 regressions cover stale per-user records outside current source scope,
+capture-date reading before keeper selection, the resumable five-stage library
+analysis, duplicate date columns, readable metadata summaries, persistent
+ExifTool process recovery and preview cache hit/invalidation/scope checks.
+
 Theme checks exercise Auto/Light/Dark, the sun/moon button, whole-header palette
 and active-section contrast (at least 4.5:1). An embedded synthetic app checks
 actual reload/logout/login persistence and authenticated preference precedence.
