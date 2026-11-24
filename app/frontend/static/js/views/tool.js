@@ -148,19 +148,26 @@ export async function duplicates(main, state) {
 }
 
 // --- metadata --------------------------------------------------------------------------------
+function metadataResult(data) {
+  if (!data.analyzed_at || !data.summary) {
+    return h('p', { class: 'notice warn' }, t('meta.no_analysis'), ' ',
+      h('a', { href: '#/scan' }, t('analysis.go_scan')));
+  }
+  return h('div', {},
+    h('p', { class: 'notice' }, t('analysis.results_from', { date: fmt.date(data.analyzed_at) }), ' ',
+      t('analysis.recheck_before_action')),
+    h('p', { class: 'summary' }, t('meta.summary', data.summary)),
+    data.review_pending > 0
+      ? h('a', { class: 'btn', href: '#/review' }, t('meta.review_items', { count: data.review_pending }))
+      : null);
+}
+
 export async function metadata(main) {
   const { select } = await sourceSelect(true);
   const results = h('div', {});
   const loadResults = async () => {
     const data = await get('/api/metadata/results');
-    if (!data.analyzed_at || !data.summary) {
-      mount(results, h('p', { class: 'notice warn' }, t('meta.no_analysis'), ' ', h('a', { href: '#/scan' }, t('analysis.go_scan'))));
-      return;
-    }
-    mount(results,
-      h('p', { class: 'notice' }, t('analysis.results_from', { date: fmt.date(data.analyzed_at) }), ' ', t('analysis.recheck_before_action')),
-      h('p', { class: 'summary' }, t('meta.summary', data.summary)),
-      data.review_pending > 0 ? h('a', { class: 'btn', href: '#/review' }, t('meta.review_items', { count: data.review_pending })) : null);
+    mount(results, metadataResult(data));
   };
   page(main, 'meta.title', 'meta.intro',
     h('ul', { class: 'rules' }, ['meta.rule_copy', 'meta.rule_never_invent', 'meta.rule_never_overwrite', 'meta.rule_conflicts', 'meta.rule_video_utc', 'meta.rule_backup']
