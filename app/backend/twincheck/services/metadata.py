@@ -331,12 +331,55 @@ def _add_review(db, f: dict, kind: str, details: dict, proposals: list, job_id: 
     )
 
 
+def ensure_capture_dates(ctx: JobContext, rows: list[dict]) -> int:
+    """Read reliable date metadata without creating review items or write plans."""
+    pending = [r for r in rows if not r.get("meta_read") or r.get("phase_meta") not in ("analysed", "done")]
+    if not pending:
+        return 0
+    et = ctx.app.exiftool
+    dirs: dict[str, tuple] = {}
+    side_paths: dict[int, list[str]] = {}
+    for row in pending:
+        directory = os.path.dirname(row["cur_path"])
+        if directory not in dirs:
+            try:
+                dirs[directory] = group_directory(os.listdir(directory))
+            except OSError:
+                dirs[directory] = ({}, set())
+        companions = dirs[directory][0].get(row["name"], [])
+        side_paths[row["id"]] = [os.path.join(directory, name) for name in companions
+                                 if name.lower().endswith((".xmp", ".json"))]
+    to_read = [row["cur_path"] for row in pending]
+    to_read += [path for paths in side_paths.values() for path in paths if path.lower().endswith(".xmp")]
+    try:
+        metadata = et.read(to_read)
+    except ExifError as exc:
+        raise RuntimeError(exc.args[0]) from None
+    for row in pending:
+        own = collect(metadata.get(row["cur_path"], {}), "file")
+        sidecars = []
+        for path in side_paths[row["id"]]:
+            if path.lower().endswith(".xmp"):
+                sidecars.append(collect(metadata.get(path, {}), "sidecar:" + os.path.basename(path)))
+            else:
+                sidecars.append(takeout_candidates(path))
+        result = analyse_file(row, own, sidecars, set())
+        stored = {"fields": result["fields"], "fills": {}, "proposals": result["proposals"]}
+        ctx.db.execute("UPDATE files SET meta_read=?, chosen_date=?, chosen_date_source=?, date_flags=?, "
+                       "phase_meta='analysed', updated_at=? WHERE id=?",
+                       (json.dumps(stored, ensure_ascii=False), result["chosen"], result["chosen_source"],
+                        result["flags"], utcnow(), row["id"]))
+        row.update(meta_read=stored and json.dumps(stored, ensure_ascii=False), chosen_date=result["chosen"],
+                   chosen_date_source=result["chosen_source"], date_flags=result["flags"], phase_meta="analysed")
+    return len(pending)
+
+
 @register("metadata_analyze", auto_resume=True)
 def metadata_analyze(ctx: JobContext) -> dict:
     """Read metadata, choose dates, queue doubtful files for review and build the
     plan of automatic completions (written only after confirmation)."""
     db = ctx.db
-    et = ExifTool(ctx.app.settings.exiftool)
+    et = ctx.app.exiftool
     enabled = set(ctx.app.settings_section("metadata").get("fields", WRITABLE))
     source_id = ctx.params.get("source_id")
     where = "owner_id=? AND present=1 AND media_kind IN ('image','video') AND status<>'dup_moved'"
@@ -495,7 +538,7 @@ def apply_fill(ctx: JobContext, item: dict, et: ExifTool) -> str:
 
 def run_meta_plan(ctx: JobContext) -> dict:
     db = ctx.db
-    et = ExifTool(ctx.app.settings.exiftool)
+    et = ctx.app.exiftool
     plan_id = ctx.params["plan_job_id"]
     total = int(db.scalar("SELECT COUNT(*) AS n FROM plan_items WHERE plan_job_id=? AND owner_id=?", (plan_id, ctx.owner_id)) or 0)
     done = int(db.scalar("SELECT COUNT(*) AS n FROM plan_items WHERE plan_job_id=? AND owner_id=? AND status<>'planned'", (plan_id, ctx.owner_id)) or 0)

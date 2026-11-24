@@ -14,7 +14,7 @@ import json
 from ..db.schema import utcnow
 from ..fsutil import same_bytes
 from ..jobs import JobContext, register
-from .metadata import analyse_file
+from .metadata import analyse_file, ensure_capture_dates, parse_dt
 
 
 def _date_key(f: dict) -> str:
@@ -30,7 +30,9 @@ def group_capture_date(members: list[dict]) -> dict:
     dates = []
     for member in members:
         fields = json.loads(member.get("meta_read") or "{}").get("fields", {})
-        own = {field: [c for c in info.get("candidates", []) if c.get("source") == "file"]
+        own = {field: [c for c in info.get("candidates", [])
+                       if c.get("source") == "file"
+                       and (field not in ("datetime_original", "create_date") or parse_dt(c.get("value")))]
                for field, info in fields.items()}
         result = analyse_file(member, own, [], set())
         if result["chosen"]:
@@ -95,7 +97,7 @@ def analyze(ctx: JobContext, scope: str, owner_filter: str | None) -> dict:
     total = len(pending) + groups
     for g in pending:
         ctx.check()
-        members = db.query("SELECT id, owner_id, cur_path, name, ext, media_kind, size, mtime_ns, meta_read FROM files WHERE size=? AND sha256=? AND present=1 "
+        members = db.query("SELECT id, owner_id, cur_path, name, ext, media_kind, size, mtime_ns, meta_read, phase_meta FROM files WHERE size=? AND sha256=? AND present=1 "
                            "AND media_kind IN ('image','video') AND status<>'dup_moved'" + (" AND owner_id=?" if owner_filter else ""),
                            (g["size"], g["sha256"], owner_filter) if owner_filter else (g["size"], g["sha256"]))
         if scope_filter:
@@ -116,6 +118,7 @@ def analyze(ctx: JobContext, scope: str, owner_filter: str | None) -> dict:
             else:
                 ctx.log("DUP_MISMATCH", level="WARNING", a=keeper["cur_path"], b=m["cur_path"])
         if len(confirmed) > 1:
+            ensure_capture_dates(ctx, confirmed)
             capture_date = group_capture_date(confirmed)["capture_date"]
             confirmed.sort(key=lambda f: keeper_order(f, capture_date))
             keeper = confirmed[0]
@@ -167,7 +170,7 @@ def set_keeper(db, group_id: int, file_id: int, user=None, data_dir=None) -> Non
 
 
 def group_members(db, g: dict, user=None, data_dir=None) -> list[dict]:
-    sql = ("SELECT id, owner_id, cur_path, name, ext, media_kind, size, mtime_ns, chosen_date, meta_read, status FROM files WHERE size=? AND sha256=? AND present=1 "
+    sql = ("SELECT id, owner_id, cur_path, name, ext, media_kind, size, mtime_ns, chosen_date, meta_read, phase_meta, status FROM files WHERE size=? AND sha256=? AND present=1 "
            "AND media_kind IN ('image','video')")
     params: list = [g["size"], g["sha256"]]
     if g["scope"] != "global":
