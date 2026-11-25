@@ -328,9 +328,9 @@ await test('B11: base-user tree stays within sources and submits the selected su
 });
 await test('B6: choosing an organizing date discards stale date edits only', async () => {
   await go('#/metadata/review/1');
-  const dateInputs = [...document.querySelectorAll('input[type="datetime-local"]')];
+  const dateInputs = [...document.querySelectorAll('input.date-input')];
   dateInputs.forEach((el) => { el.value = '1999-01-01T01:02:03'; });
-  document.querySelector('input[type="text"]').value = 'Test title';
+  document.querySelector('input[aria-label="' + t('field.title') + '"]').value = 'Test title';
   const choice = document.querySelector('main select');
   choice.value = '2020-01-02T03:04:05';
   choice.dispatchEvent(new Event('change'));
@@ -341,7 +341,7 @@ await test('B6: choosing an organizing date discards stale date edits only', asy
   assert(!saved.fields.datetime_original && !saved.fields.create_date, 'stale manual dates were submitted for writing');
   assert(saved.fields.title === 'Test title', 'unrelated manual edit was lost');
   await go('#/metadata/review/1');
-  document.querySelector('input[type="datetime-local"]').value = '1999-01-01T01:02:03';
+  document.querySelector('input.date-input').value = '1999-01-01T01:02:03';
   [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.save_next')).click();
   await sleep();
   const manual = requests.filter((r) => r.url === '/api/review/1' && r.body).at(-1).body;
@@ -535,6 +535,21 @@ await test('U15: sub-pages have contextual back links and explain empty plans', 
   }
   await go('#/metadata/review/1');
   assert(document.querySelector('main .back-link[href="#/metadata/review"]'), 'review back link missing');
+  await go('#/home');
+});
+await test('U16: 24-hour inputs, Use copies proposal, sticky controls precede fields', async () => {
+  await go('#/metadata/review/1');
+  const controls = document.querySelector('.review-controls');
+  const table = document.querySelector('.review-side .table-wrap');
+  assert(controls && table && (controls.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING), 'controls are not above the field table');
+  assert(!document.querySelector('input[type="datetime-local"]'), 'locale-dependent AM/PM input remains');
+  assert(document.querySelector('.organizing-date').placeholder === t('review.date_format'), 'date format hint missing');
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.use_proposal')).click();
+  assert(document.querySelector('input.date-input').value === '2020-01-02 03:04:05', 'Use does not copy 24-hour proposal');
+  assert(getComputedStyle(innerWidth <= 1000 ? document.querySelector('.review-actions') : controls).position ===
+    (innerWidth <= 1000 ? 'fixed' : 'sticky'), 'review actions are not sticky/fixed');
+  assert(![...document.querySelectorAll('main input')].some((el) => ['+01:00', '45.464200, 9.190000'].includes(el.placeholder)),
+    'example values look like real data');
   await go('#/home');
 });
 await test('U12: pipeline button and five-phase progress are available', async () => {

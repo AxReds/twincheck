@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "review.date_format": "aaaa-mm-dd hh:mm:ss (24 horas)",
     "common.back_to": "Voltar para {page}",
     "meta.empty_fills": "Sem preenchimento automático: nenhum campo ausente tem fonte confiável. {count} arquivos aguardam uma escolha.",
     "plan.empty": "Nada a alterar nesta prévia. Nenhum arquivo será modificado.",
@@ -436,7 +437,7 @@
     "review.empty_stays_empty": "Campos deixados vazios continuam vazios.",
     "field.datetime_original": "Data/hora da captura",
     "field.create_date": "Data de criação",
-    "field.modify_date": "Data de modificação",
+    "field.modify_date": "Data de modificação (EXIF)",
     "field.offset": "Deslocamento do fuso horário",
     "field.gps": "Posição GPS",
     "field.make": "Fabricante da câmera",

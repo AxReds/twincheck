@@ -136,6 +136,14 @@ tr.is-missing th, tr.is-missing td { background: color-mix(in srgb, var(--warn) 
 .media img, .media video { max-inline-size: 100%; max-block-size: 75vh; display: block; }
 .media p { color: #ccc; }
 .review-side { display: grid; gap: 0.75rem; }
+.review-controls { position: sticky; inset-block-start: 5rem; z-index: 5; background: var(--bg); padding: 0.5rem; border: 1px solid var(--line); border-radius: var(--radius); }
+.review-controls .hint { margin-block: 0.25rem; }
+@media (max-width: 1000px) {
+  .review { padding-block-end: 10rem; }
+  .review-controls { position: static; }
+  .review-actions { position: fixed; inset-inline: 0; inset-block-end: 0; z-index: 25; margin: 0; padding: 0.75rem; background: var(--card); border-block-start: 1px solid var(--line); }
+  .review .media { position: static; }
+}
 .cands { list-style: none; padding: 0; margin: 0; }
 .kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.2rem 0.75rem; }
 .kv dt { color: var(--muted); } .kv dd { margin: 0; overflow-wrap: anywhere; }

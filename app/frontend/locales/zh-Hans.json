@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "review.date_format": "yyyy-mm-dd hh:mm:ss（24小时）",
     "common.back_to": "返回{page}",
     "meta.empty_fills": "没有自动补全：缺失字段没有可靠来源。{count}个文件等待审核选择。",
     "plan.empty": "此预览没有更改。不会修改任何文件。",
@@ -416,7 +417,7 @@
     "review.empty_stays_empty": "留空的字段将保持为空。",
     "field.datetime_original": "拍摄日期/时间",
     "field.create_date": "创建日期",
-    "field.modify_date": "修改日期",
+    "field.modify_date": "修改日期 (EXIF)",
     "field.offset": "时区偏移",
     "field.gps": "GPS 位置",
     "field.make": "相机品牌",

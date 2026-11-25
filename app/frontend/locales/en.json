@@ -10,6 +10,7 @@
     "source": true
   },
   "messages": {
+    "review.date_format": "yyyy-mm-dd hh:mm:ss (24-hour)",
     "common.back_to": "Back to {page}",
     "meta.empty_fills": "No automatic completions: no missing field has a reliable source. {count} files await a choice in review.",
     "plan.empty": "Nothing to change in this preview. No files will be modified.",
@@ -427,7 +428,7 @@
     "review.empty_stays_empty": "Fields left empty stay empty.",
     "field.datetime_original": "Date/time taken",
     "field.create_date": "Creation date",
-    "field.modify_date": "Modification date",
+    "field.modify_date": "Modification date (EXIF)",
     "field.offset": "Time zone offset",
     "field.gps": "GPS position",
     "field.make": "Camera make",

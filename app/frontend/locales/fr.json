@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "review.date_format": "aaaa-mm-jj hh:mm:ss (24 heures)",
     "common.back_to": "Retour à {page}",
     "meta.empty_fills": "Aucun complément automatique : aucune source fiable pour les champs manquants. {count} fichiers attendent un choix.",
     "plan.empty": "Rien à modifier dans cet aperçu. Aucun fichier ne sera modifié.",
@@ -436,7 +437,7 @@
     "review.empty_stays_empty": "Les champs laissés vides restent vides.",
     "field.datetime_original": "Date/heure de prise de vue",
     "field.create_date": "Date de création",
-    "field.modify_date": "Date de modification",
+    "field.modify_date": "Date de modification (EXIF)",
     "field.offset": "Décalage horaire",
     "field.gps": "Position GPS",
     "field.make": "Marque de l'appareil",

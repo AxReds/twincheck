@@ -552,7 +552,8 @@ def _review_row(req: Request, r: dict, full: bool = False) -> dict:
            "details": json.loads(r["details"] or "{}"), "proposals": json.loads(r["proposals"] or "[]"),
            "decision": json.loads(r["decision"]) if r["decision"] else None, "file_id": r["file_id"]}
     out.update(decision_source=r["decision_source"], decision_timezone=r["decision_timezone"],
-               recheck_reason=r["recheck_reason"], library_timezone=common.app().library_timezone)
+               recheck_reason=r["recheck_reason"], library_timezone=common.app().library_timezone,
+               applied=bool(r["applied"] or f and f["phase_org"] == "done"))
     for k in ("path", "src", "dst"):
         if isinstance(out["details"].get(k), str):
             out["details"][k] = disp(req, out["details"][k])
