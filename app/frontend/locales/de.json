@@ -811,6 +811,10 @@
     "meta.analysis_summary": "Letzte Analyse: {analysed} Dateien analysiert · {fills} Metadaten ergänzt",
     "db.update_required": "Datenbankaktualisierung erforderlich. Wenden Sie sich an einen Administrator.",
     "settings.timezone_search": "Zeitzonen suchen",
-    "settings.timezone_offset_hint": "Aktuelle UTC-Abstände werden angezeigt und ändern sich mit der Sommerzeit. Zur Datumsorganisation; Original-EXIF bleibt unverändert."
+    "settings.timezone_offset_hint": "Aktuelle UTC-Abstände werden angezeigt und ändern sich mit der Sommerzeit. Zur Datumsorganisation; Original-EXIF bleibt unverändert.",
+    "review.accept": "Akzeptieren",
+    "review.accept_next": "Akzeptieren und weiter",
+    "review.keep_next": "Behalten und weiter",
+    "review.postponed": "{count} Einträge zurückgestellt."
   }
 }

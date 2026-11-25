@@ -812,6 +812,10 @@
     "meta.analysis_summary": "Latest analysis: {analysed} files analysed · {fills} metadata fills",
     "db.update_required": "Database update required. Contact an administrator.",
     "settings.timezone_search": "Search timezones",
-    "settings.timezone_offset_hint": "Current offsets are shown. The offset changes with daylight saving time. Used for organizing dates; original EXIF is unchanged."
+    "settings.timezone_offset_hint": "Current offsets are shown. The offset changes with daylight saving time. Used for organizing dates; original EXIF is unchanged.",
+    "review.accept": "Accept",
+    "review.accept_next": "Accept and next",
+    "review.keep_next": "Keep and next",
+    "review.postponed": "{count} items postponed."
   }
 }

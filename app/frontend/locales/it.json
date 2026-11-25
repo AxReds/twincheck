@@ -824,6 +824,10 @@
     "meta.analysis_summary": "Ultima analisi: {analysed} file analizzati · {fills} completamenti metadati",
     "db.update_required": "Aggiornamento del database richiesto. Contatta un amministratore.",
     "settings.timezone_search": "Cerca fusi orari",
-    "settings.timezone_offset_hint": "Sono mostrati gli scostamenti attuali, che cambiano con l'ora legale. Usato per organizzare le date; l'EXIF originale non cambia."
+    "settings.timezone_offset_hint": "Sono mostrati gli scostamenti attuali, che cambiano con l'ora legale. Usato per organizzare le date; l'EXIF originale non cambia.",
+    "review.accept": "Accetta",
+    "review.accept_next": "Accetta e successivo",
+    "review.keep_next": "Mantieni e successivo",
+    "review.postponed": "{count} elementi rimandati."
   }
 }

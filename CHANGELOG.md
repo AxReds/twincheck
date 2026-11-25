@@ -8,6 +8,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Review offers explicit stay/next actions: Save / Save and next, Accept / Accept and next,
+  Keep stored date / Keep and next, and Leave as it is / Keep and next. Plain actions show
+  their result on the same item ([#67](https://github.com/AxReds/twincheck/issues/67)).
 - Library timezone is a searchable IANA-zone selector populated by the container, with
   current UTC offsets, daylight-saving help and the saved zone selected
   ([#66](https://github.com/AxReds/twincheck/issues/66)).

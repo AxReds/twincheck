@@ -824,6 +824,10 @@
     "meta.analysis_summary": "Última análise: {analysed} arquivos analisados · {fills} metadados preenchidos",
     "db.update_required": "Atualização do banco de dados necessária. Contate um administrador.",
     "settings.timezone_search": "Pesquisar fusos horários",
-    "settings.timezone_offset_hint": "Os desvios atuais são mostrados e mudam com o horário de verão. Usado para organizar datas; o EXIF original não muda."
+    "settings.timezone_offset_hint": "Os desvios atuais são mostrados e mudam com o horário de verão. Usado para organizar datas; o EXIF original não muda.",
+    "review.accept": "Aceitar",
+    "review.accept_next": "Aceitar e próximo",
+    "review.keep_next": "Manter e próximo",
+    "review.postponed": "{count} itens adiados."
   }
 }

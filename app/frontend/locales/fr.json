@@ -824,6 +824,10 @@
     "meta.analysis_summary": "Dernière analyse : {analysed} fichiers analysés · {fills} métadonnées complétées",
     "db.update_required": "Mise à jour de la base de données requise. Contactez un administrateur.",
     "settings.timezone_search": "Rechercher un fuseau horaire",
-    "settings.timezone_offset_hint": "Les décalages actuels sont affichés et changent avec l'heure d'été. Utilisé pour organiser les dates ; l'EXIF original reste inchangé."
+    "settings.timezone_offset_hint": "Les décalages actuels sont affichés et changent avec l'heure d'été. Utilisé pour organiser les dates ; l'EXIF original reste inchangé.",
+    "review.accept": "Accepter",
+    "review.accept_next": "Accepter et suivant",
+    "review.keep_next": "Conserver et suivant",
+    "review.postponed": "{count} éléments reportés."
   }
 }

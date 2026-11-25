@@ -627,7 +627,7 @@ await test('B23: re-check notice preserves UTC date and exposes both confirmatio
       const notice = document.querySelector('.recheck-notice');
       assert(notice?.textContent.includes('2007-08-29 19:51:02') && notice.textContent.includes('2007-08-29 21:51:02'),
         'stored and converted dates are not explained');
-      [...notice.querySelectorAll('button')].find((el) => el.textContent === t(converted ? 'review.accept_converted' : 'review.keep_stored')).click();
+      [...notice.querySelectorAll('button')].find((el) => el.textContent === t(converted ? 'review.accept' : 'review.keep_stored')).click();
       await sleep();
       const saved = requests.filter((r) => r.url === '/api/review/1' && r.body).at(-1).body;
       assert(saved.date === (converted ? '2007-08-29T21:51:02' : '2007-08-29T19:51:02'), 'confirmation changed the wrong date');
@@ -708,6 +708,23 @@ await test('U18: searchable timezone selector preserves the saved zone and shows
   assert(requests.filter((r) => r.url === '/api/admin/settings' && r.body).at(-1).body.library_timezone === 'Asia/Kathmandu',
     'timezone save did not send the IANA name');
   await go('#/home');
+});
+await test('U19: Save and Accept stay on the item; next controls are explicit', async () => {
+  reviewStateFixture = [1, 2].map((id) => ({
+    id, file_id: id, kind: 'no_date', status: 'pending', fields: [], details: {}, proposals: [],
+    file: { name: 'synthetic-' + id + '.jpg', folder: 'lib', path: 'lib/synthetic-' + id + '.jpg', media_kind: 'image' },
+  }));
+  try {
+    await go('#/metadata/review/1');
+    document.querySelector('.organizing-date').value = '2001-02-03 04:05:06';
+    [...document.querySelectorAll('main button')].find((el) => el.textContent === t('common.save')).click();
+    await sleep(); await sleep();
+    assert(location.hash === '#/metadata/review/1', 'plain Save navigates away');
+    assert(document.querySelector('.review-head').textContent.includes(t('review.status.decided')), 'Save result not shown');
+    [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.save_next')).click();
+    await sleep(); await sleep();
+    assert(location.hash === '#/metadata/review/2', 'Save and next does not advance');
+  } finally { reviewStateFixture = null; await go('#/home'); }
 });
 await test('B19: login version ON/OFF uses public bootstrap only and fits both themes', async () => {
   const { renderLogin } = await import('../frontend/static/js/views/login.js');

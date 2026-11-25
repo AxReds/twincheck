@@ -798,6 +798,10 @@
     "meta.analysis_summary": "最近分析：已分析 {analysed} 个文件 · {fills} 项元数据补全",
     "db.update_required": "需要更新数据库。请联系管理员。",
     "settings.timezone_search": "搜索时区",
-    "settings.timezone_offset_hint": "显示当前 UTC 偏移量，会随夏令时变化。用于整理日期，不更改原始 EXIF。"
+    "settings.timezone_offset_hint": "显示当前 UTC 偏移量，会随夏令时变化。用于整理日期，不更改原始 EXIF。",
+    "review.accept": "接受",
+    "review.accept_next": "接受并下一个",
+    "review.keep_next": "保留并下一个",
+    "review.postponed": "已推迟 {count} 项。"
   }
 }

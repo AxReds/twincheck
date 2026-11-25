@@ -798,6 +798,10 @@
     "meta.analysis_summary": "最新の分析: {analysed} ファイルを分析 · {fills} 件のメタデータ補完",
     "db.update_required": "データベースの更新が必要です。管理者に連絡してください。",
     "settings.timezone_search": "タイムゾーンを検索",
-    "settings.timezone_offset_hint": "現在の UTC オフセットを表示します。夏時間により変化します。日付の整理に使用し、元の EXIF は変更しません。"
+    "settings.timezone_offset_hint": "現在の UTC オフセットを表示します。夏時間により変化します。日付の整理に使用し、元の EXIF は変更しません。",
+    "review.accept": "承認",
+    "review.accept_next": "承認して次へ",
+    "review.keep_next": "保持して次へ",
+    "review.postponed": "{count} 項目を延期しました。"
   }
 }

@@ -172,16 +172,24 @@ export async function item(main, state, [id]) {
     }
   });
   const scope = h('select', {}, ['item', 'folder', 'group'].map((s) => h('option', { value: s }, t('review.scope.' + s))));
-  const decide = async (action, dateOverride = null, proposalOverride = null) => {
+  let saving = false;
+  const decide = async (action, next = false, dateOverride = null, proposalOverride = null) => {
+    if (saving) return;
+    saving = true;
     const fields = {};
     if (!dateOverride) for (const [k, el] of Object.entries(inputs)) if (el.value) fields[k] = el.value;
     try {
       const date = dateOverride || organizingDate.value || dateChoice.value;
       const res = await post('/api/review/' + id, { action, fields, date: date ? date.replace(' ', 'T') : undefined,
         proposal: dateOverride ? proposalOverride : selectedProposal, scope: scope.value });
-      toast(t('review.saved', { count: res.updated }), 'ok');
-      location.hash = res.next_id ? '#/metadata/review/' + res.next_id : '#/metadata/review';
+      toast(t(action === 'skip' ? 'review.postponed' : 'review.saved', { count: res.updated }), 'ok');
+      if (next) location.hash = res.next_id ? '#/metadata/review/' + res.next_id : '#/metadata/review';
+      else {
+        if (media) { media.stop(); media.destroy(); }
+        state.view = await item(main, state, [id]);
+      }
     } catch (e) { toast(e.message, 'error'); }
+    finally { saving = false; }
   };
   const media = f ? mediaView(Number(id), f) : null;
   mount(main,
@@ -194,16 +202,21 @@ export async function item(main, state, [id]) {
           t('review.recheck_notice', { stored: wallDate(r.decision?.date), timezone: r.library_timezone,
             suggested: wallDate(r.recheck_proposal?.value) }),
           h('div', { class: 'actions' },
-            button('review.accept_converted', () => decide('save', r.recheck_proposal.value,
+            button('review.accept', () => decide('save', false, r.recheck_proposal.value,
               { source: 'filesystem_mtime' }), 'primary'),
-            button('review.keep_stored', () => decide('save', r.decision.date)))) : null,
+            button('review.accept_next', () => decide('save', true, r.recheck_proposal.value,
+              { source: 'filesystem_mtime' })),
+            button('review.keep_stored', () => decide('save', false, r.decision.date)),
+            button('review.keep_next', () => decide('save', true, r.decision.date)))) : null,
         h('div', { class: 'review-controls' },
           field('review.date_choice', organizingDate),
           field('review.proposal', dateChoice),
           field('review.apply_scope', scope),
           h('div', { class: 'actions review-actions' },
-            button('review.save_next', () => decide('save'), 'primary'), button('review.skip', () => decide('skip')),
+            button('common.save', () => decide('save'), 'primary'),
+            button('review.save_next', () => decide('save', true)), button('review.skip', () => decide('skip', true)),
             button('review.leave', () => decide('keep')),
+            button('review.keep_next', () => decide('keep', true)),
             r.status !== 'pending' && !r.applied ? button('review.reopen', async () => { try { await post(`/api/review/${id}/reopen`); location.reload(); } catch (e) { toast(e.message, 'error'); } }) : null),
           h('p', { class: 'hint' }, t('review.empty_stays_empty')),
           h('p', { class: 'hint' }, t('review.date_choice_hint'))),
