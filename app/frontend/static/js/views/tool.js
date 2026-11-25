@@ -45,7 +45,9 @@ async function analysisState(sourceId = '') {
 function analysisNotice(status, current = false) {
   if (status.empty) return h('div', { class: 'notice warn' }, t('analysis.empty'), ' ',
     h('a', { class: 'btn', href: '#/analyze' }, t('scan.analyze_library')));
-  if (status.stale) return h('div', { class: 'notice warn' }, t('analysis.stale'), ' ',
+  if (status.stale) return h('div', { class: 'notice warn' },
+    status.changes ? t('analysis.changes', Object.fromEntries(Object.entries(status.changes).map(([key, n]) => [key, fmt.number(n)]))) : t('analysis.stale'),
+    status.incomplete ? ' ' + t('analysis.incomplete') : '', ' ',
     current ? null : h('a', { href: '#/analyze' }, t('analysis.update')));
   if (status.analyzed_at) return h('p', { class: 'notice' },
     t('analysis.results_from', { date: fmt.date(status.analyzed_at) }), ' ',
