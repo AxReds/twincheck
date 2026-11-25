@@ -104,13 +104,20 @@ On a server with **Portainer** you do not need the source code: use the publishe
    total, decided, pending and, when present, needs re-check; filter pending/decided/needs re-check/all.
    Preview automatic completions only when fills exist, then confirm to write (original values
    are saved first). Zero fills is explained and does not mean there are no files to review.
+   The latest selected-folder analysis counts files; the review queue spans all assigned folders
+   and states both its item count and distinct current-file count. Missing files and superseded
+   metadata queue rows are excluded without deleting their history.
 7. **Review within Metadata** - for each file: media on one side, every field on the other; save, skip, leave as it
    is, or apply to the whole folder/group. Decisions are stored immediately; *Preview writing*
    writes the values you entered (only into missing fields).
    Choosing a date for organizing clears unsaved capture/creation date edits; that choice
    is stored only in the database and does not itself write date tags.
-   Date inputs and proposals use `yyyy-mm-dd hh:mm:ss` in 24-hour format. Save controls stay visible
-   while scrolling; previews and review items have contextual back links.
+   **Skip** means postpone: the item remains Pending with a skipped badge, emits `REVIEW_SKIPPED`
+   and is not organized. A shared status keeps badges, filters, counts and Organize consistent
+   across re-analysis and old item links; saved/kept/re-check choices are never silently changed.
+   **Save**, **Accept** and **Keep stored date** stay on the item and display the result;
+   the corresponding **and next** controls advance explicitly. The Decided list explains each
+   decision. Save controls stay visible while scrolling; previews and review items have back links.
 8. **Organize** - preview the `Year/Month/Day` structure, confirm the move. Dates use the configured
    library timezone. Ambiguous historical decisions stay unchanged in the needs re-check queue:
    accept the converted proposal, keep the stored date or choose another. Organize skips them until
@@ -125,6 +132,17 @@ On a server with **Portainer** you do not need the source code: use the publishe
 12. **Admin password reset** - `docker compose exec app reset-admin-password` (or `--generate`,
     `--user <name>`). Works with the app running; all sessions of that user are closed.
 
+All displayed dates use **yyyy-mm-dd hh:mm:ss**, independent of browser language. Operational
+instants are browser-local, with offset/timezone on hover; timezone-free capture dates stay
+unchanged. Tables scroll inside bounded containers with sticky headers in both themes.
+Analyze shows the last three analysis jobs and links to their full history. Phase-completion
+logs distinguish newly hashed/extracted values from reused values and unreadable files.
+
+**Logs** offers all defined event codes (including zero counts), Clear filters and Export CSV
+with a filtered/all-visible choice. CSV times stay ISO 8601 with offset/Z and messages stay English.
+Base users see only their own scoped job/file/review events, never system/login events.
+Administrators see all events and can filter by User. Empty lists explain why nothing is shown.
+
 The step guide is **1 Analyze → 2 Check (Duplicates · Metadata) → 3 Organize → 4 Report & undo**.
 There is no separate Review menu tab; existing Scan and Review links redirect to their new locations.
 
@@ -134,12 +152,22 @@ The fixed admin sets these in **Administration → Settings**; other roles canno
 
 | Setting | Description | Default | Required | Example |
 |---------|-------------|---------|----------|---------|
-| Library timezone | IANA timezone for organizing wall-clock dates; mtime proposals convert from UTC, offset EXIF converts only for organizing, timezone-free EXIF/manual dates stay unchanged. | container `TZ`, otherwise `UTC` with a visible recommendation | no | `Europe/Rome` |
+| Library timezone | Searchable container IANA-zone list with current UTC offsets and daylight-saving help. Mtime proposals convert from UTC, offset EXIF converts only for organizing, timezone-free EXIF/manual dates stay unchanged. | container `TZ`, otherwise `UTC` with a visible recommendation | no | `Europe/Rome` |
 | Show version on login page | Small `TwinCheck <version>` footer, using the same version as the authenticated header. When disabled no version is sent to unauthenticated clients. | ON | no | OFF |
 
 Both settings are stored in the encrypted vault and audited as `SETTING_CHANGED`.
 The login-version option is not an environment variable. Each new review decision records its
 source and applied timezone; historical dates are never silently corrected during migration.
+
+### Upgrade to 1.0.1-rc.9
+
+Stop the container and back up `/state` (and the operational MariaDB database, if used).
+After upgrading, an administrator must open **Administration → Database → Migrate schema**
+and confirm the backup. Until the database is ready, every signed-in user sees
+**Database update required. Contact an administrator.** Administrators can follow the banner.
+Schema 6 returns only historical skip-only records to Pending, preserving the skipped marker
+and timestamp. Chosen dates, Leave as it is and accepted/kept re-check decisions are not changed.
+Migration logs show the real versions once, plus converted/flagged counts and audit entries.
 
 ## Safety rules
 

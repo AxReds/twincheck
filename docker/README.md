@@ -74,6 +74,8 @@ both Compose and the Portainer stack and supplies the default **Library timezone
 If unset, the default is `UTC` and Administration → Settings recommends configuring it.
 The fixed admin can override it in that page; the override is stored in `/state/vault.enc`,
 not `.env`, and audited as `SETTING_CHANGED`.
+The field is a searchable list of all IANA zones installed in the container, each with its
+current UTC offset. The saved zone remains selected; offsets can change with daylight saving.
 
 Organizing dates are local wall-clock values in the library timezone: file-system mtime
 proposals convert from UTC; offset EXIF converts only for organizing while its original
@@ -87,6 +89,29 @@ container environment parameter. When OFF, public bootstrap contains no applicat
 Parameters that exist only inside the image and are set by the Dockerfile (`DATA_DIR=/data`,
 `STATE_DIR=/state`, `APP_PORT=80`, `EXIFTOOL_PATH`, `FFMPEG_PATH`) are documented in
 [`app/backend/README.md`](../app/backend/README.md); do not change them in a container deployment.
+
+## Upgrading to 1.0.1-rc.9
+
+Stop the container and back up `/state` and the operational MariaDB database if used.
+Deploy the exact candidate image `ghcr.io/axreds/twincheck:1.0.1-rc.9` (or the moving `rc`
+alias). After upgrading, an administrator must run **Administration → Database → Migrate schema**
+and confirm the backup. All signed-in users see **Database update required. Contact an
+administrator.** until the operational database is ready; admins can follow the banner.
+
+Schema 6 returns only historical skip-only records to Pending, preserving their skipped marker
+and timestamp. Chosen dates, Leave as it is and accepted/kept re-check decisions are unchanged.
+Skip now means postpone and blocks Organize at preview and confirmation. A shared review
+status and canonical old links keep badges, filters and counts stable across Analyze library.
+Metadata distinguishes latest-run files from current all-folders review items/distinct files.
+
+The offline UI uses numeric 24-hour dates everywhere, with browser-local offsets on hover for
+instants; capture wall-clock dates are not shifted. It adds stay/next review actions, a Decision
+column, sticky table headers, inline checkbox labels and explained empty lists. Analyze retains
+three recent job cards, links to full analysis history, and logs hashed/extracted versus reused
+counts. Logs offers all event codes with filtered counts, Clear filters and Export CSV
+(filtered or all accessible events). CSV stays English with ISO 8601 offset/Z times.
+Base users see only their own scoped jobs/files/decisions, never system/login events; admin roles
+see all events with a User filter. No new environment parameter or runtime network access is added.
 
 ## The master key
 

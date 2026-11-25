@@ -110,7 +110,45 @@ per-submission advisory lock. A matching active job returns its existing id and 
 again. Completed/cancelled/failed jobs do not block a new run, and a different source or user remains
 independent.
 
-## Operational database schema (version 5)
+## rc.9 review, UI and logging
+
+`services/review_state.py` is the shared source for Pending, skipped, Decided and needs re-check
+in item badges, filters, counts, Decision labels and Organize. Re-analysis preserves item ids and
+all explicit saved/kept/re-check choices. Historical duplicate metadata queue rows resolve to
+one canonical active record even through old links; stored history is not deleted.
+Skip stores `skipped_at`, leaves status pending, emits `REVIEW_SKIPPED` and blocks Organize both
+when previewing and when confirming an older plan. Skipped and needs re-check are subsets of
+pending, never decided. Explicit Save/Accept/Keep can stay on the item or use the corresponding
+next action. Newly confirmed re-checks store the explicit accepted/stored choice in decision JSON;
+older genuine choices are never inferred or rewritten.
+
+Metadata labels two different populations: latest selected-folder analysed files and current
+all-assigned-folders review items/distinct files. Missing and moved-duplicate files do not appear
+in current review totals. Multiple review reasons are labelled as items, not files.
+The full organizing-date help is kept only in the item panel.
+
+Every displayed date uses numeric `yyyy-mm-dd hh:mm:ss`, independent of language. Instants
+are browser-local with offset/timezone on hover; timezone-free capture values remain unchanged.
+Settings exposes every IANA zone available in the container in a searchable selector with
+current UTC offsets and daylight-saving help. Saved selection and server validation remain
+authoritative. Tables use bounded scroll containers with sticky headers and explained empty
+states; checkbox fields place checkbox and label together with help below.
+
+Logs lists the entire `events.EVENTS` catalogue, with counts under the other filters (including
+zeros), Clear filters and an explained no-matches state. `/api/logs.csv?scope=filtered|all`
+exports English messages and ISO 8601 offset/Z times, sharing visibility with list/counts.
+Base users see only their own current-scope job/file/review events; system/authentication
+events, mismatched job/file ownership and out-of-scope paths are excluded. Admin roles see
+all users plus system events and get a User filter. Analyze shows only the latest three
+analysis jobs with a full-history link; completion messages spell out hashed/extracted versus
+reused values and unreadable/unknown counts, rather than describing reuse as zero items.
+
+Before upgrading to rc.9, stop the container and back up `/state` and MariaDB if applicable.
+After upgrading, an administrator must run **Administration → Database → Migrate schema**.
+Every signed-in user sees the database-required banner while unavailable/outdated; admin roles
+can follow it directly to the migration action. Home uses the same explanation.
+
+## Operational database schema (version 6)
 
 Column types are portable: `key` = indexable text (VARCHAR(191) utf8mb4_bin on MariaDB), `hash` =
 lower-case hex (ASCII binary collation), `ts` = UTC ISO 8601 text (`2024-03-15T10:00:00.000000Z`),
@@ -130,7 +168,7 @@ that differ only in case work identically on SQLite and MariaDB.
 | `move_journal` | intent/completion of every move | `op` (move, dup_move, copy_verify_delete), `src`, `dst`, `sha256`, `size`, `state` (intent, done, failed, rolled_back) |
 | `manifest` | what was changed, written **before** each change; source of undo and of the CSV export | `action` (move, dup_move, metadata, restore), `orig_path`, `new_path`, `sha256_before/after`, `meta_before/after`, `undone_at` |
 | `meta_changes` | original and new value of each written tag | `tag`, `before_value`, `after_value`, `source`, `undone_at` |
-| `review_items` | review queue and decisions | `kind` (meta_conflict, no_date, date_utc, move_conflict, verify_mismatch, reconcile_*), `details`, `proposals`, `status` (pending, needs_recheck, saved, skipped, kept), `decision`, `decision_source`, `decision_timezone`, `decision_provenance` (per-field JSON), `recheck_reason`, `group_key`, `applied` |
+| `review_items` | review queue and decisions | `kind` (meta_conflict, no_date, date_utc, move_conflict, verify_mismatch, reconcile_*), `details`, `proposals`, `status` (pending, needs_recheck, saved, kept; legacy skipped), `skipped_at`, `decision`, `decision_source`, `decision_timezone`, `decision_provenance` (per-field JSON), `recheck_reason`, `group_key`, `applied` |
 
 Every record carries `owner_id` (stable user id from the vault): index, manifest, logs, previews and
 review queues are separated per user, and every API checks it server-side.
@@ -141,7 +179,12 @@ review queues are separated per user, and every API checks it server-side.
 version 1 creates the baseline, version 2 adds `files.duration_s`, `review_items.group_key` and an
 index, version 3 adds `jobs.auto_resume` and an index on `run_log.event`;
 version 4 adds decision provenance and flags unapplied ambiguous historical dates without
-changing stored values; version 5 adds technical file-change tracking. Every structural operation is
+changing stored values; version 5 adds technical file-change tracking; version 6 adds `skipped_at`
+and returns only unapplied skip-only records (no chosen date, nonempty fields or re-check reason)
+to pending. The old timestamp is preserved, genuine decisions are untouched, and one
+`REVIEW_SKIPS_RETURNED_TO_PENDING` event reports the converted count. Confirmed upgrades log
+one `DB_MIGRATED` with numeric versions; converted/flagged counts are echoed at INFO and audited.
+Every structural operation is
 idempotent (a table, column or index is created only if missing).
 
 On **every** connection (first start, restart, database switch) the application:

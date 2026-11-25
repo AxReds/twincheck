@@ -41,6 +41,14 @@ Container-level tests (permissions, network, kill/resume): `bash docker/tests/ru
 
 ## Frontend regressions
 
+rc.9 adds SQLite/MariaDB fixtures in `test_rc9.py` for skip-only migration preservation,
+re-analysis and historical duplicate links, Organize preview/confirmation, migration logging,
+review populations, timezone catalogue and role-scoped log list/count/CSV export.
+The browser fixture checks numeric 24-hour dates (rejecting AM/PM on every routed page),
+skip/decision badge-filter-count agreement, timezone search, stay/next actions, sticky table
+headers, checkbox alignment, log controls/empty states and compact analysis history.
+Run both themes at 1600/1280/900/375 px; fixtures contain synthetic data only.
+
 Serve `app/` locally with `python3 -B -m http.server 18767 --bind 127.0.0.1 --directory app`
 and open `http://127.0.0.1:18767/tests/frontend.html` in a browser. The page runs
 automated DOM/CSS regression checks against the real frontend modules with synthetic,

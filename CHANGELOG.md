@@ -6,6 +6,18 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [1.0.1-rc.9] - Unreleased
 
+### Upgrade
+
+Stop the container and back up `/state` (and MariaDB if used). After upgrading, an
+administrator must run **Administration → Database → Migrate schema**. Schema 6 returns
+skip-only reviews to Pending with their skip timestamp; genuine owner decisions are unchanged.
+
+### Owner verification
+
+- Owner-verified on rc.8 and closed with `verified`: #18, #43, #48, #49, #50, #51, #52,
+  #53, #54, #55 and #56. Manual Pause/Resume on thousands of files remains open in
+  [#60](https://github.com/AxReds/twincheck/issues/60).
+
 ### Fixed
 
 - Analysis completion messages describe real per-phase work: hashed/extracted, reused,
