@@ -10,6 +10,9 @@
     "source": true
   },
   "messages": {
+    "common.back_to": "Back to {page}",
+    "meta.empty_fills": "No automatic completions: no missing field has a reliable source. {count} files await a choice in review.",
+    "plan.empty": "Nothing to change in this preview. No files will be modified.",
     "review.live_counts": "{total} to review · {decided} decided · {pending} pending",
     "review.recheck_count": "{count} need re-check",
     "job.library_result": "{found} files found · {changed} new or changed · {unchanged} unchanged (skipped) · {hashed} hashed",

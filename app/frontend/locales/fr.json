@@ -9,6 +9,9 @@
     ]
   },
   "messages": {
+    "common.back_to": "Retour à {page}",
+    "meta.empty_fills": "Aucun complément automatique : aucune source fiable pour les champs manquants. {count} fichiers attendent un choix.",
+    "plan.empty": "Rien à modifier dans cet aperçu. Aucun fichier ne sera modifié.",
     "review.live_counts": "{total} à vérifier · {decided} décidés · {pending} en attente",
     "review.recheck_count": "{count} à revérifier",
     "job.library_result": "{found} fichiers trouvés · {changed} nouveaux ou modifiés · {unchanged} inchangés (ignorés) · {hashed} hachés",

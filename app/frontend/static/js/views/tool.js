@@ -193,6 +193,7 @@ function metadataResult(data) {
   return h('div', {},
     h('p', { class: 'summary' }, t('meta.summary', data.summary)),
     h('p', { class: 'summary review-counts' }, reviewCounts(data.review_counts)),
+    data.summary.fills === 0 ? h('p', { class: 'empty-state hint' }, t('meta.empty_fills', { count: data.review_pending || 0 })) : null,
     h('a', { class: 'btn review-entry', href: '#/metadata/review' }, t('meta.review_items', { count: data.review_pending || 0 })));
 }
 
@@ -241,11 +242,14 @@ export async function plan(main, state, [id]) {
   let status = '';
   const box = h('div', {});
   const applyBox = h('div', {});
+  const back = h('a', { class: 'back-link', href: section });
   let stopApply = null;
   const load = async () => {
     const d = await get(`/api/plans/${id}?offset=${offset}&limit=100${status ? '&status=' + status : ''}`);
     section = { review_plan: '#/metadata', metadata_analyze: '#/metadata', analyze_library: '#/metadata', dedupe_plan: '#/duplicates',
       organize_plan: '#/organize', undo_moves_plan: '#/report', undo_meta_plan: '#/report' }[d.job.kind] || '#/jobs';
+    back.href = section;
+    back.textContent = '← ' + t('common.back_to', { page: t('nav.' + section.slice(2)) });
     const counts = {};
     for (const s of d.summary) counts[s.status] = (counts[s.status] || 0) + s.n;
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -260,12 +264,16 @@ export async function plan(main, state, [id]) {
       h('td', {}, badge(t('plan.status.' + it.status), it.status === 'done' ? 'ok' : it.status === 'planned' ? 'info' : 'warn'), it.note ? h('div', { class: 'small muted' }, t('plan.note.' + it.note)) : null)));
     mount(box,
       h('div', { class: 'job-head' }, h('strong', {}, t('job.kind.' + d.job.kind)), ' #' + d.job.id, ' ', jobBadge(d.job.status)),
-      d.job.result && d.job.kind === 'metadata_analyze'
-        ? h('p', { class: 'notice' }, t('meta.summary', d.job.result))
+      d.job.result && ['metadata_analyze', 'analyze_library'].includes(d.job.kind)
+        ? h('p', { class: 'summary' }, t('meta.summary', d.job.result.metadata || d.job.result))
         : null,
-      h('p', { class: 'summary' }, t('plan.summary', { count: total, planned: counts.planned || 0, done: counts.done || 0, blocked: (counts.blocked || 0) + (counts.skipped || 0) })),
-      field('plan.filter', filter),
-      table(['plan.col_action', 'plan.col_from', 'plan.col_to', 'plan.col_status'], rows),
+      total ? h('p', { class: 'summary' }, t('plan.summary', { count: total, planned: counts.planned || 0, done: counts.done || 0, blocked: (counts.blocked || 0) + (counts.skipped || 0) }))
+        : h('div', { class: 'empty-state' }, h('p', {}, t(['metadata_analyze', 'analyze_library', 'review_plan'].includes(d.job.kind)
+          ? 'meta.empty_fills' : 'plan.empty', { count: d.review_counts?.pending || 0 })),
+          ['metadata_analyze', 'analyze_library', 'review_plan'].includes(d.job.kind)
+            ? h('a', { href: '#/metadata/review' }, t('meta.review_items', { count: d.review_counts?.pending || 0 })) : null),
+      total ? field('plan.filter', filter) : null,
+      rows.length ? table(['plan.col_action', 'plan.col_from', 'plan.col_to', 'plan.col_status'], rows) : null,
       pager(total, offset, 100, (o) => { offset = o; load(); }),
       d.can_confirm && (counts.planned || 0) > 0 ? h('div', { class: 'actions sticky' }, button('plan.confirm', () => confirmPlan(d, counts.planned), 'primary')) : null,
       d.apply_jobs.length ? h('p', {}, t('plan.apply_jobs'), ' ', d.apply_jobs.map((a) => h('span', {}, '#' + a.id + ' ', jobBadge(a.status), ' '))) : null);
@@ -281,7 +289,7 @@ export async function plan(main, state, [id]) {
       stopApply = jobList(applyBox, 'kind=' + d.job.apply_kind + '&limit=3').stop;
     } catch (e) { toast(e.message, 'error'); }
   };
-  page(main, 'plan.title', 'plan.intro', box, h('h2', {}, t('plan.execution')), applyBox);
+  page(main, 'plan.title', 'plan.intro', back, box, h('h2', {}, t('plan.execution')), applyBox);
   await load();
   const stop = poll(load, 4000);
   return { section, destroy: () => { stop(); if (stopApply) stopApply(); } };

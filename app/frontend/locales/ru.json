@@ -9,6 +9,9 @@
     ]
   },
   "messages": {
+    "common.back_to": "Назад к {page}",
+    "meta.empty_fills": "Нет автоматических дополнений: отсутствуют надёжные источники для пустых полей. {count} файлов ждут выбора.",
+    "plan.empty": "В этом плане нечего менять. Файлы не будут изменены.",
     "review.live_counts": "{total} для проверки · {decided} решено · {pending} ожидают",
     "review.recheck_count": "{count} требуют повторной проверки",
     "job.library_result": "{found} файлов найдено · {changed} новых или изменённых · {unchanged} без изменений (пропущены) · {hashed} хешировано",

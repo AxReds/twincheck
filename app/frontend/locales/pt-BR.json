@@ -9,6 +9,9 @@
     ]
   },
   "messages": {
+    "common.back_to": "Voltar para {page}",
+    "meta.empty_fills": "Sem preenchimento automático: nenhum campo ausente tem fonte confiável. {count} arquivos aguardam uma escolha.",
+    "plan.empty": "Nada a alterar nesta prévia. Nenhum arquivo será modificado.",
     "review.live_counts": "{total} para revisar · {decided} decididos · {pending} pendentes",
     "review.recheck_count": "{count} requerem nova revisão",
     "job.library_result": "{found} arquivos encontrados · {changed} novos ou alterados · {unchanged} inalterados (ignorados) · {hashed} com hash",

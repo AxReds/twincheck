@@ -515,6 +515,7 @@ def plan(req: Request):
                     "fills": fills, "restore": restore, "renamed": p.get("renamed", False), "date": p.get("date")})
     applies = db.query("SELECT id, status FROM jobs WHERE parent_job_id=? ORDER BY id DESC", (j["id"],))
     return JSONResponse({"job": _job_public(req, j), "items": out, "summary": summary, "apply_jobs": applies,
+                         "review_counts": _review_counts(_visible_reviews(req))[1],
                          "can_confirm": j["status"] == "completed" and j["kind"] in APPLY_KIND})
 
 

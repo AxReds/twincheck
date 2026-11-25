@@ -9,6 +9,9 @@
     ]
   },
   "messages": {
+    "common.back_to": "Zurück zu {page}",
+    "meta.empty_fills": "Keine automatischen Ergänzungen: keine verlässliche Quelle für fehlende Felder. {count} Dateien warten auf eine Entscheidung.",
+    "plan.empty": "In dieser Vorschau ist nichts zu ändern. Keine Dateien werden geändert.",
     "review.live_counts": "{total} zu prüfen · {decided} entschieden · {pending} ausstehend",
     "review.recheck_count": "{count} erneut zu prüfen",
     "job.library_result": "{found} Dateien gefunden · {changed} neu oder geändert · {unchanged} unverändert (übersprungen) · {hashed} gehasht",

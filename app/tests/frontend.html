@@ -525,6 +525,18 @@ await test('U14/B24: Review is inside Metadata, with one entry and complete stat
   assert(location.hash === '#/metadata/review/1', 'review item legacy route does not redirect');
   await go('#/home');
 });
+await test('U15: sub-pages have contextual back links and explain empty plans', async () => {
+  for (const kind of ['metadata_analyze', 'review_plan', 'dedupe_plan', 'organize_plan', 'undo_moves_plan']) {
+    planKind = kind;
+    await go('#/plans/1');
+    assert(document.querySelector('main .back-link'), 'preview back link missing');
+    assert(document.querySelector('main .empty-state'), 'empty plan explanation missing');
+    assert(!document.querySelector('main table'), 'unexplained empty table shown');
+  }
+  await go('#/metadata/review/1');
+  assert(document.querySelector('main .back-link[href="#/metadata/review"]'), 'review back link missing');
+  await go('#/home');
+});
 await test('U12: pipeline button and five-phase progress are available', async () => {
   await go('#/analyze');
   const analyze = [...document.querySelectorAll('main button')].find((b) => b.textContent === t('scan.analyze_library'));

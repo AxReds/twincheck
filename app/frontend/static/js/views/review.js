@@ -157,7 +157,8 @@ export async function item(main, state, [id]) {
   };
   const media = f ? mediaView(Number(id), f) : null;
   mount(main,
-    h('div', { class: 'review-head' }, h('a', { href: '#/metadata/review' }, '← ', t('review.back')), ' ', badge(t('review.kind.' + r.kind), 'warn'), ' ', badge(t('review.status.' + r.status), '')),
+    h('div', { class: 'review-head' }, h('a', { class: 'back-link', href: '#/metadata/review' }, '← ',
+      t('common.back_to', { page: t('nav.metadata') })), ' ', badge(t('review.kind.' + r.kind), 'warn'), ' ', badge(t('review.status.' + r.status), '')),
     h('div', { class: 'review' },
       media ? media.el : h('div', { class: 'media' }, h('p', { class: 'muted' }, t('review.no_file'))),
       h('div', { class: 'review-side' },

@@ -9,6 +9,9 @@
     ]
   },
   "messages": {
+    "common.back_to": "العودة إلى {page}",
+    "meta.empty_fills": "لا إكمال تلقائي: لا مصدر موثوق للحقول الناقصة. {count} ملفات تنتظر الاختيار.",
+    "plan.empty": "لا تغييرات في هذه المعاينة. لن تعدّل أي ملفات.",
     "review.live_counts": "{total} للمراجعة · {decided} مقررة · {pending} معلقة",
     "review.recheck_count": "{count} تحتاج إعادة فحص",
     "job.library_result": "{found} ملفات موجودة · {changed} جديدة أو معدلة · {unchanged} دون تغيير (متجاوزة) · {hashed} محسوبة التجزئة",
