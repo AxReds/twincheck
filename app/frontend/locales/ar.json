@@ -858,6 +858,8 @@
     "analysis.incomplete": "توقف آخر تحليل ولم يكتمل.",
     "job.already_running": "Job #{id} is already running.",
     "review.status.decided": "مقررة",
-    "review.status.all": "الكل"
+    "review.status.all": "الكل",
+    "meta.review_population": "قائمة المراجعة: {items} عناصر لـ {files} ملفات حالية في جميع المجلدات المعينة. الأعداد أعلاه تصف آخر تحليل للمجلد المحدد.",
+    "meta.analysis_summary": "آخر تحليل: {analysed} ملفات محللة · {fills} عمليات إكمال بيانات وصفية"
   }
 }

@@ -819,6 +819,8 @@
     "analysis.incomplete": "La dernière analyse a été interrompue et reste incomplète.",
     "job.already_running": "Job #{id} is already running.",
     "review.status.decided": "Décidés",
-    "review.status.all": "Tous"
+    "review.status.all": "Tous",
+    "meta.review_population": "File de révision : {items} éléments pour {files} fichiers actuels dans tous les dossiers attribués. Les nombres ci-dessus décrivent la dernière analyse du dossier sélectionné.",
+    "meta.analysis_summary": "Dernière analyse : {analysed} fichiers analysés · {fills} métadonnées complétées"
   }
 }

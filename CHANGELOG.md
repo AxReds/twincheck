@@ -8,6 +8,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Current review counts exclude missing/moved-duplicate files without deleting history.
+  Metadata distinguishes the latest selected-folder analysis from the all-folders review queue,
+  including both item and distinct-file counts; multiple review reasons are not counted as files
+  ([#64](https://github.com/AxReds/twincheck/issues/64)).
 - Skip now postpones review, remains in pending with a skipped badge, emits `REVIEW_SKIPPED`
   and blocks Organize at preview and confirmation. Schema 6 returns only skip-only historical
   records to pending, preserving their skip timestamps and all genuine decisions

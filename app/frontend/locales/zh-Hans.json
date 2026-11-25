@@ -793,6 +793,8 @@
     "analysis.incomplete": "最近一次分析已中断，尚未完成。",
     "job.already_running": "Job #{id} is already running.",
     "review.status.decided": "已决定",
-    "review.status.all": "全部"
+    "review.status.all": "全部",
+    "meta.review_population": "审核队列：所有已分配文件夹中 {files} 个当前文件的 {items} 个审核项。上方统计描述最近一次所选文件夹的分析。",
+    "meta.analysis_summary": "最近分析：已分析 {analysed} 个文件 · {fills} 项元数据补全"
   }
 }

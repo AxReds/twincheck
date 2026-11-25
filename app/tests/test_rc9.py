@@ -44,6 +44,30 @@ class MigrationEvents(unittest.TestCase):
 
 
 class ReviewPostponement(unittest.TestCase):
+    def test_review_population_excludes_missing_files_and_explains_multiple_items(self):
+        inst = Instance().start()
+        try:
+            inst.setup()
+            for n in range(2):
+                write(inst.data / "lib" / f"synthetic-{n}.jpg", jpeg_bytes(930 + n))
+            uid, user = make_user(inst.admin(), "synthetic", [{"path": "lib"}])
+            sid = user.get("/api/sources").json()["sources"][0]["id"]
+            jid = user.post("/api/library/analyze", {"source_id": sid}).json()["job_id"]
+            self.assertEqual(wait_job(inst.core, jid)["status"], "completed")
+            db = inst.core.db
+            items = user.get("/api/review").json()["items"]
+            db.execute("INSERT INTO review_items (owner_id,file_id,kind,status) VALUES (?,?,?,?)",
+                       (uid, items[0]["file_id"], "move_conflict", "pending"))
+            db.execute("UPDATE files SET present=0 WHERE id=?", (items[1]["file_id"],))
+            result = user.get("/api/metadata/results").json()
+            self.assertEqual(result["summary"]["analysed"], 2)
+            self.assertEqual(result["review_counts"]["total"], 2)
+            self.assertEqual(result["review_file_count"], 1)
+            self.assertEqual(user.get("/api/review").json()["total"], 2)
+            self.assertEqual(db.scalar("SELECT COUNT(*) FROM review_items"), 3, "history must not be deleted")
+        finally:
+            inst.cleanup()
+
     def test_skip_only_migration_preserves_all_other_decisions_on_both_backends(self):
         with tempfile.TemporaryDirectory() as tmp:
             for params in backends(tmp):

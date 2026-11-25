@@ -819,6 +819,8 @@
     "analysis.incomplete": "A última análise foi interrompida e está incompleta.",
     "job.already_running": "Job #{id} is already running.",
     "review.status.decided": "Decididos",
-    "review.status.all": "Todos"
+    "review.status.all": "Todos",
+    "meta.review_population": "Fila de revisão: {items} itens para {files} arquivos atuais em todas as pastas atribuídas. As contagens acima descrevem a última análise da pasta selecionada.",
+    "meta.analysis_summary": "Última análise: {analysed} arquivos analisados · {fills} metadados preenchidos"
   }
 }

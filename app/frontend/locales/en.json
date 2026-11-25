@@ -807,6 +807,8 @@
     "analysis.incomplete": "The latest analysis was interrupted and is incomplete.",
     "job.already_running": "Job #{id} is already running.",
     "review.status.decided": "Decided",
-    "review.status.all": "All"
+    "review.status.all": "All",
+    "meta.review_population": "Review queue: {items} items for {files} current files across all assigned folders. Analysis counts above describe the latest selected-folder run.",
+    "meta.analysis_summary": "Latest analysis: {analysed} files analysed · {fills} metadata fills"
   }
 }

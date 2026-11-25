@@ -819,6 +819,8 @@
     "analysis.incomplete": "L’ultima analisi è stata interrotta e non è completa.",
     "job.already_running": "Il lavoro #{id} è già in esecuzione.",
     "review.status.decided": "Decisi",
-    "review.status.all": "Tutti"
+    "review.status.all": "Tutti",
+    "meta.review_population": "Coda di revisione: {items} elementi per {files} file attuali in tutte le cartelle assegnate. I conteggi sopra descrivono l'ultima analisi della cartella selezionata.",
+    "meta.analysis_summary": "Ultima analisi: {analysed} file analizzati · {fills} completamenti metadati"
   }
 }

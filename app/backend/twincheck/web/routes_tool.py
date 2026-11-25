@@ -453,6 +453,7 @@ def meta_results(req: Request):
         summary["review"] = totals["total"]
     return JSONResponse({"analyzed_at": latest["finished_at"] if latest else None, "summary": summary,
                          "plan_job_id": latest["id"] if latest else None,
+                         "review_file_count": len({row["file_id"] for row in review_rows}),
                          "review_pending": totals["pending"], "review_counts": totals, "review_write_pending": write_pending})
 
 
@@ -605,7 +606,8 @@ def review_list(req: Request):
 def _visible_reviews(req: Request) -> list[dict]:
     owner = req.query.get("owner") if is_admin(req) and req.query.get("owner") else req.user["id"]
     rows = need_db().query("SELECT r.*, f.cur_path FROM review_items r JOIN files f ON f.id=r.file_id "
-                          "AND f.owner_id=r.owner_id WHERE r.owner_id=? ORDER BY r.id", (owner,))
+                          "AND f.owner_id=r.owner_id WHERE r.owner_id=? AND f.present=1 "
+                          "AND f.media_kind IN ('image','video') AND f.status<>'dup_moved' ORDER BY r.id", (owner,))
     return [row for row in rows if is_admin(req) or access.file_in_scope(common.app().settings.data_dir.as_posix(), req.user, row)]
 
 

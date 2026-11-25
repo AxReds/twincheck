@@ -793,6 +793,8 @@
     "analysis.incomplete": "最新の解析は中断され、完了していません。",
     "job.already_running": "Job #{id} is already running.",
     "review.status.decided": "決定済み",
-    "review.status.all": "すべて"
+    "review.status.all": "すべて",
+    "meta.review_population": "レビュー待ち: 割り当てられた全フォルダーの現在の {files} ファイルに対する {items} 項目。上の集計は選択フォルダーの最新分析です。",
+    "meta.analysis_summary": "最新の分析: {analysed} ファイルを分析 · {fills} 件のメタデータ補完"
   }
 }

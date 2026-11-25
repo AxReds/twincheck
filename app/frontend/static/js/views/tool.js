@@ -193,8 +193,10 @@ function metadataResult(data) {
     return null;
   }
   return h('div', {},
-    h('p', { class: 'summary' }, t('meta.summary', data.summary)),
+    h('p', { class: 'summary' }, t('meta.analysis_summary', data.summary)),
     h('p', { class: 'summary review-counts' }, reviewCounts(data.review_counts)),
+    h('p', { class: 'hint review-population' }, t('meta.review_population', {
+      items: data.review_counts?.total || 0, files: data.review_file_count || 0 })),
     data.summary.fills === 0 ? h('p', { class: 'empty-state hint' }, t('meta.empty_fills', { count: data.review_pending || 0 })) : null,
     h('a', { class: 'btn review-entry', href: '#/metadata/review' }, t('meta.review_items', { count: data.review_pending || 0 })));
 }

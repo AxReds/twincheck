@@ -832,6 +832,8 @@
     "analysis.incomplete": "Последний анализ был прерван и не завершён.",
     "job.already_running": "Job #{id} is already running.",
     "review.status.decided": "Решено",
-    "review.status.all": "Все"
+    "review.status.all": "Все",
+    "meta.review_population": "Очередь проверки: {items} записей для {files} текущих файлов во всех назначенных папках. Счётчики выше относятся к последнему анализу выбранной папки.",
+    "meta.analysis_summary": "Последний анализ: {analysed} файлов · {fills} заполнений метаданных"
   }
 }
