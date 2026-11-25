@@ -838,6 +838,8 @@
     "logs.all_users": "Todos los usuarios",
     "logs.system": "Sistema",
     "scan.change_folder": "Cambiar carpeta",
-    "scan.all_analysis_jobs": "Todos los análisis en Trabajos"
+    "scan.all_analysis_jobs": "Todos los análisis en Trabajos",
+    "logs.empty": "Ningún evento coincide con estos filtros.",
+    "common.empty_list": "No hay elementos para mostrar."
   }
 }

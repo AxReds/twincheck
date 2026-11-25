@@ -58,6 +58,7 @@ export function progress(done, total) {
 }
 
 export function table(headKeys, rows) {
+  if (!rows.length) return h('p', { class: 'empty-state muted' }, t('common.empty_list'));
   return h('div', { class: 'table-wrap', tabindex: '0' }, h('table', {},
     h('thead', {}, h('tr', {}, headKeys.map((k) => h('th', { scope: 'col' }, k ? t(k) : '')))),
     h('tbody', {}, rows)));

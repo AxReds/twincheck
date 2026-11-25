@@ -8,6 +8,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Empty Logs explains that no events match and offers Clear filters. The shared table helper
+  supplies an explained empty state for all remaining header-only lists, including Audit
+  and Report & undo ([#57](https://github.com/AxReds/twincheck/issues/57)).
 - Analyze shows the last three analysis jobs with a full-history link, labels an existing
   selection Change folder, and omits orphan results-notice separators
   ([#73](https://github.com/AxReds/twincheck/issues/73)).

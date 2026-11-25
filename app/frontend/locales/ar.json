@@ -877,6 +877,8 @@
     "logs.all_users": "جميع المستخدمين",
     "logs.system": "النظام",
     "scan.change_folder": "تغيير المجلد",
-    "scan.all_analysis_jobs": "جميع مهام التحليل في المهام"
+    "scan.all_analysis_jobs": "جميع مهام التحليل في المهام",
+    "logs.empty": "لا توجد أحداث تطابق هذه المرشحات.",
+    "common.empty_list": "لا توجد عناصر لعرضها."
   }
 }

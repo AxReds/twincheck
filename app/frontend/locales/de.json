@@ -825,6 +825,8 @@
     "logs.all_users": "Alle Benutzer",
     "logs.system": "System",
     "scan.change_folder": "Ordner ändern",
-    "scan.all_analysis_jobs": "Alle Analyseaufträge unter Aufträge"
+    "scan.all_analysis_jobs": "Alle Analyseaufträge unter Aufträge",
+    "logs.empty": "Keine Ereignisse entsprechen diesen Filtern.",
+    "common.empty_list": "Keine Einträge vorhanden."
   }
 }

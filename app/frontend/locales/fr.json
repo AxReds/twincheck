@@ -838,6 +838,8 @@
     "logs.all_users": "Tous les utilisateurs",
     "logs.system": "Système",
     "scan.change_folder": "Changer de dossier",
-    "scan.all_analysis_jobs": "Toutes les analyses dans Tâches"
+    "scan.all_analysis_jobs": "Toutes les analyses dans Tâches",
+    "logs.empty": "Aucun événement ne correspond à ces filtres.",
+    "common.empty_list": "Aucun élément à afficher."
   }
 }

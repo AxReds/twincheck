@@ -31,6 +31,7 @@ let planKind = 'review_plan';
 let recheckFixture = false;
 let reviewStateFixture = null;
 let jobFixture = [];
+let emptyLogs = false;
 let authenticated = interactive ? localStorage.getItem('fixture_signed_out') !== '1' : true;
 let rejectLogin = !interactive;
 let expiring = false;
@@ -160,7 +161,7 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/logs' || path === '/api/admin/audit') data = { items: [{
     ts: '2026-11-24T20:00:00Z', level: 'INFO', event: 'REVIEW_DECIDED',
     message: 'Review decision saved for synthetic.jpg', actor: 'synthetic', job_id: 1,
-  }], total: 1, event_counts: { REVIEW_DECIDED: 1, REVIEW_SKIPPED: 0, FILE_UNREADABLE: 0 },
+  }].filter(() => !emptyLogs), total: emptyLogs ? 0 : 1, event_counts: { REVIEW_DECIDED: 1, REVIEW_SKIPPED: 0, FILE_UNREADABLE: 0 },
     users: [{ id: 'synthetic', username: 'synthetic' }] };
   else if (path === '/api/admin/db') data = {
     current: { type: 'sqlite', path: '/state/synthetic.sqlite3' }, status: { connected: true, schema_version: 6 },
@@ -806,6 +807,19 @@ await test('U26: Analyze limits history to three jobs, with Change folder and cl
     await go(link.getAttribute('href'));
     assert(document.querySelectorAll('main .job-card').length === 5, 'Jobs does not show full analysis history');
   } finally { jobFixture = []; app.state.scanPath = oldPath; await go('#/home'); }
+});
+await test('U15: Logs explains no matches and all empty tables have a message', async () => {
+  emptyLogs = true;
+  try {
+    await go('#/logs');
+    const empty = document.querySelector('main .empty-state');
+    assert(empty?.textContent.includes(t('logs.empty')) && empty.querySelector('button')?.textContent === t('logs.clear'),
+      'Logs empty state lacks explanation/reset');
+    assert(!document.querySelector('main table'), 'Logs renders header-only table');
+    await go('#/report');
+    assert(document.querySelectorAll('main .empty-state').length >= 2 && !document.querySelector('main table'),
+      'Report still has header-only tables');
+  } finally { emptyLogs = false; await go('#/home'); }
 });
 await test('B19: login version ON/OFF uses public bootstrap only and fits both themes', async () => {
   const { renderLogin } = await import('../frontend/static/js/views/login.js');

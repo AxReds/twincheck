@@ -812,6 +812,8 @@
     "logs.all_users": "所有用户",
     "logs.system": "系统",
     "scan.change_folder": "更改文件夹",
-    "scan.all_analysis_jobs": "在任务中查看所有分析任务"
+    "scan.all_analysis_jobs": "在任务中查看所有分析任务",
+    "logs.empty": "没有符合这些筛选条件的事件。",
+    "common.empty_list": "没有可显示的项目。"
   }
 }

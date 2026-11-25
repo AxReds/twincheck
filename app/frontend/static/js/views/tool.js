@@ -369,6 +369,11 @@ export async function logs(main, state) {
     exportCSV.href = '/api/logs.csv?' + q;
   };
   csvScope.addEventListener('change', updateExport);
+  const clearFilters = () => {
+    selectedEvent = ''; ev.value = ''; lv.value = ''; job.value = ''; offset = 0;
+    selectedOwner = ''; if (owner) owner.value = '';
+    history.replaceState(null, '', '#/logs'); load();
+  };
   const load = async () => {
     const q = new URLSearchParams({ offset, limit: 100 });
     if (selectedEvent) q.set('event', selectedEvent);
@@ -383,20 +388,17 @@ export async function logs(main, state) {
     if (owner) mount(owner, h('option', { value: '' }, t('logs.all_users')),
       h('option', { value: '__system__', selected: selectedOwner === '__system__' }, t('logs.system')),
       d.users.map((user) => h('option', { value: user.id, selected: selectedOwner === user.id }, user.username)));
-    mount(box, table(['logs.col_time', 'logs.col_level', 'logs.col_event', 'logs.col_message', 'logs.col_job', ...(owner ? ['admin.col_user'] : [])],
+    mount(box, d.items.length ? table(['logs.col_time', 'logs.col_level', 'logs.col_event', 'logs.col_message', 'logs.col_job', ...(owner ? ['admin.col_user'] : [])],
       d.items.map((r) => h('tr', {}, h('td', {}, instant(r.ts)), h('td', {}, r.level), h('td', { class: 'event-code' }, h('code', {}, r.event)),
         h('td', { lang: 'en', dir: 'ltr' }, r.message), h('td', {}, r.job_id ? '#' + r.job_id : ''),
-        owner ? h('td', {}, r.user || t('logs.system')) : null))),
+        owner ? h('td', {}, r.user || t('logs.system')) : null))) :
+      h('div', { class: 'empty-state notice' }, h('p', {}, t('logs.empty')), button('logs.clear', clearFilters)),
     pager(d.total, offset, 100, (o) => { offset = o; load(); }));
   };
   page(main, 'logs.title', 'logs.intro', stepGuide(0, await analysisState()), h('div', { class: 'filters' }, field('logs.event', ev), field('logs.level', lv), field('logs.job', job),
     owner ? field('admin.col_user', owner) : null,
     button('logs.apply', () => { selectedEvent = ev.value; if (owner) selectedOwner = owner.value; offset = 0; load(); }),
-    button('logs.clear', () => {
-      selectedEvent = ''; ev.value = ''; lv.value = ''; job.value = ''; offset = 0;
-      selectedOwner = ''; if (owner) owner.value = '';
-      history.replaceState(null, '', '#/logs'); load();
-    })), h('div', { class: 'actions' }, field('logs.csv_scope', csvScope), exportCSV), box);
+    button('logs.clear', clearFilters)), h('div', { class: 'actions' }, field('logs.csv_scope', csvScope), exportCSV), box);
   await load();
 }
 

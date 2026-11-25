@@ -838,6 +838,8 @@
     "logs.all_users": "Todos os usuários",
     "logs.system": "Sistema",
     "scan.change_folder": "Alterar pasta",
-    "scan.all_analysis_jobs": "Todas as análises em Trabalhos"
+    "scan.all_analysis_jobs": "Todas as análises em Trabalhos",
+    "logs.empty": "Nenhum evento corresponde a estes filtros.",
+    "common.empty_list": "Nenhum item para exibir."
   }
 }

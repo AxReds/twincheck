@@ -826,6 +826,8 @@
     "logs.all_users": "All users",
     "logs.system": "System",
     "scan.change_folder": "Change folder",
-    "scan.all_analysis_jobs": "All analysis jobs in Jobs"
+    "scan.all_analysis_jobs": "All analysis jobs in Jobs",
+    "logs.empty": "No events match these filters.",
+    "common.empty_list": "No items to display."
   }
 }
