@@ -145,10 +145,7 @@ export async function duplicates(main, state) {
   const load = async () => {
     const d = await get(`/api/duplicates?scope=${scope()}&offset=${offset}&limit=20`);
     summary.textContent = t('dup.summary', { count: d.total, size: fmt.bytes(d.recoverable) });
-    const last = flowStatus.empty ? null : d.analyzed_at
-      ? h('p', { class: 'notice' }, t('analysis.results_from', { date: fmt.date(d.analyzed_at) }), ' ', t('analysis.recheck_before_action'))
-      : h('p', { class: 'notice warn' }, t('dup.no_analysis'), ' ', h('a', { href: '#/scan' }, t('analysis.go_scan')));
-    mount(list, last, d.groups.length && !flowStatus.empty ? d.groups.map((g) => group(g)) : h('p', { class: 'muted' }, t('dup.none')),
+    mount(list, d.groups.length && !flowStatus.empty ? d.groups.map((g) => group(g)) : h('p', { class: 'muted' }, t('dup.none')),
       pager(d.total, offset, 20, (o) => { offset = o; load(); }));
   };
   const group = (g) => h('fieldset', { class: 'dup-group' },
@@ -187,12 +184,9 @@ export async function duplicates(main, state) {
 // --- metadata --------------------------------------------------------------------------------
 function metadataResult(data) {
   if (!data.analyzed_at || !data.summary) {
-    return h('p', { class: 'notice warn' }, t('meta.no_analysis'), ' ',
-      h('a', { href: '#/scan' }, t('analysis.go_scan')));
+    return null;
   }
   return h('div', {},
-    h('p', { class: 'notice' }, t('analysis.results_from', { date: fmt.date(data.analyzed_at) }), ' ',
-      t('analysis.recheck_before_action')),
     h('p', { class: 'summary' }, t('meta.summary', data.summary)),
     data.review_pending > 0
       ? h('a', { class: 'btn', href: '#/review' }, t('meta.review_items', { count: data.review_pending }))

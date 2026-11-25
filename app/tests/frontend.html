@@ -472,6 +472,22 @@ await test('U10/U11: duplicate dates and readable metadata summary are shown', a
     'metadata summary has no direct review link');
   await go('#/home');
 });
+await test('B20/B21/B25: one results notice, no stale job cards or contradictory notice', async () => {
+  const saved = analysisStatus;
+  try {
+    for (const section of ['duplicates', 'metadata']) {
+      for (const stale of [false, true]) {
+        analysisStatus = { ...saved, stale };
+        await go('#/' + section);
+        const notices = [...document.querySelectorAll('main .notice')];
+        const results = notices.filter((el) => el.textContent.includes(t('analysis.results_from', { date: fmt.date(saved.analyzed_at) })));
+        assert(results.length === (stale ? 0 : 1), 'results notice is duplicated or contradicts stale status');
+        assert(document.querySelectorAll('main .job-card').length === 0, 'per-step history card is still visible');
+        assert(document.querySelector('main a.history-link[href="#/jobs"]'), 'Jobs history link is missing');
+      }
+    }
+  } finally { analysisStatus = saved; await go('#/home'); }
+});
 await test('U12: pipeline button and five-phase progress are available', async () => {
   await go('#/scan');
   const analyze = [...document.querySelectorAll('main button')].find((b) => b.textContent === t('scan.analyze_library'));
