@@ -555,6 +555,7 @@ def plan_confirm(req: Request):
 # --- review -----------------------------------------------------------------------------
 def _review_row(req: Request, r: dict, full: bool = False) -> dict:
     db = common.app().db
+    r = review_state.canonical(db, r)
     f = db.query_one("SELECT * FROM files WHERE id=?", (r["file_id"],)) if r["file_id"] else None
     if not is_admin(req) and f and not access.file_in_scope(common.app().settings.data_dir.as_posix(), req.user, f):
         fail(404, "not_found")
@@ -614,7 +615,7 @@ def _visible_reviews(req: Request) -> list[dict]:
     rows = need_db().query("SELECT r.*, f.cur_path FROM review_items r JOIN files f ON f.id=r.file_id "
                           "AND f.owner_id=r.owner_id WHERE r.owner_id=? AND f.present=1 "
                           "AND f.media_kind IN ('image','video') AND f.status<>'dup_moved' ORDER BY r.id", (owner,))
-    return [row for row in rows if is_admin(req) or access.file_in_scope(common.app().settings.data_dir.as_posix(), req.user, row)]
+    return review_state.active([row for row in rows if is_admin(req) or access.file_in_scope(common.app().settings.data_dir.as_posix(), req.user, row)])
 
 
 def _review_counts(rows: list[dict]) -> tuple[dict, dict]:
@@ -631,6 +632,7 @@ def _review_counts(rows: list[dict]) -> tuple[dict, dict]:
 def review_get(req: Request):
     db = need_db()
     r = own_row(req, db.query_one("SELECT * FROM review_items WHERE id=?", (req.path_params["id"],)))
+    r = review_state.canonical(db, r)
     if not is_admin(req):
         scoped_file(req, db.query_one("SELECT * FROM files WHERE id=?", (r["file_id"],)))
     out = _review_row(req, r, full=True)
@@ -678,6 +680,7 @@ def validate_fields(fields: dict) -> dict:
 def review_decide(req: Request):
     db = need_db()
     r = own_row(req, db.query_one("SELECT * FROM review_items WHERE id=?", (req.path_params["id"],)))
+    r = review_state.canonical(db, r)
     if not is_admin(req):
         scoped_file(req, db.query_one("SELECT * FROM files WHERE id=?", (r["file_id"],)))
     if r["owner_id"] != req.user["id"] and not is_admin(req):
@@ -781,12 +784,17 @@ def _next_review(req: Request, owner: str, after: int) -> dict | None:
 def review_reopen(req: Request):
     db = need_db()
     r = own_row(req, db.query_one("SELECT * FROM review_items WHERE id=?", (req.path_params["id"],)))
+    r = review_state.canonical(db, r)
     if not is_admin(req):
         scoped_file(req, db.query_one("SELECT * FROM files WHERE id=?", (r["file_id"],)))
     f = db.query_one("SELECT phase_org FROM files WHERE id=?", (r["file_id"],))
     if r["applied"] or f and f["phase_org"] == "done":
         fail(409, "already_applied")
     db.execute("UPDATE review_items SET status='pending', skipped_at=NULL WHERE id=?", (r["id"],))
+    if r["kind"] in review_state.METADATA_KINDS:
+        db.execute("UPDATE review_items SET status='pending', skipped_at=NULL WHERE owner_id=? AND file_id=? "
+                   "AND kind IN ('meta_conflict','no_date','date_utc') AND status='pending' AND skipped_at IS NOT NULL",
+                   (r["owner_id"], r["file_id"]))
     return JSONResponse({"ok": True})
 
 
@@ -868,7 +876,7 @@ def report(req: Request):
             manifest.append({"action": m["action"], "n": 1, "undone": 1 if m["undone_at"] else 0})
     review_rows = [r for r in db.query(f"SELECT * FROM review_items WHERE {w}", a) if r["file_id"] in allowed_ids]
     review = []
-    for r in review_rows:
+    for r in review_state.active(review_rows):
         state = review_state.status(r)
         found = next((x for x in review if x["status"] == state), None)
         if found:

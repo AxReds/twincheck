@@ -58,7 +58,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
   ([#62](https://github.com/AxReds/twincheck/issues/62)).
 - One shared review status drives item badges, filters, counts and Organize. Re-analysis
   preserves skipped/kept/saved/re-check records and stable item ids instead of creating a second
-  pending record for the same file ([#63](https://github.com/AxReds/twincheck/issues/63)).
+  pending record for the same file. Pre-existing duplicate metadata queue rows are resolved
+  read-only to the same canonical record, including old item links; history is not deleted
+  ([#63](https://github.com/AxReds/twincheck/issues/63)).
 - Confirmed schema upgrades emit one `DB_MIGRATED` event with real numeric versions;
   the re-check count is logged once at INFO and retained in the encrypted audit log
   ([#61](https://github.com/AxReds/twincheck/issues/61)).

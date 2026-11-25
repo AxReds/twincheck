@@ -214,10 +214,11 @@ def run_move_plan(ctx: JobContext) -> dict:
             with db.transaction():
                 db.execute("UPDATE plan_items SET status='skipped', note=? WHERE id=?", (problem, item["id"]))
                 log(db, "MOVE_SKIPPED", level="WARNING", job_id=ctx.id, owner_id=item["owner_id"], src=item["src"], reason=problem)
-                db.execute("INSERT INTO review_items (owner_id, file_id, kind, details, proposals, status, created_at, job_id, applied) "
-                           "VALUES (?,?,?,?,?,?,?,?,?)", (item["owner_id"], item["file_id"], "move_conflict",
-                                                          json.dumps({"src": item["src"], "dst": item["dst"], "reason": problem}), "[]",
-                                                          "pending", utcnow(), ctx.id, 0))
+                if not block:
+                    db.execute("INSERT INTO review_items (owner_id, file_id, kind, details, proposals, status, created_at, job_id, applied) "
+                               "VALUES (?,?,?,?,?,?,?,?,?)", (item["owner_id"], item["file_id"], "move_conflict",
+                                                              json.dumps({"src": item["src"], "dst": item["dst"], "reason": problem}), "[]",
+                                                              "pending", utcnow(), ctx.id, 0))
             counts["skipped"] += 1
             done += 1
             ctx.progress(done=done, total=total, phase="move")

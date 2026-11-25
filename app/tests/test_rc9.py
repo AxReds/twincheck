@@ -135,7 +135,7 @@ class ReviewPostponement(unittest.TestCase):
         try:
             inst.setup()
             write(inst.data / "lib" / "synthetic.jpg", jpeg_bytes(970))
-            _, user = make_user(inst.admin(), "synthetic", [{"path": "lib"}])
+            uid, user = make_user(inst.admin(), "synthetic", [{"path": "lib"}])
             sid = user.get("/api/sources").json()["sources"][0]["id"]
             for _ in range(2):
                 jid = user.post("/api/library/analyze", {"source_id": sid}).json()["job_id"]
@@ -217,7 +217,7 @@ class ReviewPostponement(unittest.TestCase):
                         inst.setup(db=params if params["type"] == "mariadb" else None)
                         for n in range(3):
                             write(inst.data / "lib" / f"synthetic-{n}.jpg", jpeg_bytes(900 + n))
-                        _, user = make_user(inst.admin(), "synthetic", [{"path": "lib"}])
+                        uid, user = make_user(inst.admin(), "synthetic", [{"path": "lib"}])
                         sid = user.get("/api/sources").json()["sources"][0]["id"]
                         def run(path):
                             response = user.post(path, {"source_id": sid})
@@ -234,6 +234,10 @@ class ReviewPostponement(unittest.TestCase):
                             if action == "save":
                                 body["date"] = "2001-02-03T04:05:06"
                             self.assertEqual(user.post(f"/api/review/{item['id']}", body).status, 200)
+                        db = inst.core.db
+                        duplicate_id = db.insert("INSERT INTO review_items (owner_id,file_id,kind,status,details,proposals) VALUES (?,?,?,?,?,?)",
+                                                 (uid, skipped["file_id"], "no_date", "pending", "{}", "[]"))
+                        self.assertEqual(user.get(f"/api/review/{duplicate_id}").json()["status"], "skipped")
                         run("/api/library/analyze")
                         run("/api/library/analyze")
                         pending = user.get("/api/review").json()
@@ -246,6 +250,7 @@ class ReviewPostponement(unittest.TestCase):
                             detail = user.get(f"/api/review/{row['id']}").json()
                             self.assertEqual(detail["status"], row["status"])
                         self.assertEqual(pending["items"][0]["status"], "skipped")
+                        self.assertEqual(user.get(f"/api/review/{duplicate_id}").json()["status"], "skipped")
                         self.assertEqual(user.get(f"/api/review/{saved['id']}").json()["decision"]["date"],
                                          "2001-02-03T04:05:06")
                         db = inst.core.db
@@ -261,6 +266,10 @@ class ReviewPostponement(unittest.TestCase):
                         old_move = db.query_one("SELECT status,note FROM plan_items WHERE plan_job_id=? AND file_id=?",
                                                 (old_plan, skipped["file_id"]))
                         self.assertEqual((old_move["status"], old_move["note"]), ("skipped", "review_skipped"))
+                        self.assertEqual(user.post(f"/api/review/{duplicate_id}",
+                                                   {"action": "save", "date": "2003-04-05T06:07:08"}).status, 200)
+                        self.assertEqual(user.get(f"/api/review/{duplicate_id}").json()["status"], "decided")
+                        self.assertEqual(user.get("/api/review").json()["total"], 0)
                     finally:
                         inst.cleanup()
                         drop(params)
