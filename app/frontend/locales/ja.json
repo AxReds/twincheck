@@ -810,6 +810,8 @@
     "logs.csv_filtered": "現在フィルター済みのイベント",
     "logs.csv_all": "表示可能なすべてのイベント",
     "logs.all_users": "すべてのユーザー",
-    "logs.system": "システム"
+    "logs.system": "システム",
+    "scan.change_folder": "フォルダーを変更",
+    "scan.all_analysis_jobs": "ジョブですべての分析ジョブを表示"
   }
 }

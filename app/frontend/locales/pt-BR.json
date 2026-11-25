@@ -836,6 +836,8 @@
     "logs.csv_filtered": "Eventos filtrados atualmente",
     "logs.csv_all": "Todos os eventos visíveis",
     "logs.all_users": "Todos os usuários",
-    "logs.system": "Sistema"
+    "logs.system": "Sistema",
+    "scan.change_folder": "Alterar pasta",
+    "scan.all_analysis_jobs": "Todas as análises em Trabalhos"
   }
 }

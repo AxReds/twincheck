@@ -824,6 +824,8 @@
     "logs.csv_filtered": "Currently filtered events",
     "logs.csv_all": "All events you can see",
     "logs.all_users": "All users",
-    "logs.system": "System"
+    "logs.system": "System",
+    "scan.change_folder": "Change folder",
+    "scan.all_analysis_jobs": "All analysis jobs in Jobs"
   }
 }

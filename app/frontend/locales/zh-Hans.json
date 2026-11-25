@@ -810,6 +810,8 @@
     "logs.csv_filtered": "当前筛选的事件",
     "logs.csv_all": "所有可见事件",
     "logs.all_users": "所有用户",
-    "logs.system": "系统"
+    "logs.system": "系统",
+    "scan.change_folder": "更改文件夹",
+    "scan.all_analysis_jobs": "在任务中查看所有分析任务"
   }
 }

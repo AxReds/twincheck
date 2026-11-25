@@ -156,7 +156,7 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/review') data = { items: [], total: 0, counts: {} };
   else if (path === '/api/admin/users' && opts.method !== 'PATCH') data = { users: [user], groups: [] };
   else if (path === '/api/admin/users/test-admin' && opts.method === 'PATCH') data = { ok: true };
-  else if (path === '/api/jobs') data = { items: jobFixture, total: jobFixture.length };
+  else if (path === '/api/jobs') data = { items: jobFixture.slice(0, Number(new URL(String(url), location.href).searchParams.get('limit') || 50)), total: jobFixture.length };
   else if (path === '/api/logs' || path === '/api/admin/audit') data = { items: [{
     ts: '2026-11-24T20:00:00Z', level: 'INFO', event: 'REVIEW_DECIDED',
     message: 'Review decision saved for synthetic.jpg', actor: 'synthetic', job_id: 1,
@@ -790,6 +790,22 @@ await test('U24: only administrative roles get the User log filter', async () =>
       assert(Boolean(document.querySelector('.log-user-filter')) === (role !== 'user'), 'User filter role mismatch');
     }
   } finally { app.state.user.role = old; await go('#/home'); }
+});
+await test('U26: Analyze limits history to three jobs, with Change folder and clean notice', async () => {
+  const oldPath = app.state.scanPath;
+  app.state.scanPath = 'synthetic';
+  jobFixture = Array.from({ length: 5 }, (_, n) => ({ id: n + 1, kind: 'analyze_library', status: 'completed' }));
+  try {
+    await go('#/analyze');
+    assert(document.querySelectorAll('main .job-card').length === 3, 'Analyze shows more than three jobs');
+    assert(document.querySelector('main details > summary').textContent === t('scan.change_folder'),
+      'selected folder expander still asks to choose first');
+    assert(!/\.\s*·/.test(document.querySelector('main .notice').textContent), 'orphan notice separator remains');
+    const link = document.querySelector('main a[href="#/jobs?kind=analyze_library"]');
+    assert(link?.textContent === t('scan.all_analysis_jobs'), 'all-analysis-jobs link missing');
+    await go(link.getAttribute('href'));
+    assert(document.querySelectorAll('main .job-card').length === 5, 'Jobs does not show full analysis history');
+  } finally { jobFixture = []; app.state.scanPath = oldPath; await go('#/home'); }
 });
 await test('B19: login version ON/OFF uses public bootstrap only and fits both themes', async () => {
   const { renderLogin } = await import('../frontend/static/js/views/login.js');

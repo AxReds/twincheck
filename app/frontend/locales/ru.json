@@ -849,6 +849,8 @@
     "logs.csv_filtered": "Текущие отфильтрованные события",
     "logs.csv_all": "Все доступные события",
     "logs.all_users": "Все пользователи",
-    "logs.system": "Система"
+    "logs.system": "Система",
+    "scan.change_folder": "Изменить папку",
+    "scan.all_analysis_jobs": "Все задания анализа в разделе Задания"
   }
 }

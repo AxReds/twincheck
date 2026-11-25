@@ -8,6 +8,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Analyze shows the last three analysis jobs with a full-history link, labels an existing
+  selection Change folder, and omits orphan results-notice separators
+  ([#73](https://github.com/AxReds/twincheck/issues/73)).
 - Base users see only their own scoped job/file/review events, never system/authentication
   events or mismatched job/file references. Administrators see all users/system events and
   can filter by User; the same policy protects counts and CSV

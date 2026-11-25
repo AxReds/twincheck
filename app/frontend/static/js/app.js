@@ -19,7 +19,7 @@ const ROUTES = [
   [/^#\/?$/, () => tool.home], [/^#\/home$/, () => tool.home], [/^#\/analyze$/, () => tool.scan],
   [/^#\/duplicates$/, () => tool.duplicates], [/^#\/metadata(?:\/(review))?$/, () => tool.metadata],
   [/^#\/metadata\/review\/(\d+)$/, () => review.item], [/^#\/organize$/, () => tool.organize], [/^#\/plans\/(\d+)$/, () => tool.plan],
-  [/^#\/report$/, () => tool.report], [/^#\/jobs$/, () => tool.jobs], [/^#\/logs(?:\?.*)?$/, () => tool.logs], [/^#\/me$/, () => tool.me],
+  [/^#\/report$/, () => tool.report], [/^#\/jobs(?:\?.*)?$/, () => tool.jobs], [/^#\/logs(?:\?.*)?$/, () => tool.logs], [/^#\/me$/, () => tool.me],
   [/^#\/admin\/users$/, () => admin.users], [/^#\/admin\/groups$/, () => admin.groups], [/^#\/admin\/settings$/, () => admin.settings],
   [/^#\/admin\/database$/, () => admin.database], [/^#\/admin\/transfer$/, () => transferView.transfer],
   [/^#\/admin\/audit$/, () => admin.audit], [/^#\/admin\/security$/, () => admin.security], [/^#\/admin$/, () => admin.users],

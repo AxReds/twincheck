@@ -51,7 +51,8 @@ function analysisNotice(status, current = false) {
     current ? null : h('a', { href: '#/analyze' }, t('analysis.update')));
   if (status.analyzed_at) return h('p', { class: 'notice', title: fmt.dateTooltip(status.analyzed_at) },
     t('analysis.results_from', { date: fmt.date(status.analyzed_at) }), ' ',
-    current ? null : h('a', { href: '#/analyze' }, t('analysis.update')), ' · ', t('analysis.recheck_before_action'));
+    current ? null : h('a', { href: '#/analyze' }, t('analysis.update')),
+    current ? ' ' : ' · ', t('analysis.recheck_before_action'));
   return null;
 }
 
@@ -112,6 +113,9 @@ export async function scan(main, state) {
     noSelection.hidden = state.scanPath !== null;
     select.value = selectedSource()?.id || '';
     browser?.querySelector('.browser')?.dispatchEvent(new Event('po:folder-selected'));
+    const summary = browser?.querySelector('summary');
+    if (summary) summary.textContent = t(state.scanPath !== null ? 'scan.change_folder' :
+      adminBrowse ? 'scan.browse_data' : 'scan.choose_folder');
   };
   const browser = canBrowse ? h('details', { class: 'panel' }, h('summary', {}, t(adminBrowse ? 'scan.browse_data' : 'scan.choose_folder')),
     folderBrowser((p) => { state.scanPath = p; updateSelection(); }, state.scanPath ?? (adminBrowse ? '' : null), () => state.scanPath)) : null;
@@ -137,10 +141,11 @@ export async function scan(main, state) {
           null, event.currentTarget);
       }, 'primary')) : null),
     h('h2', {}, t('scan.jobs')));
-  const jl = jobList(main, 'kind=analyze_library&limit=10', { onData: (items) => {
+  const jl = jobList(main, 'kind=analyze_library&limit=3', { onData: (items) => {
     if (analyzeButton && !analyzeButton.dataset.pending)
       analyzeButton.disabled = items.some((j) => ['queued', 'running'].includes(j.status));
   }});
+  main.appendChild(h('a', { class: 'history-link', href: '#/jobs?kind=analyze_library' }, t('scan.all_analysis_jobs')));
   return { destroy: jl.stop };
 }
 
@@ -328,11 +333,16 @@ export async function report(main) {
 
 // --- jobs -----------------------------------------------------------------------------------------
 export async function jobs(main) {
+  const query = new URLSearchParams(location.hash.split('?')[1] || '');
+  const kind = query.get('kind') || '';
   const sel = h('select', {}, ['open', '', 'completed', 'failed', 'cancelled'].map((s) => h('option', { value: s }, s ? t('job.filter.' + s) : t('job.filter.all'))));
   const box = h('div', {});
+  sel.value = kind ? '' : 'open';
   page(main, 'jobs.title', 'jobs.intro', stepGuide(0, await analysisState()), field('jobs.filter', sel), box);
-  let jl = jobList(box, 'status=open&limit=50');
-  sel.addEventListener('change', () => { jl.stop(); mount(box); jl = jobList(box, (sel.value ? 'status=' + sel.value + '&' : '') + 'limit=50'); });
+  const jobQuery = () => (kind ? 'kind=' + encodeURIComponent(kind) + '&' : '') +
+    (sel.value ? 'status=' + sel.value + '&' : '') + 'limit=50';
+  let jl = jobList(box, jobQuery());
+  sel.addEventListener('change', () => { jl.stop(); mount(box); jl = jobList(box, jobQuery()); });
   return { destroy: () => jl.stop() };
 }
 
