@@ -243,16 +243,23 @@ def library_status(req: Request):
     db = need_db()
     owner = req.user["id"]
     source_id = req.query.get("source_id")
-    where, args = "owner_id=? AND kind='analyze_library'", [owner]
-    if source_id:
-        where += " AND params LIKE ?"
-        args.append('%\"source_id\": \"' + source_id + '\"%')
     latest = _latest_analysis(req, source_id)
-    active = db.query_one(f"SELECT id, status, phase, progress_done, progress_total, checkpoint FROM jobs "
-                          f"WHERE {where} AND status IN ('queued','running','paused','interrupted') ORDER BY id DESC LIMIT 1", args)
+    core = common.app()
+    active = None
+    for job in db.query("SELECT id, status, phase, progress_done, progress_total, checkpoint, params, created_at "
+                        "FROM jobs WHERE owner_id=? AND kind='analyze_library' "
+                        "AND status IN ('queued','running','paused','interrupted') ORDER BY created_at DESC, id DESC", (owner,)):
+        params = json.loads(job["params"] or "{}")
+        if source_id and params.get("source_id") != source_id:
+            continue
+        if not params.get("root") or not access.path_in_scope(core.settings.data_dir.as_posix(), req.user, params["root"]):
+            continue
+        if latest and (job["created_at"], job["id"]) <= (latest["created_at"], latest["id"]):
+            continue
+        active = job
+        break
     changes = {"new": 0, "changed": 0, "removed": 0}
     if latest:
-        core = common.app()
         params = json.loads(latest["params"] or "{}")
         roots = params.get("roots") or [params.get("root")]
         roots = [root for root in roots if root and access.path_in_scope(core.settings.data_dir.as_posix(), req.user, root)]
