@@ -516,7 +516,7 @@ await test('U14/B24: Review is inside Metadata, with one entry and complete stat
   assert(location.hash === '#/metadata/review', 'Review route does not redirect into Metadata');
   assert(document.querySelectorAll('main .review-entry').length === 1, 'review entry is duplicated');
   assert(document.querySelector('.mainnav a.active[href="#/metadata"]'), 'Metadata tab is not highlighted');
-  const options = [...document.querySelectorAll('.review-queue select:first-child option')].map((el) => el.value);
+  const options = [...document.querySelector('.review-queue select').options].map((el) => el.value);
   assert(['pending', 'decided', 'needs_recheck', 'all'].every((s) => options.includes(s)), 'review status filter is incomplete');
   assert(!document.querySelector('.automatic-fills'), 'automatic preview shown despite zero fills');
   assert(document.querySelector('.review-counts').textContent === t('review.live_counts', { total: 50, decided: 0, pending: 50 }),
@@ -550,6 +550,28 @@ await test('U16: 24-hour inputs, Use copies proposal, sticky controls precede fi
     (innerWidth <= 1000 ? 'fixed' : 'sticky'), 'review actions are not sticky/fixed');
   assert(![...document.querySelectorAll('main input')].some((el) => ['+01:00', '45.464200, 9.190000'].includes(el.placeholder)),
     'example values look like real data');
+  await go('#/home');
+});
+await test('B19: login version ON/OFF uses public bootstrap only and fits both themes', async () => {
+  const { renderLogin } = await import('../frontend/static/js/views/login.js');
+  const { stopPolling } = await import('../frontend/static/js/components.js');
+  stopPolling();
+  for (const theme of ['light', 'dark']) {
+    document.documentElement.dataset.theme = theme;
+    for (const show of [true, false]) {
+      renderLogin(document.querySelector('#app'), { ...app.state, boot: show ? { login_version: 'synthetic-rc8' } : {} }, async () => {});
+      const footer = document.querySelector('.login-version');
+      assert(Boolean(footer) === show, 'version visibility does not respect bootstrap');
+      if (footer) {
+        const rect = footer.getBoundingClientRect();
+        assert(footer.textContent === 'TwinCheck synthetic-rc8' && rect.x >= 0 && rect.right <= innerWidth, 'version footer is unreadable or outside viewport');
+        assert(contrast(footer) >= 4.5, 'login version contrast is below 4.5:1');
+      }
+    }
+  }
+  const { setLanguage } = await import('../frontend/static/js/i18n.js');
+  await setLanguage('it'); await sleep();
+  await setLanguage('en'); await sleep();
   await go('#/home');
 });
 await test('U12: pipeline button and five-phase progress are available', async () => {

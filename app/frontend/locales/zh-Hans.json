@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "settings.show_version_on_login": "在登录页面显示版本",
     "review.date_format": "yyyy-mm-dd hh:mm:ss（24小时）",
     "common.back_to": "返回{page}",
     "meta.empty_fills": "没有自动补全：缺失字段没有可靠来源。{count}个文件等待审核选择。",

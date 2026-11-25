@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "settings.show_version_on_login": "Version auf der Anmeldeseite anzeigen",
     "review.date_format": "jjjj-mm-tt hh:mm:ss (24 Stunden)",
     "common.back_to": "Zurück zu {page}",
     "meta.empty_fills": "Keine automatischen Ergänzungen: keine verlässliche Quelle für fehlende Felder. {count} Dateien warten auf eine Entscheidung.",

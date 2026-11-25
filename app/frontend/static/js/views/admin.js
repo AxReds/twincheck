@@ -152,11 +152,13 @@ export async function settings(main, state) {
   const crf = h('input', { type: 'number', min: '18', max: '40', value: String(s.previews.crf) });
   const lang = h('select', { disabled: !state.perms.security_settings }, d.locales.map((l) => h('option', { value: l.code, selected: l.code === s.default_lang }, l.name)));
   const timezone = state.user.role === 'admin' ? h('input', { type: 'text', value: s.library_timezone }) : null;
+  const loginVersion = state.user.role === 'admin' ? h('input', { type: 'checkbox', checked: s.show_version_on_login }) : null;
   const save = async () => {
     const body = { organize: { no_date_folder: noDate.value, duplicates_folder: dupDir.value }, scan: { exclude: exclude.value.split('\n').map((x) => x.trim()).filter(Boolean) },
       metadata: { fields: [...fields.querySelectorAll('input:checked')].map((i) => i.value) }, previews: { transcode_height: Number(height.value), crf: Number(crf.value) } };
     if (state.perms.security_settings) body.default_lang = lang.value;
     if (timezone) body.library_timezone = timezone.value;
+    if (loginVersion) body.show_version_on_login = loginVersion.checked;
     try { await patch('/api/admin/settings', body); toast(t('common.saved'), 'ok'); } catch (e) { toast(e.message, 'error'); }
   };
   const sec = d.security;
@@ -169,6 +171,7 @@ export async function settings(main, state) {
       h('h3', {}, t('settings.previews')), field('settings.preview_height', height), field('settings.preview_crf', crf),
       h('h3', {}, t('settings.instance')), field('settings.default_lang', lang, 'settings.default_lang_hint'),
       timezone ? field('settings.library_timezone', timezone, 'settings.library_timezone_hint') : null,
+      loginVersion ? field('settings.show_version_on_login', loginVersion) : null,
       d.library_timezone_notice ? h('p', { class: 'notice warn' }, t('settings.library_timezone_notice')) : null,
       h('div', { class: 'actions' }, button('common.save', save, 'primary'))),
     secInputs ? h('div', { class: 'form' }, h('h3', {}, t('settings.security')),

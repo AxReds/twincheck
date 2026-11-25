@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "settings.show_version_on_login": "Mostra la versione nella pagina di accesso",
     "review.date_format": "aaaa-mm-gg hh:mm:ss (24 ore)",
     "common.back_to": "Torna a {page}",
     "meta.empty_fills": "Nessun completamento automatico: nessun campo mancante ha una fonte affidabile. {count} file attendono una scelta nella verifica.",

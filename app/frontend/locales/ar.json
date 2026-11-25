@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "settings.show_version_on_login": "عرض الإصدار في صفحة الدخول",
     "review.date_format": "yyyy-mm-dd hh:mm:ss (24 ساعة)",
     "common.back_to": "العودة إلى {page}",
     "meta.empty_fills": "لا إكمال تلقائي: لا مصدر موثوق للحقول الناقصة. {count} ملفات تنتظر الاختيار.",

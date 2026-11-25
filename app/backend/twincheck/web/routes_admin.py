@@ -225,9 +225,10 @@ def get_settings(req: Request):
     require(req, "tool_settings")
     core = common.app()
     d = core.vault.data
-    settings = {k: v for k, v in d["settings"].items() if k != "library_timezone"}
+    settings = {k: v for k, v in d["settings"].items() if k not in ("library_timezone", "show_version_on_login")}
     if req.user["role"] == "admin":
         settings["library_timezone"] = core.library_timezone
+        settings["show_version_on_login"] = d["settings"].get("show_version_on_login", True)
     out = {"settings": settings, "library_timezone_notice": req.user["role"] == "admin" and
            "library_timezone" not in d["settings"] and core.settings.library_timezone_notice,
            "security": d["security"] if access.can(req.user, "security_settings") else None,
@@ -240,6 +241,11 @@ def set_settings(req: Request):
     require(req, "tool_settings")
     core = common.app()
     body = req.json()
+    if "show_version_on_login" in body:
+        if req.user["role"] != "admin":
+            fail(403, "forbidden")
+        if not isinstance(body["show_version_on_login"], bool):
+            fail(400, "invalid_value", field="show_version_on_login")
     if "library_timezone" in body:
         if req.user["role"] != "admin":
             fail(403, "forbidden")
@@ -251,6 +257,9 @@ def set_settings(req: Request):
             fail(400, "invalid_timezone")
     with core.vault.transaction() as data:
         s = data["settings"]
+        if "show_version_on_login" in body and body["show_version_on_login"] != s.get("show_version_on_login", True):
+            s["show_version_on_login"] = body["show_version_on_login"]
+            audit(data, req.user["username"], "SETTING_CHANGED", setting="show_version_on_login")
         if "library_timezone" in body and body["library_timezone"] != core.library_timezone:
             s["library_timezone"] = body["library_timezone"]
             audit(data, req.user["username"], "SETTING_CHANGED", setting="library_timezone")
@@ -283,6 +292,8 @@ def set_settings(req: Request):
         audit(data, req.user["username"], "SETTINGS_UPDATED", section="tool")
     if "library_timezone" in body and core.db_ready:
         dbm.log(core.db, "SETTING_CHANGED", actor=req.user["id"], setting="library_timezone")
+    if "show_version_on_login" in body and core.db_ready:
+        dbm.log(core.db, "SETTING_CHANGED", actor=req.user["id"], setting="show_version_on_login")
     return JSONResponse({"ok": True})
 
 

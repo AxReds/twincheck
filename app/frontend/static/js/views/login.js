@@ -27,7 +27,8 @@ export function renderLogin(root, state, reboot) {
     mount(root, h('div', { class: 'auth-page' }, h('div', { class: 'auth-card' },
       h('div', { class: 'auth-head' }, h('img', { src: '/static/img/logo.svg', alt: '', class: 'logo' }), h('h1', {}, t('app.name')), themeToggle(), langSelect(() => render())),
       field('theme.label', themeSelect()),
-      h('h2', {}, t('login.title')), form, h('p', { class: 'hint' }, t('login.plain_http_notice')))));
+      h('h2', {}, t('login.title')), form, h('p', { class: 'hint' }, t('login.plain_http_notice')),
+      state.boot?.login_version ? h('footer', { class: 'login-version hint' }, t('app.name'), ' ', state.boot.login_version) : null)));
     user.focus();
   };
   render();

@@ -10,6 +10,7 @@
     "source": true
   },
   "messages": {
+    "settings.show_version_on_login": "Show version on login page",
     "review.date_format": "yyyy-mm-dd hh:mm:ss (24-hour)",
     "common.back_to": "Back to {page}",
     "meta.empty_fills": "No automatic completions: no missing field has a reliable source. {count} files await a choice in review.",

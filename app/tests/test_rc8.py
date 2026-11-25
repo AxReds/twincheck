@@ -217,3 +217,30 @@ class ReviewDates(unittest.TestCase):
         self.assertEqual(self.user.get("/api/metadata/results").json()["review_counts"], expected)
         self.user.post("/api/review/" + str(item["id"]) + "/reopen")
         self.assertEqual(self.user.get("/api/metadata/results").json()["review_counts"]["pending"], 2)
+
+
+class LoginVersion(unittest.TestCase):
+    def test_default_on_off_permissions_and_vault_audit(self):
+        from twincheck import VERSION
+        inst = Instance().start()
+        try:
+            inst.setup()
+            admin = inst.admin()
+            public = inst.client()
+            self.assertEqual(public.get("/api/bootstrap").json()["login_version"], VERSION)
+            _, user = make_user(admin, "version-user", [])
+            _, administrator = make_user(admin, "version-administrator", [], role="administrator")
+            for client in (user, administrator):
+                self.assertEqual(client.patch("/api/admin/settings", {"show_version_on_login": False}).status, 403)
+            self.assertNotIn("show_version_on_login", administrator.get("/api/admin/settings").json()["settings"])
+            self.assertEqual(admin.patch("/api/admin/settings", {"show_version_on_login": "false"}).status, 400)
+            self.assertEqual(admin.patch("/api/admin/settings", {"show_version_on_login": False}).status, 200)
+            for path in ("/api/bootstrap", "/healthz", "/", "/api/locales", "/api/sysinfo"):
+                self.assertNotIn(VERSION, public.get(path).text, path)
+            self.assertFalse(inst.core.vault.snapshot()["settings"]["show_version_on_login"])
+            self.assertTrue(any(row["event"] == "SETTING_CHANGED" and row["params"].get("setting") == "show_version_on_login"
+                                for row in inst.core.vault.snapshot()["audit"]))
+            self.assertEqual(admin.patch("/api/admin/settings", {"show_version_on_login": True}).status, 200)
+            self.assertEqual(public.get("/api/bootstrap").json()["login_version"], VERSION)
+        finally:
+            inst.cleanup()

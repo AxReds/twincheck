@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "settings.show_version_on_login": "Mostrar versão na página de login",
     "review.date_format": "aaaa-mm-dd hh:mm:ss (24 horas)",
     "common.back_to": "Voltar para {page}",
     "meta.empty_fills": "Sem preenchimento automático: nenhum campo ausente tem fonte confiável. {count} arquivos aguardam uma escolha.",

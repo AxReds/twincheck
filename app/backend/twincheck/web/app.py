@@ -160,6 +160,8 @@ def bootstrap(req: Request):
     data = core.vault.data or {}
     out = {"setup_required": not core.setup_complete, "authenticated": bool(req.user),
            "default_lang": ((data.get("settings") or {}).get("default_lang")) or core.settings.app_lang}
+    if data.get("settings", {}).get("show_version_on_login", True):
+        out["login_version"] = VERSION
     if req.user:
         out.update(user=common.user_public(req.user), csrf=req.session["csrf"], version=VERSION,
                    maintenance=core.maintenance, db=core.db_status(),

@@ -153,6 +153,7 @@ tr.is-missing th, tr.is-missing td { background: color-mix(in srgb, var(--warn) 
 .auth-page { min-block-size: 100vh; display: grid; place-items: center; padding: 1rem; }
 .auth-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.5rem; inline-size: min(100%, 30rem); display: grid; gap: 0.75rem; }
 .auth-card.wide { inline-size: min(100%, 44rem); }
+.login-version { text-align: center; overflow-wrap: anywhere; font-size: 0.85rem; }
 .auth-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
 .auth-head h1 { margin: 0; flex: 1 1 auto; }
 .steps { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0; list-style: none; counter-reset: s; }

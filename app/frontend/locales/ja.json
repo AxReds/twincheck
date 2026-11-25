@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "settings.show_version_on_login": "ログインページにバージョンを表示",
     "review.date_format": "yyyy-mm-dd hh:mm:ss（24時間）",
     "common.back_to": "{page}に戻る",
     "meta.empty_fills": "自動補完なし：未入力の項目に信頼できる情報源がありません。{count}ファイルが選択待ちです。",
