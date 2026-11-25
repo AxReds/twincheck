@@ -197,7 +197,8 @@ def scan_job(ctx: JobContext) -> dict:
               "reused": max(0, ready - hashed), "unhashed": unhashed, "unreadable": unreadable,
               "candidates": ctx.checkpoint.get("candidates", 0), **counts}
     if isinstance(ctx, PipelineContext):
-        ctx.phase_event("hash", False, hashed, candidates=result["candidates"], hashed=hashed, unreadable=unreadable)
+        ctx.phase_event("hash", False, hashed, candidates=result["candidates"], hashed=hashed,
+                        reused=result["reused"], unreadable=unreadable)
         return result
     return {key: result[key] for key in ("indexed", "missing", "hashed", "reused", "unhashed")}
 
@@ -208,7 +209,19 @@ def analysis_phase_event(ctx: JobContext, phase: str, started: bool, count: int,
         previous = ctx.db.query("SELECT params FROM run_log WHERE job_id=? AND event=?", (ctx.id, event))
         if any(json.loads(row["params"] or "{}").get("phase") == phase for row in previous):
             return
-        ctx.log(event, phase=phase, count=count, **counts)
+        summary = f"{count} items"
+        if not started:
+            if phase == "hash":
+                summary = f"{counts['hashed']} hashed, {counts['reused']} reused, {counts['unreadable']} unreadable"
+            elif phase == "capture_dates":
+                summary = f"{counts['read']} extracted, {counts['reused']} reused, {counts['unknown']} unknown"
+            elif phase == "scan":
+                summary = ", ".join(f"{counts[key]} {key}" for key in ("found", "new", "changed", "unchanged", "removed"))
+            elif phase == "duplicates":
+                summary = ", ".join(f"{value} {key}" for key, value in counts.items())
+            elif phase == "metadata":
+                summary = ", ".join(f"{counts[key]} {key}" for key in ("analysed", "fills", "review"))
+        ctx.log(event, phase=phase, phase_label=phase.replace("_", " "), count=count, summary=summary, **counts)
 
 
 class PipelineContext:
@@ -329,8 +342,9 @@ def analyze_library(ctx: JobContext) -> dict:
             stages["capture_dates"] = {"last_id": last_id, "read": read}
             ctx.save_checkpoint(stages=stages, current="capture_dates", completed=sorted(completed), results=results)
         unknown = sum(1 for row in media if not db.scalar("SELECT chosen_date FROM files WHERE id=?", (row["id"],)))
-        results["capture_dates"] = {"read": read, "unknown": unknown}
-        finish_phase("capture_dates", read, read=read, unknown=unknown)
+        reused = max(0, len(media) - read)
+        results["capture_dates"] = {"read": read, "reused": reused, "unknown": unknown}
+        finish_phase("capture_dates", read, read=read, reused=reused, unknown=unknown)
         completed.add("capture_dates")
         ctx.save_checkpoint(stages=stages, current="duplicates", completed=sorted(completed), results=results)
 

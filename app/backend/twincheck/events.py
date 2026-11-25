@@ -66,7 +66,7 @@ EVENTS: dict[str, str] = {
     "JOB_FAILED": "Job {job_id} ({kind}) failed: {error}",
     "JOB_CANCELLED": "Job {job_id} ({kind}) cancelled",
     "ANALYSIS_PHASE_STARTED": "Analysis phase {phase} started ({count} items)",
-    "ANALYSIS_PHASE_COMPLETED": "Analysis phase {phase} completed ({count} items)",
+    "ANALYSIS_PHASE_COMPLETED": "Analysis phase {phase_label} completed: {summary}",
     "ANALYSIS_RESUMED": "Analysis resumed from phase {phase} at {position}",
     # files
     "SCAN_DIR": "Scanning {path}",

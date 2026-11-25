@@ -130,6 +130,24 @@ class MigrationEvents(unittest.TestCase):
 
 
 class ReviewPostponement(unittest.TestCase):
+    def test_analysis_completion_describes_reused_hashes_and_capture_dates(self):
+        inst = Instance().start()
+        try:
+            inst.setup()
+            write(inst.data / "lib" / "synthetic.jpg", jpeg_bytes(970))
+            _, user = make_user(inst.admin(), "synthetic", [{"path": "lib"}])
+            sid = user.get("/api/sources").json()["sources"][0]["id"]
+            for _ in range(2):
+                jid = user.post("/api/library/analyze", {"source_id": sid}).json()["job_id"]
+                self.assertEqual(wait_job(inst.core, jid)["status"], "completed")
+            rows = inst.core.db.query("SELECT message,params FROM run_log WHERE job_id=? AND event='ANALYSIS_PHASE_COMPLETED'", (jid,))
+            self.assertEqual(len(rows), 5)
+            messages = {json.loads(row["params"])["phase"]: row["message"] for row in rows}
+            self.assertIn("hash completed: 0 hashed, 1 reused, 0 unreadable", messages["hash"])
+            self.assertIn("capture dates completed: 0 extracted, 1 reused", messages["capture_dates"])
+        finally:
+            inst.cleanup()
+
     def test_review_population_excludes_missing_files_and_explains_multiple_items(self):
         inst = Instance().start()
         try:

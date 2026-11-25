@@ -8,6 +8,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Analysis completion messages describe real per-phase work: hashed/extracted, reused,
+  unreadable/unknown and metadata/duplicate outcomes, including zero-work reuse runs.
+  Exactly-once phase events still survive checkpoint resume
+  ([#74](https://github.com/AxReds/twincheck/issues/74)).
 - Review capitalizes Proposal, keeps the full organizing-date explanation only in the item
   panel, and labels the Decided list's Decision (chosen date, left unchanged, accepted converted,
   kept stored or saved fields). New re-check confirmations retain the explicit choice;
