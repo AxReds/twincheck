@@ -17,6 +17,22 @@ const STATUS_CLASS = { queued: 'muted', running: 'info', paused: 'warn', interru
 
 export function jobBadge(status) { return badge(t('job.status.' + status), STATUS_CLASS[status] || ''); }
 
+export function stepGuide(current, status) {
+  const steps = [
+    [1, 'analysis.step_analyze', '#/scan'],
+    [2, 'analysis.step_review', '#/duplicates'],
+    [3, 'analysis.step_organize', '#/organize'],
+    [4, 'analysis.step_report', '#/report'],
+  ];
+  return h('ol', { class: 'step-guide', 'aria-label': t('analysis.steps') },
+    steps.map(([number, label, href]) => h('li', {
+      class: number === current ? 'current' : (status?.exists && number < current ? 'done' : ''),
+      'aria-current': number === current ? 'step' : undefined,
+    }, number === current
+      ? h('span', {}, t(label))
+      : h('a', { href }, status?.exists && number < current ? t('analysis.step_done', { step: t(label) }) : t(label)))));
+}
+
 export function jobCard(job, onChange) {
   const actions = [];
   if (job.status === 'running' || job.status === 'queued') actions.push(button('job.pause', () => act(job, 'pause', onChange)));

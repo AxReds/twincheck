@@ -785,6 +785,16 @@
     "meta.no_analysis": "Non sono ancora disponibili risultati dell’analisi metadati.",
     "review.preview_error": "Impossibile caricare l’anteprima (HTTP {status}).",
     "review.detail_values": "{count} valori",
-    "review.detail_label": "Dettaglio: {name}"
+    "review.detail_label": "Dettaglio: {name}",
+    "analysis.steps": "Passaggi libreria",
+    "analysis.step_analyze": "1 Analizza",
+    "analysis.step_review": "2 Revisiona (Duplicati · Metadati · Revisione)",
+    "analysis.step_organize": "3 Organizza",
+    "analysis.step_report": "4 Rapporto e annulla",
+    "analysis.step_done": "Completato: {step}",
+    "analysis.update": "Aggiorna analisi",
+    "analysis.empty": "Analizza questa libreria prima di revisionare o modificare i file.",
+    "analysis.stale": "I file sono cambiati oppure l’analisi è stata interrotta. Aggiorna l’analisi prima di continuare.",
+    "job.already_running": "Il lavoro #{id} è già in esecuzione."
   }
 }

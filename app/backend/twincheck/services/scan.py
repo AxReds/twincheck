@@ -6,6 +6,7 @@ when path, size and modification time are unchanged.
 from __future__ import annotations
 
 import fnmatch
+import json
 import os
 import stat
 
@@ -195,6 +196,7 @@ class PipelineContext:
         self.checkpoint = dict(parent.checkpoint.get("stages", {}).get(stage) or {})
         self.done = 0
         self.total = 0
+        self.last_phase = None
 
     def check(self) -> None:
         self.parent.check()
@@ -212,7 +214,13 @@ class PipelineContext:
                 phase_name, index = "scan", 1
         else:
             index = self.index
-        self.parent.progress(done=self.done, total=self.total, phase=f"{index}/5 {phase_name}", force=force)
+        if index and phase_name != self.last_phase:
+            if self.last_phase:
+                self.parent.log("ANALYSIS_PHASE_COMPLETED", phase=self.last_phase, count=self.done)
+            self.parent.log("ANALYSIS_PHASE_STARTED", phase=phase_name, count=self.total or 0)
+            self.last_phase = phase_name
+        self.parent.progress(done=max(0, index - 1), total=5,
+                            phase=f"{index}/5 {phase_name}", force=force)
 
     def save_checkpoint(self, cp: dict | None = None, **updates) -> None:
         if cp is not None:
@@ -236,16 +244,31 @@ def analyze_library(ctx: JobContext) -> dict:
     results = dict(ctx.checkpoint.get("results") or {})
     stages = dict(ctx.checkpoint.get("stages") or {})
     completed = set(ctx.checkpoint.get("completed") or [])
+    resumed_phase = ctx.checkpoint.get("current")
+    if resumed_phase:
+        resume_stage = ctx.checkpoint.get("stages", {}).get(resumed_phase, {})
+        ctx.log("ANALYSIS_RESUMED", phase=resumed_phase,
+                position=json.dumps(resume_stage, ensure_ascii=False)[:200])
+
+    def start_phase(name: str, count: int = 0):
+        ctx.log("ANALYSIS_PHASE_STARTED", phase=name, count=count)
+
+    def finish_phase(name: str, count: int = 0):
+        ctx.log("ANALYSIS_PHASE_COMPLETED", phase=name, count=count)
 
     if "scan" not in completed:
         scan_ctx = PipelineContext(ctx, "scan", 1, "scan")
         results["scan"] = scan_job(scan_ctx)
+        if scan_ctx.last_phase:
+            ctx.log("ANALYSIS_PHASE_COMPLETED", phase=scan_ctx.last_phase,
+                    count=results["scan"].get("hashed", 0))
         completed.add("scan")
         ctx.save_checkpoint(stages=dict(ctx.checkpoint.get("stages") or {}), current="capture_dates",
                             completed=sorted(completed), results=results)
         stages = dict(ctx.checkpoint.get("stages") or {})
 
     if "capture_dates" not in completed:
+        start_phase("capture_dates")
         db = ctx.db
         user = ctx.app.user(ctx.owner_id)
         source_id = ctx.params.get("source_id")
@@ -273,19 +296,24 @@ def analyze_library(ctx: JobContext) -> dict:
             stages["capture_dates"] = {"last_id": last_id, "read": read}
             ctx.save_checkpoint(stages=stages, current="capture_dates", completed=sorted(completed), results=results)
         results["capture_dates"] = {"read": read}
+        finish_phase("capture_dates", read)
         completed.add("capture_dates")
         ctx.save_checkpoint(stages=stages, current="duplicates", completed=sorted(completed), results=results)
 
     if "duplicates" not in completed:
+        start_phase("duplicates")
         duplicate_ctx = PipelineContext(ctx, "duplicates", 4, "duplicates")
         results["duplicates"] = dedupe_analyze(duplicate_ctx)
+        finish_phase("duplicates", results["duplicates"].get("groups", 0))
         completed.add("duplicates")
         ctx.save_checkpoint(stages=dict(ctx.checkpoint.get("stages") or {}), current="metadata",
                             completed=sorted(completed), results=results)
 
     if "metadata" not in completed:
+        start_phase("metadata")
         metadata_ctx = PipelineContext(ctx, "metadata", 5, "metadata")
         results["metadata"] = metadata_analyze(metadata_ctx)
+        finish_phase("metadata", results["metadata"].get("analysed", 0))
         completed.add("metadata")
         ctx.save_checkpoint(stages=dict(ctx.checkpoint.get("stages") or {}), current="complete",
                             completed=sorted(completed), results=results)

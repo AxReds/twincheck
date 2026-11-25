@@ -25,6 +25,7 @@ let browsePath = 'test-folder';
 let browseTree = null;
 let sourceData = { sources: [], can_browse: true, scan_selection: null };
 let duplicateGroups = [];
+let analysisStatus = { exists: true, empty: false, stale: false, analyzed_at: '2026-11-24T20:00:00Z', active_job: null };
 let planKind = 'review_plan';
 let authenticated = interactive ? localStorage.getItem('fixture_signed_out') !== '1' : true;
 let rejectLogin = !interactive;
@@ -52,6 +53,12 @@ window.fetch = async (url, opts = {}) => {
   if (path === '/api/late-session-response') return new Promise((resolve) => {
     expireLate = () => resolve(new Response(JSON.stringify({ error: 'unauthenticated' }), { status: 401 }));
   });
+  if (/^\/api\/jobs\/\d+$/.test(path)) {
+    requests.push({ url: String(url), at: performance.now() });
+    return new Response(JSON.stringify({ id: Number(path.split('/').at(-1)), status: 'completed' }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
   if (expiring && (path === '/api/sysinfo' || path === '/api/jobs')) {
     requests.push({ url: String(url) });
     return new Promise((resolve) => {
@@ -96,6 +103,7 @@ window.fetch = async (url, opts = {}) => {
     data = { ok: true, theme: user.theme };
   }
   else if (path === '/api/report') data = { files: [], review: [], duplicates: {}, manifest: [] };
+  else if (path === '/api/library/status') data = analysisStatus;
   else if (path === '/api/metadata/results') data = {
     analyzed_at: '2026-11-24T20:00:00Z', summary: { analysed: 54, fills: 0, review: 50 }, review_pending: 50,
   };
@@ -103,6 +111,10 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/fs/browse') data = browseTree ?
     browseTree[new URL(String(url), location.href).searchParams.get('path')] : { path: browsePath, dirs: [] };
   else if (path === '/api/scan' && opts.method === 'POST') data = { job_id: 1 };
+  else if (path === '/api/library/analyze' && opts.method === 'POST') {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    data = { job_id: 1, existing: false };
+  }
   else if (path === '/api/plans/1') data = {
     job: { id: 1, kind: planKind, status: 'completed' }, summary: [], items: [], apply_jobs: [], can_confirm: false,
   };
@@ -126,7 +138,7 @@ if (requiredPassword) user.must_change_password = true;
 window.fixtureRequests = requests;
 window.fixtureUser = user;
 const app = await import('../frontend/static/js/app.js');
-const { t } = await import('../frontend/static/js/i18n.js');
+const { t, fmt } = await import('../frontend/static/js/i18n.js');
 const sleep = () => new Promise((resolve) => setTimeout(resolve, 30));
 for (let i = 0; i < 100 && !document.querySelector('.user-btn, .auth-card'); i++) await sleep();
 const assert = (ok, message) => { if (!ok) throw new Error(message); };
@@ -175,7 +187,7 @@ await test('B1: menu dismisses, keeps ARIA in sync and survives shell rebuild', 
     assert(!visible(panel) && btn.getAttribute('aria-expanded') === 'false', 'navigation did not close');
     const { setLanguage } = await import('../frontend/static/js/i18n.js');
     await setLanguage(pass ? 'en' : 'it');
-    await sleep();
+    await new Promise((resolve) => setTimeout(resolve, 80));
   }
 });
 await test('B2: metric boxes stay in one row with stable widths and ellipsis', async () => {
@@ -229,9 +241,10 @@ await test('B4: scan selection survives page changes including the data root', a
     const codes = [...document.querySelectorAll('main p code')];
     assert(codes.some((el) => el.textContent === '/data/' + path), 'selected folder label was lost');
     const before = requests.length;
-    [...document.querySelectorAll('main button')].find((el) => el.textContent === t('scan.start_adhoc')).click();
-    await sleep();
-    assert(requests.slice(before).some((r) => r.url === '/api/scan' && r.body.path === path), 'visible selection was not submitted');
+    [...document.querySelectorAll('main button')].find((el) => el.textContent === t('scan.analyze_library')).click();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    assert(requests.slice(before).some((r) => r.url === '/api/library/analyze' && (r.body.path === path || r.body.source_id)),
+      'visible selection was not submitted for analysis');
   }
   await go('#/home');
 });
@@ -247,9 +260,9 @@ await test('B4: initial selection and browser markings match the submitted sourc
     const choose = [...document.querySelectorAll('main button')].find((el) => el.textContent === t('browser.choose'));
     assert(choose.getAttribute('aria-pressed') === String(Boolean(selection)), 'browser marks a folder that is not selected');
     const before = requests.length;
-    [...document.querySelectorAll('main button')].find((el) => el.textContent === t('scan.start_adhoc')).click();
-    await sleep();
-    const submitted = requests.slice(before).find((r) => r.url === '/api/scan');
+    [...document.querySelectorAll('main button')].find((el) => el.textContent === t('scan.analyze_library')).click();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const submitted = requests.slice(before).find((r) => r.url === '/api/library/analyze');
     if (selection) {
       assert(submitted && (selection.source_id ? submitted.body.source_id === selection.source_id : submitted.body.path === selection.path), 'label and initial scan submission disagree');
     } else {
@@ -293,9 +306,9 @@ await test('B11: base-user tree stays within sources and submits the selected su
     await sleep();
     assert(document.querySelector('.browser-head code').textContent === 'Mine/child', 'subfolder was not browsed within source label');
     [...document.querySelectorAll('.browser button')].find((b) => b.textContent === t('browser.choose')).click();
-    [...document.querySelectorAll('main button')].find((b) => b.textContent === t('scan.start')).click();
-    await sleep();
-    const submitted = requests.filter((r) => r.url === '/api/scan').at(-1).body;
+    [...document.querySelectorAll('main button')].find((b) => b.textContent === t('scan.analyze_library')).click();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const submitted = requests.filter((r) => r.url === '/api/library/analyze').at(-1).body;
     assert(submitted.source_id === 'own' && submitted.path === 'mine/child', 'selected subfolder was not submitted with its source');
     assert(document.querySelector('main p code').textContent === 'Mine/child', 'selected label does not match subfolder');
     const select = document.querySelector('main select');
@@ -380,7 +393,8 @@ await test('B8: admin can discover Administration and edit own source assignment
   assert(!document.querySelector('a[href^="#/admin"]'), 'base user sees an Administration link');
   for (const hash of ['#/scan', '#/organize']) {
     await go(hash);
-    assert(document.querySelector('main .notice').textContent === t('scan.no_sources'), 'base user empty state is not clear');
+    assert([...document.querySelectorAll('main .notice')].some((el) => el.textContent === t('scan.no_sources')),
+      'base user empty state is not clear');
     assert(!document.querySelector('main a[href^="#/admin"]'), 'base user empty state links to Administration');
   }
   const beforeAdmin = requests.filter((r) => r.url.startsWith('/api/admin')).length;
@@ -426,6 +440,27 @@ await test('B9: duplicate groups explain shared dates, unknown dates and keeper 
   assert(document.querySelectorAll('.dup-date-filesystem').length === 4, 'file-system dates are missing from duplicate rows');
   assert(document.querySelectorAll('.dup-date-exif strong, strong.dup-date-exif').length > 0,
     'the keeper deciding date is not highlighted');
+  const OriginalDateTimeFormat = Intl.DateTimeFormat;
+  const originalFileDate = duplicateGroups[0].members[0].filesystem_date;
+  try {
+    Intl.DateTimeFormat = function(locales, options) {
+      return new OriginalDateTimeFormat(locales, { ...options, timeZone: options?.timeZone || 'Europe/Rome' });
+    };
+    duplicateGroups[0].members[0].filesystem_date = '2026-11-24T22:47:50Z';
+    const expected = new OriginalDateTimeFormat('en', {
+      dateStyle: 'medium', timeStyle: 'medium', timeZone: 'Europe/Rome',
+    }).format(new Date('2026-11-24T22:47:50Z'));
+    assert(fmt.date(duplicateGroups[0].members[0].filesystem_date) === expected,
+      'UTC filesystem instant is not displayed in Europe/Rome');
+    const expectedExif = new OriginalDateTimeFormat('en', {
+      dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC',
+    }).format(new Date('2026-11-24T23:47:50Z'));
+    assert(fmt.exifDate('2026-11-24T23:47:50') === expectedExif,
+      'naive EXIF capture date was converted to another timezone');
+  } finally {
+    duplicateGroups[0].members[0].filesystem_date = originalFileDate;
+    Intl.DateTimeFormat = OriginalDateTimeFormat;
+  }
   duplicateGroups = [];
   await go('#/home');
 });
@@ -441,6 +476,25 @@ await test('U12: pipeline button and five-phase progress are available', async (
   await go('#/scan');
   const analyze = [...document.querySelectorAll('main button')].find((b) => b.textContent === t('scan.analyze_library'));
   assert(analyze, 'Analyze library button is missing');
+  const choose = [...document.querySelectorAll('main button')].find((b) => b.textContent === t('browser.choose'));
+  if (choose) choose.click();
+  const analyzeRequests = () => requests.filter((r) => r.url === '/api/library/analyze').length;
+  const beforeAnalyze = analyzeRequests();
+  analyze.click();
+  assert(analyze.disabled, 'Analyze library button stays enabled during the request');
+  analyze.click();
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  assert(analyzeRequests() === beforeAnalyze + 1, 'double click submitted the same analysis twice');
+  assert(!document.querySelectorAll('main button').length || ![...document.querySelectorAll('main button')]
+    .some((b) => [t('scan.start'), t('scan.start_adhoc')].includes(b.textContent)), 'Scan page exposes a separate Scan action');
+  assert(document.querySelectorAll('.step-guide li').length === 4 && document.querySelector('.step-guide .current'),
+    'four-step guide is missing');
+  await go('#/duplicates');
+  assert(![...document.querySelectorAll('main button')].some((b) => b.textContent === t('dup.analyze')),
+    'Duplicates exposes a separate analysis button');
+  await go('#/metadata');
+  assert(![...document.querySelectorAll('main button')].some((b) => b.textContent === t('meta.analyze')),
+    'Metadata exposes a separate analysis button');
   const { jobCard } = await import('../frontend/static/js/components.js');
   const names = ['scan', 'hash', 'capture_dates', 'duplicates', 'metadata'];
   for (let phase = 0; phase < 5; phase++) {
@@ -450,6 +504,22 @@ await test('U12: pipeline button and five-phase progress are available', async (
       'pipeline phase is not translated');
   }
   await go('#/home');
+});
+await test('U12: empty and stale states lead to Scan with one update action', async () => {
+  const saved = analysisStatus;
+  try {
+    analysisStatus = { exists: false, empty: true, stale: false, analyzed_at: null, active_job: null };
+    await go('#/duplicates');
+    assert(document.querySelectorAll('main .notice a[href="#/scan"]').length === 1 &&
+      ![...document.querySelectorAll('main button')].some((b) => b.textContent === t('dup.plan')),
+      'empty Duplicates state does not offer only Analyze library');
+    analysisStatus = { exists: true, empty: false, stale: true, analyzed_at: saved.analyzed_at, active_job: null };
+    await go('#/metadata');
+    assert(document.querySelector('main .notice.warn a[href="#/scan"]'), 'stale Metadata state lacks update link');
+  } finally {
+    analysisStatus = saved;
+    await go('#/home');
+  }
 });
 await test('B26: expired sessions stop polling and keep login typing/focus until successful sign-in', async () => {
   await go('#/jobs');

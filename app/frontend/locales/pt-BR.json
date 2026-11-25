@@ -785,6 +785,16 @@
     "meta.no_analysis": "No metadata analysis results are available yet.",
     "review.preview_error": "Preview could not be loaded (HTTP {status}).",
     "review.detail_values": "{count} values",
-    "review.detail_label": "Detail: {name}"
+    "review.detail_label": "Detail: {name}",
+    "analysis.steps": "Library steps",
+    "analysis.step_analyze": "1 Analyze",
+    "analysis.step_review": "2 Review (Duplicates · Metadata · Review)",
+    "analysis.step_organize": "3 Organize",
+    "analysis.step_report": "4 Report & undo",
+    "analysis.step_done": "Done: {step}",
+    "analysis.update": "Update analysis",
+    "analysis.empty": "Analyze this library before reviewing or acting on files.",
+    "analysis.stale": "Files changed or analysis was interrupted. Update the analysis before continuing.",
+    "job.already_running": "Job #{id} is already running."
   }
 }

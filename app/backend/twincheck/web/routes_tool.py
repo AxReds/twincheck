@@ -23,7 +23,7 @@ APPLY_KIND = {"organize_plan": "organize_apply", "dedupe_plan": "dedupe_apply", 
 
 
 def utcnow_from_mtime(mtime_ns) -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime((mtime_ns or 0) / 1e9))
+    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime((mtime_ns or 0) / 1e9)) + "Z"
 
 
 def _submit(req: Request, kind: str, params: dict, owner: str | None = None) -> JSONResponse:
@@ -32,10 +32,10 @@ def _submit(req: Request, kind: str, params: dict, owner: str | None = None) -> 
     if core.maintenance:
         fail(503, "maintenance", reason=core.maintenance)
     try:
-        jid = core.jobs.submit(kind, owner or req.user["id"], params)
+        jid, existing = core.jobs.submit_with_status(kind, owner or req.user["id"], params)
     except RuntimeError:
         fail(503, "maintenance")
-    return JSONResponse({"job_id": jid}, 202)
+    return JSONResponse({"job_id": jid, "existing": existing}, 200 if existing else 202)
 
 
 def _area(req: Request, body: dict) -> dict:
@@ -209,11 +209,6 @@ def start_scan(req: Request):
         a = {**a, "path": selected}
     if not os.path.isdir(a["path"]):
         fail(400, "not_found")
-    db = need_db()
-    busy = db.query_one("SELECT id FROM jobs WHERE kind='scan' AND owner_id=? AND status IN ('queued','running') AND params LIKE ?",
-                        (req.user["id"], f'%"source_id": "{a["id"]}"%'))
-    if busy:
-        fail(409, "already_running", job_id=busy["id"])
     params = _area_params(a)
     if partial:
         params.update(roots=[a["path"]], partial_scan=True)
@@ -224,14 +219,47 @@ def start_scan(req: Request):
 def analyze_library(req: Request):
     body = req.json()
     a = _area(req, body)
+    partial = False
+    if not is_admin(req) and body.get("path") is not None:
+        try:
+            _, selected = access.source_for_path(
+                common.app().settings.data_dir.as_posix(), req.user, body["path"], a["id"])
+        except PathError as exc:
+            fail(403 if exc.code in ("outside_source", "source_not_assigned") else 400, exc.code)
+        partial = selected != os.path.realpath(a["path"])
+        a = {**a, "path": selected}
     if not os.path.isdir(a["path"]):
         fail(400, "not_found")
+    params = _area_params(a)
+    if partial:
+        params.update(roots=[a["path"]], partial_scan=True)
+    return _submit(req, "analyze_library", params)
+
+
+@router.get("/api/library/status")
+def library_status(req: Request):
     db = need_db()
-    busy = db.query_one("SELECT id FROM jobs WHERE kind='analyze_library' AND owner_id=? "
-                        "AND status IN ('queued','running','paused','interrupted')", (req.user["id"],))
-    if busy:
-        fail(409, "already_running", job_id=busy["id"])
-    return _submit(req, "analyze_library", _area_params(a))
+    owner = req.user["id"]
+    source_id = req.query.get("source_id")
+    where, args = "owner_id=? AND kind='analyze_library'", [owner]
+    if source_id:
+        where += " AND params LIKE ?"
+        args.append('%\"source_id\": \"' + source_id + '\"%')
+    latest = db.query_one(f"SELECT * FROM jobs WHERE {where} AND status='completed' ORDER BY id DESC LIMIT 1", args)
+    active = db.query_one(f"SELECT id, status, phase, progress_done, progress_total, checkpoint FROM jobs "
+                          f"WHERE {where} AND status IN ('queued','running','paused','interrupted') ORDER BY id DESC LIMIT 1", args)
+    stale = False
+    if latest:
+        latest_changed = db.query_one(
+            "SELECT MAX(updated_at) AS changed_at FROM files WHERE owner_id=? AND present=1" +
+            (" AND source_id=?" if source_id else ""), ([owner, source_id] if source_id else [owner]))
+        stale = bool(latest_changed and latest_changed["changed_at"] and
+                     latest_changed["changed_at"] > latest["finished_at"])
+    return JSONResponse({"exists": bool(latest), "empty": not bool(latest),
+                         "stale": stale or bool(active and active["status"] in ("paused", "interrupted")),
+                         "analyzed_at": latest["finished_at"] if latest else None,
+                         "active_job": ({k: active[k] for k in ("id", "status", "phase", "progress_done", "progress_total")}
+                                        if active else None)})
 
 
 @router.post("/api/duplicates/analyze")
@@ -266,9 +294,10 @@ def duplicates(req: Request):
         decision = keeper_decision(members, g["keeper_file_id"])
         member_rows = []
         for m in members:
-            member_date = group_capture_date([m])["capture_date"]
+            member_date = group_capture_date([m])
             member_rows.append({"id": m["id"], "path": disp(req, m["cur_path"]),
-                                "exif_date": member_date,
+                                "exif_date": member_date["capture_date"],
+                                "exif_offset": member_date.get("capture_offset"),
                                 "filesystem_date": utcnow_from_mtime(m["mtime_ns"]),
                                 "date": decision["capture_date"],
                                 "owner": (common.app().user(m["owner_id"]) or {}).get("username") if is_admin(req) else None})
@@ -323,8 +352,12 @@ def duplicates_csv(req: Request):
                     for m in members:
                         if disp(req, m["cur_path"]) is None:
                             continue
+                        capture = group_capture_date([m])
+                        exif_date = capture["capture_date"] or ""
+                        if exif_date and capture.get("capture_offset"):
+                            exif_date += capture["capture_offset"]
                         w.writerow([g["id"], g["sha256"], g["size"], "keep" if m["id"] == g["keeper_file_id"] else "duplicate",
-                                    m["id"], disp(req, m["cur_path"]), group_capture_date([m])["capture_date"] or "",
+                                    m["id"], disp(req, m["cur_path"]), exif_date,
                                     utcnow_from_mtime(m["mtime_ns"])])
                 yield buf.getvalue().encode("utf-8")
                 buf.seek(0)
@@ -450,9 +483,10 @@ def plan_confirm(req: Request):
     core = common.app()
     if core.maintenance:
         fail(503, "maintenance")
-    jid = core.jobs.submit(APPLY_KIND[j["kind"]], j["owner_id"],
-                           {"plan_job_id": j["id"], "all_owners": params.get("scope") == "global"}, parent_job_id=j["id"])
-    return JSONResponse({"job_id": jid}, 202)
+    jid, existing = core.jobs.submit_with_status(
+        APPLY_KIND[j["kind"]], j["owner_id"],
+        {"plan_job_id": j["id"], "all_owners": params.get("scope") == "global"}, parent_job_id=j["id"])
+    return JSONResponse({"job_id": jid, "existing": existing}, 200 if existing else 202)
 
 
 # --- review -----------------------------------------------------------------------------

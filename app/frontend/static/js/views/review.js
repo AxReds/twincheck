@@ -2,7 +2,7 @@
 import { h, mount, button, field, table, toast, badge } from '../dom.js';
 import { t, fmt } from '../i18n.js';
 import { get, post } from '../api.js';
-import { pager, waitForJob, poll } from '../components.js';
+import { pager, waitForJob, poll, stepGuide } from '../components.js';
 
 const KINDS = ['', 'meta_conflict', 'no_date', 'date_utc', 'move_conflict', 'verify_mismatch', 'reconcile_missing', 'reconcile_modified', 'reconcile_new', 'reconcile_moved'];
 const previewRequests = new Map();
@@ -24,6 +24,12 @@ export async function list(main) {
   const status = h('select', {}, ['pending', 'saved', 'skipped', 'kept'].map((s) => h('option', { value: s }, t('review.status.' + s))));
   const kind = h('select', {}, KINDS.map((k) => h('option', { value: k }, k ? t('review.kind.' + k) : t('review.all_kinds'))));
   const box = h('div', {});
+  const flowStatus = await get('/api/library/status');
+  const notice = flowStatus.exists
+    ? (flowStatus.stale ? h('p', { class: 'notice warn' }, t('analysis.stale'), ' ',
+      h('a', { href: '#/scan' }, t('analysis.update'))) : null)
+    : h('p', { class: 'notice warn' }, t('analysis.empty'), ' ',
+      h('a', { class: 'btn', href: '#/scan' }, t('scan.analyze_library')));
   const counts = h('p', { class: 'summary' });
   const load = async () => {
     const q = new URLSearchParams({ status: status.value, offset, limit: 50 });
@@ -40,11 +46,14 @@ export async function list(main) {
   };
   status.addEventListener('change', () => { offset = 0; load(); });
   kind.addEventListener('change', () => { offset = 0; load(); });
-  mount(main, h('h1', {}, t('review.title')), h('p', { class: 'intro' }, t('review.intro')), counts,
+  mount(main, h('h1', {}, t('review.title')), h('p', { class: 'intro' }, t('review.intro')),
+    stepGuide(2, flowStatus), notice, counts,
     h('div', { class: 'filters' }, field('review.filter_status', status), field('review.filter_kind', kind)), box,
     h('h2', {}, t('review.write_title')), h('p', { class: 'hint' }, t('review.write_help')),
-    h('div', { class: 'actions' }, button('review.write_plan', async () => {
+    flowStatus.exists &&     h('div', { class: 'actions' }, button('review.write_plan', async (event) => {
+      event.currentTarget.disabled = true;
       try { const r = await post('/api/review/plan'); toast(t('job.started', { id: r.job_id }), 'ok'); const j = await waitForJob(r.job_id); if (j.status === 'completed') location.hash = '#/plans/' + r.job_id; } catch (e) { toast(e.message, 'error'); }
+      finally { if (event.currentTarget?.isConnected) event.currentTarget.disabled = false; }
     }, 'primary')));
   await load();
 }
