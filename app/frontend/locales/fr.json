@@ -828,6 +828,7 @@
     "review.accept": "Accepter",
     "review.accept_next": "Accepter et suivant",
     "review.keep_next": "Conserver et suivant",
-    "review.postponed": "{count} éléments reportés."
+    "review.postponed": "{count} éléments reportés.",
+    "settings.login_version_hint": "Afficher la version de l'application sur la page de connexion."
   }
 }

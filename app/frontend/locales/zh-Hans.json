@@ -802,6 +802,7 @@
     "review.accept": "接受",
     "review.accept_next": "接受并下一个",
     "review.keep_next": "保留并下一个",
-    "review.postponed": "已推迟 {count} 项。"
+    "review.postponed": "已推迟 {count} 项。",
+    "settings.login_version_hint": "在登录页面显示应用版本。"
   }
 }

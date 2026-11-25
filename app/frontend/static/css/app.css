@@ -92,7 +92,8 @@ input, select, textarea { font: inherit; color: var(--fg); background: var(--car
 .actions.sticky { position: sticky; inset-block-end: 0; background: var(--bg); padding-block: 0.5rem; }
 .filters { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; }
 .checks { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; }
-.check { display: flex; gap: 0.4rem; align-items: start; }
+.check, .checks label, .checkbox-field > label { display: flex; gap: 0.4rem; align-items: center; justify-content: flex-start; }
+.check input, .checks input, .checkbox-field input { flex: 0 0 auto; margin: 0; }
 .notice { border: 1px solid var(--line); border-inline-start: 4px solid var(--info); background: var(--card); border-radius: var(--radius); padding-block: 0.5rem; padding-inline: 0.75rem; }
 .notice.warn { border-inline-start-color: var(--warn); } .notice.error { border-inline-start-color: var(--crit); } .notice.ok { border-inline-start-color: var(--ok); }
 .badge { display: inline-block; border-radius: 999px; padding-inline: 0.5rem; font-size: 0.8em; border: 1px solid var(--line); white-space: nowrap; }

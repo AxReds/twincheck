@@ -815,6 +815,7 @@
     "review.accept": "Akzeptieren",
     "review.accept_next": "Akzeptieren und weiter",
     "review.keep_next": "Behalten und weiter",
-    "review.postponed": "{count} Einträge zurückgestellt."
+    "review.postponed": "{count} Einträge zurückgestellt.",
+    "settings.login_version_hint": "Anwendungsversion auf der Anmeldeseite anzeigen."
   }
 }

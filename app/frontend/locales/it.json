@@ -828,6 +828,7 @@
     "review.accept": "Accetta",
     "review.accept_next": "Accetta e successivo",
     "review.keep_next": "Mantieni e successivo",
-    "review.postponed": "{count} elementi rimandati."
+    "review.postponed": "{count} elementi rimandati.",
+    "settings.login_version_hint": "Mostra la versione dell'applicazione nella pagina di accesso."
   }
 }

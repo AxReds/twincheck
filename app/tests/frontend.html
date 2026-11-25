@@ -742,6 +742,21 @@ await test('U20: table body scrolls while its header remains visible', async () 
     assert(document.documentElement.scrollWidth <= innerWidth, 'table creates horizontal page overflow');
   } finally { wrap.remove(); await go('#/home'); }
 });
+await test('U21: checkbox and label share a left-aligned line, with help below', async () => {
+  await go('#/admin/settings');
+  const field = document.querySelector('.checkbox-field');
+  const input = field.querySelector('input');
+  const label = field.querySelector('label');
+  assert(label.firstElementChild === input, 'label is before the checkbox');
+  const range = document.createRange(); range.selectNodeContents(label.lastChild);
+  const textRect = range.getBoundingClientRect();
+  const inputRect = input.getBoundingClientRect();
+  assert(inputRect.right <= textRect.left && Math.abs((inputRect.top + inputRect.bottom - textRect.top - textRect.bottom) / 2) < 3,
+    'checkbox and label are not aligned');
+  assert(field.querySelector('.hint').getBoundingClientRect().top >= label.getBoundingClientRect().bottom,
+    'checkbox help is not underneath');
+  await go('#/home');
+});
 await test('B19: login version ON/OFF uses public bootstrap only and fits both themes', async () => {
   const { renderLogin } = await import('../frontend/static/js/views/login.js');
   const root = document.createElement('div');

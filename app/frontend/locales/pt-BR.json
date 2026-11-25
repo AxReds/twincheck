@@ -828,6 +828,7 @@
     "review.accept": "Aceitar",
     "review.accept_next": "Aceitar e próximo",
     "review.keep_next": "Manter e próximo",
-    "review.postponed": "{count} itens adiados."
+    "review.postponed": "{count} itens adiados.",
+    "settings.login_version_hint": "Mostrar a versão do aplicativo na página de acesso."
   }
 }

@@ -184,7 +184,7 @@ export async function settings(main, state) {
       h('h3', {}, t('settings.instance')), field('settings.default_lang', lang, 'settings.default_lang_hint'),
       timezone ? [field('settings.timezone_search', timezoneSearch),
         field('settings.library_timezone', timezone, 'settings.timezone_offset_hint')] : null,
-      loginVersion ? field('settings.show_version_on_login', loginVersion) : null,
+      loginVersion ? field('settings.show_version_on_login', loginVersion, 'settings.login_version_hint') : null,
       d.library_timezone_notice ? h('p', { class: 'notice warn' }, t('settings.library_timezone_notice')) : null,
       h('div', { class: 'actions' }, button('common.save', save, 'primary'))),
     secInputs ? h('div', { class: 'form' }, h('h3', {}, t('settings.security')),

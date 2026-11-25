@@ -828,6 +828,7 @@
     "review.accept": "Aceptar",
     "review.accept_next": "Aceptar y siguiente",
     "review.keep_next": "Conservar y siguiente",
-    "review.postponed": "{count} elementos pospuestos."
+    "review.postponed": "{count} elementos pospuestos.",
+    "settings.login_version_hint": "Mostrar la versión de la aplicación en la página de acceso."
   }
 }

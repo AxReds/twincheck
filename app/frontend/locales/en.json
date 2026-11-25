@@ -816,6 +816,7 @@
     "review.accept": "Accept",
     "review.accept_next": "Accept and next",
     "review.keep_next": "Keep and next",
-    "review.postponed": "{count} items postponed."
+    "review.postponed": "{count} items postponed.",
+    "settings.login_version_hint": "Show the application version on the sign-in page."
   }
 }

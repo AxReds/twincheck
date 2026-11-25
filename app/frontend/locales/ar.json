@@ -867,6 +867,7 @@
     "review.accept": "قبول",
     "review.accept_next": "قبول والتالي",
     "review.keep_next": "إبقاء والتالي",
-    "review.postponed": "تم تأجيل {count} عناصر."
+    "review.postponed": "تم تأجيل {count} عناصر.",
+    "settings.login_version_hint": "إظهار إصدار التطبيق في صفحة تسجيل الدخول."
   }
 }

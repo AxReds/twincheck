@@ -8,6 +8,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Checkboxes precede their labels on one left-aligned line; field help stays underneath,
+  including the login-version setting ([#69](https://github.com/AxReds/twincheck/issues/69)).
 - Shared data tables use bounded keyboard-scrollable containers with sticky, opaque headers
   in both themes and narrow layouts ([#68](https://github.com/AxReds/twincheck/issues/68)).
 - Review offers explicit stay/next actions: Save / Save and next, Accept / Accept and next,

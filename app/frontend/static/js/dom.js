@@ -31,6 +31,11 @@ export function mount(el, ...children) { clear(el); append(el, children); return
 export function field(labelKey, input, hintKey) {
   const id = 'f' + Math.random().toString(36).slice(2, 9);
   input.id = input.id || id;
+  if (input.matches('input[type="checkbox"]')) {
+    return h('div', { class: 'field checkbox-field' },
+      h('label', { for: input.id }, input, t(labelKey)),
+      hintKey ? h('small', { class: 'hint' }, t(hintKey)) : null);
+  }
   return h('div', { class: 'field' }, h('label', { for: input.id }, t(labelKey)), input, hintKey ? h('small', { class: 'hint' }, t(hintKey)) : null);
 }
 
