@@ -98,6 +98,11 @@ export const fmt = {
     const dt = new Date(Date.UTC(y, mo - 1, da, h, mi, s || 0));
     return new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC' }).format(dt);
   },
+  exifDate(iso, offset = '') {
+    if (!iso) return t('common.na');
+    const shown = fmt.localDate(iso.slice(0, 19));
+    return offset ? `${shown} ${offset}` : shown;
+  },
   duration(sec) {
     if (sec === null || sec === undefined) return t('common.na');
     const s = Math.floor(sec); const d = Math.floor(s / 86400); const h = Math.floor((s % 86400) / 3600); const m = Math.floor((s % 3600) / 60);

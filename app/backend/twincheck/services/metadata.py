@@ -296,13 +296,13 @@ def analyse_file(f: dict, own: dict, sidecars: list[dict], enabled: set[str]) ->
                     break
         fields[field] = info
     # chosen date for organisation
-    chosen, src, flags = None, None, ""
+    chosen, src, flags, chosen_offset = None, None, "", None
     dt_cands = fields["datetime_original"]["candidates"] + fields["create_date"]["candidates"]
     local = [c for c in dt_cands if c["semantic"] in ("local", "tz")]
     utc = [c for c in dt_cands if c["semantic"] == "utc"]
     if "datetime_original" not in conflicts and "create_date" not in conflicts:
         if local:
-            chosen, src = local[0]["value"], local[0]["tag"]
+            chosen, src, chosen_offset = local[0]["value"], local[0]["tag"], local[0].get("offset")
         elif utc:
             off = next((c["value"] for c in own.get("offset", [])), None)
             if off and re.match(r"^[+\-]\d{2}:\d{2}$", off):
@@ -319,7 +319,7 @@ def analyse_file(f: dict, own: dict, sidecars: list[dict], enabled: set[str]) ->
         mt = datetime.fromtimestamp((f.get("mtime_ns") or 0) / 1e9, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
         proposals.append({"field": "datetime_original", "value": mt, "origin": "mtime_utc"})
     return {"fields": fields, "fills": fills, "conflicts": conflicts, "chosen": chosen, "chosen_source": src,
-            "flags": flags, "proposals": proposals}
+            "chosen_offset": chosen_offset, "flags": flags, "proposals": proposals}
 
 
 def _add_review(db, f: dict, kind: str, details: dict, proposals: list, job_id: int) -> None:

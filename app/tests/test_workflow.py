@@ -394,6 +394,7 @@ class Workflow(unittest.TestCase):
                     self.assertEqual(copy["phase_meta"], "pending", "the unread copy reproduces n/a despite identical internal tags")
                 self.run_job("/api/duplicates/analyze", {}, client)
                 group = client.get("/api/duplicates").json()["groups"][0]
+                self.assertTrue(all(member["filesystem_date"].endswith("Z") for member in group["members"]))
                 keeper = next(m for m in group["members"] if m["id"] == group["keeper_file_id"])
                 if mode not in ("none-dated", "placeholder-dated"):
                     self.assertTrue(keeper["path"].endswith("one.jpg"), "shared capture date makes path tidiness decide, not missing metadata or mtime")
@@ -418,6 +419,8 @@ class Workflow(unittest.TestCase):
                     self.assertEqual(group["keeper_rule"], "capture_date_tidy_path")
                     self.assertTrue(keeper["path"].endswith("one.jpg"), "shared capture date makes path tidiness decide, not missing metadata or mtime")
                 self.assertTrue(first.exists() and second.exists(), "analysis must not move or delete files")
+                csv_text = client.get("/api/duplicates.csv").text
+                self.assertRegex(csv_text, r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
 
     def test_analyze_library_pipeline_is_read_only_resumable_and_scoped(self):
         from helpers import jpeg_bytes

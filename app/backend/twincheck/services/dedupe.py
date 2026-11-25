@@ -18,7 +18,7 @@ from .metadata import analyse_file, ensure_capture_dates, parse_dt
 
 
 def _date_key(f: dict) -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime((f.get("mtime_ns") or 0) / 1e9))
+    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime((f.get("mtime_ns") or 0) / 1e9)) + "Z"
 
 
 def keeper_order(f: dict, capture_date: str | None = None):
@@ -40,7 +40,8 @@ def group_capture_date(members: list[dict]) -> dict:
     if not dates:
         return {"capture_date": None, "date_flags": ""}
     chosen = min(dates, key=lambda r: r["chosen"])
-    return {"capture_date": chosen["chosen"], "date_flags": chosen["flags"]}
+    return {"capture_date": chosen["chosen"], "capture_offset": chosen.get("chosen_offset"),
+            "date_flags": chosen["flags"]}
 
 
 def keeper_decision(members: list[dict], keeper_id: int) -> dict:
