@@ -135,8 +135,10 @@ tr.is-missing th, tr.is-missing td { background: color-mix(in srgb, var(--warn) 
 .media { background: #000; border-radius: var(--radius); min-block-size: 12rem; display: grid; place-items: center; position: sticky; inset-block-start: 5rem; }
 .media img, .media video { max-inline-size: 100%; max-block-size: 75vh; display: block; }
 .media p { color: #ccc; }
-.review-side { display: grid; gap: 0.75rem; }
+.review-side { display: grid; grid-template-columns: minmax(0, 1fr); min-inline-size: 0; gap: 0.75rem; }
 .review-controls { position: sticky; inset-block-start: 5rem; z-index: 5; background: var(--bg); padding: 0.5rem; border: 1px solid var(--line); border-radius: var(--radius); }
+.review-controls .field { grid-template-columns: minmax(0, 1fr); }
+.review-controls input, .review-controls select { min-inline-size: 0; inline-size: 100%; }
 .review-controls .hint { margin-block: 0.25rem; }
 @media (max-width: 1000px) {
   .review { padding-block-end: 10rem; }
