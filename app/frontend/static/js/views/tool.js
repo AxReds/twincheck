@@ -322,6 +322,10 @@ export async function logs(main) {
   const ev = h('input', { type: 'text', placeholder: 'FILE_MOVED', size: '16' });
   const lv = h('select', {}, ['', 'INFO', 'WARNING', 'ERROR'].map((l) => h('option', { value: l }, l || t('logs.all_levels'))));
   const job = h('input', { type: 'number', min: '1', size: '6' });
+  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  ev.value = params.get('event') || '';
+  lv.value = params.get('level') || '';
+  job.value = params.get('job_id') || '';
   const box = h('div', {});
   const load = async () => {
     const q = new URLSearchParams({ offset, limit: 100 });

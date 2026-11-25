@@ -9,6 +9,8 @@
     ]
   },
   "messages": {
+    "job.library_result": "{found} Dateien gefunden · {changed} neu oder geändert · {unchanged} unverändert (übersprungen) · {hashed} gehasht",
+    "job.unreadable": "{count} unlesbar",
     "analysis.history": "Verlauf unter Aufträge",
     "settings.library_timezone": "Zeitzone der Bibliothek",
     "settings.library_timezone_hint": "IANA-Name, z. B. Europe/Berlin. Zum Organisieren, ohne originale EXIF zu ändern.",

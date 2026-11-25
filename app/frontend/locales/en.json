@@ -10,6 +10,8 @@
     "source": true
   },
   "messages": {
+    "job.library_result": "{found} files found · {changed} new or changed · {unchanged} unchanged (skipped) · {hashed} hashed",
+    "job.unreadable": "{count} unreadable",
     "analysis.history": "History in Jobs",
     "settings.library_timezone": "Library timezone",
     "settings.library_timezone_hint": "IANA name, e.g. Europe/Rome. Used for organizing dates, not for changing original EXIF.",

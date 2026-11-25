@@ -9,6 +9,8 @@
     ]
   },
   "messages": {
+    "job.library_result": "{found}ファイル検出 · {changed}新規または変更 · {unchanged}未変更（省略） · {hashed}ハッシュ計算",
+    "job.unreadable": "{count}読み取り不可",
     "analysis.history": "ジョブの履歴",
     "settings.library_timezone": "ライブラリのタイムゾーン",
     "settings.library_timezone_hint": "IANA名（例：Asia/Tokyo）。元のEXIFを変更せず整理に使用します。",

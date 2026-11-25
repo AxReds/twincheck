@@ -9,6 +9,8 @@
     ]
   },
   "messages": {
+    "job.library_result": "发现{found}个文件 · {changed}个新增或修改 · {unchanged}个未变（跳过） · {hashed}个已计算哈希",
+    "job.unreadable": "{count}个不可读",
     "analysis.history": "任务历史",
     "settings.library_timezone": "图库时区",
     "settings.library_timezone_hint": "IANA名称，例如Asia/Shanghai。用于整理，不修改原始EXIF。",

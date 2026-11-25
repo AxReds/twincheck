@@ -19,7 +19,7 @@ const ROUTES = [
   [/^#\/?$/, () => tool.home], [/^#\/home$/, () => tool.home], [/^#\/scan$/, () => tool.scan],
   [/^#\/duplicates$/, () => tool.duplicates], [/^#\/metadata$/, () => tool.metadata], [/^#\/review$/, () => review.list],
   [/^#\/review\/(\d+)$/, () => review.item], [/^#\/organize$/, () => tool.organize], [/^#\/plans\/(\d+)$/, () => tool.plan],
-  [/^#\/report$/, () => tool.report], [/^#\/jobs$/, () => tool.jobs], [/^#\/logs$/, () => tool.logs], [/^#\/me$/, () => tool.me],
+  [/^#\/report$/, () => tool.report], [/^#\/jobs$/, () => tool.jobs], [/^#\/logs(?:\?.*)?$/, () => tool.logs], [/^#\/me$/, () => tool.me],
   [/^#\/admin\/users$/, () => admin.users], [/^#\/admin\/groups$/, () => admin.groups], [/^#\/admin\/settings$/, () => admin.settings],
   [/^#\/admin\/database$/, () => admin.database], [/^#\/admin\/transfer$/, () => transferView.transfer],
   [/^#\/admin\/audit$/, () => admin.audit], [/^#\/admin\/security$/, () => admin.security], [/^#\/admin$/, () => admin.users],
@@ -237,7 +237,7 @@ export async function route() {
 }
 
 function highlightSection(hash) {
-  const section = hash === '#' || hash === '#/' ? '#/home' : hash;
+  const section = hash === '#' || hash === '#/' ? '#/home' : hash.split('?')[0];
   const adminActive = state.perms.manage_users && (section === '#/admin' || section.startsWith('#/admin/'));
   const userButton = shell.header.querySelector('.user-btn');
   userButton.classList.toggle('active', Boolean(adminActive));

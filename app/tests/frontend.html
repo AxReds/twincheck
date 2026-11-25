@@ -360,6 +360,13 @@ await test('B7: completed scans explain new, reused and legacy hashes', async ()
     assert(!text.includes('walk'), 'stale walk phase is shown for a completed scan');
   }
 });
+await test('B7: completed library job shows real counts and filtered unreadable link', async () => {
+  const { jobCard } = await import('../frontend/static/js/components.js');
+  const scan = { found: 63, new: 3, changed: 1, unchanged: 59, hashed: 3, unreadable: 1 };
+  const card = jobCard({ id: 63, kind: 'analyze_library', status: 'completed', result: { scan } });
+  assert(card.textContent.includes(t('job.library_result', { ...scan, changed: 4 })), 'readable library counts missing');
+  assert(card.querySelector('a[href="#/logs?job_id=63&level=WARNING&event=FILE_UNREADABLE"]'), 'unreadable count lacks filtered log link');
+});
 await test('B8: admin can discover Administration and edit own source assignments', async () => {
   browsePath = 'admin-library';
   for (const hash of ['#/scan', '#/organize']) {

@@ -9,6 +9,8 @@
     ]
   },
   "messages": {
+    "job.library_result": "{found} ملفات موجودة · {changed} جديدة أو معدلة · {unchanged} دون تغيير (متجاوزة) · {hashed} محسوبة التجزئة",
+    "job.unreadable": "{count} غير قابلة للقراءة",
     "analysis.history": "السجل في المهام",
     "settings.library_timezone": "المنطقة الزمنية للمكتبة",
     "settings.library_timezone_hint": "اسم IANA، مثل Asia/Riyadh. للتنظيم دون تغيير EXIF الأصلي.",

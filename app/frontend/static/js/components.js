@@ -40,12 +40,21 @@ export function jobCard(job, onChange) {
     actions.push(button('job.resume', () => act(job, 'resume', onChange), 'primary'));
   }
   if (['running', 'queued', 'paused', 'interrupted'].includes(job.status)) actions.push(button('job.cancel', () => act(job, 'cancel', onChange), 'danger-outline'));
-  if (job.status === 'completed' && job.apply_kind) actions.push(h('a', { class: 'btn primary', href: '#/plans/' + job.id }, t('job.open_plan')));
+  if (job.status === 'completed' && job.apply_kind && (job.kind !== 'analyze_library' || job.result?.metadata?.fills > 0))
+    actions.push(h('a', { class: 'btn primary', href: '#/plans/' + job.id }, t('job.open_plan')));
   const count = job.progress_total > 0
     ? t('job.progress_of', { done: job.progress_done, total: job.progress_total })
     : t('job.progress_items', { count: job.progress_done || 0 });
   const scanResult = job.kind === 'scan' && job.status === 'completed' && job.result
     ? t(job.result.reused === undefined ? 'job.scan_result_legacy' : 'job.scan_result', job.result) : null;
+  const pipeline = job.kind === 'analyze_library' && job.status === 'completed' ? job.result?.scan : null;
+  const pipelineResult = pipeline ? [
+    t('job.library_result', { found: pipeline.found ?? pipeline.indexed, changed: (pipeline.new || 0) + (pipeline.changed || 0),
+      unchanged: pipeline.unchanged ?? pipeline.reused, hashed: pipeline.hashed }),
+    ' · ', pipeline.unreadable > 0
+      ? h('a', { href: `#/logs?job_id=${job.id}&level=WARNING&event=FILE_UNREADABLE` }, t('job.unreadable', { count: pipeline.unreadable }))
+      : t('job.unreadable', { count: 0 }),
+  ] : null;
   const phaseMatch = String(job.phase || '').match(/^([1-5])\/5\s+(.+)$/);
   const phaseText = phaseMatch
     ? t('job.pipeline_phase', { phase: phaseMatch[1], name: t('job.analysis_phase.' + phaseMatch[2]) })
@@ -54,7 +63,7 @@ export function jobCard(job, onChange) {
     h('div', { class: 'job-head' }, h('strong', {}, t('job.kind.' + job.kind)), ' ', h('span', { class: 'muted' }, '#' + job.id), ' ', jobBadge(job.status),
       job.owner ? h('span', { class: 'muted' }, ' · ' + job.owner) : null),
     job.status === 'running' || job.status === 'queued' ? progress(job.progress_done, job.progress_total) : null,
-    h('div', { class: 'job-meta' }, scanResult || [(phaseText ? phaseText + ' · ' : ''), count].join(''),
+    h('div', { class: 'job-meta' }, pipelineResult || scanResult || [(phaseText ? phaseText + ' · ' : ''), count].join(''),
       job.updated_at ? ' · ' + fmt.date(job.updated_at) : ''),
     job.status === 'interrupted' && !['scan', 'verify', 'reconcile'].includes(job.kind) ? h('p', { class: 'notice warn' }, t('job.needs_confirmation')) : null,
     job.error ? h('p', { class: 'notice error' }, h('code', {}, job.error)) : null,

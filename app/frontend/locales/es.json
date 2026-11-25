@@ -9,6 +9,8 @@
     ]
   },
   "messages": {
+    "job.library_result": "{found} archivos encontrados · {changed} nuevos o modificados · {unchanged} sin cambios (omitidos) · {hashed} con hash",
+    "job.unreadable": "{count} ilegibles",
     "analysis.history": "Historial en Tareas",
     "settings.library_timezone": "Zona horaria de la biblioteca",
     "settings.library_timezone_hint": "Nombre IANA, p. ej. Europe/Madrid. Para organizar, sin modificar los EXIF originales.",

@@ -189,3 +189,21 @@ class ReviewDates(unittest.TestCase):
         ctx = JobContext(self.inst.core.jobs, db.query_one("SELECT * FROM jobs WHERE id=?", (jid,)))
         analyze_library(ctx)
         self.assertEqual(db.scalar("SELECT COUNT(*) FROM run_log WHERE job_id=? AND event LIKE 'ANALYSIS_PHASE_%'", (jid,)), 10)
+
+    def test_pipeline_counts_include_unreadable_and_mtime_only_changes(self):
+        root = self.inst.data / "lib"
+        unreadable = write(root / "unreadable.jpg", jpeg_bytes(320))
+        unreadable.chmod(0)
+        try:
+            target = root / "other.jpg"
+            st = target.stat()
+            os.utime(target, ns=(st.st_atime_ns, st.st_mtime_ns + 10**9))
+            jid = self.run_job("/api/library/analyze", {"source_id": self.sid})
+            public = self.user.get("/api/jobs/" + str(jid)).json()
+            counts = public["result"]["scan"]
+            self.assertEqual((counts["found"], counts["new"], counts["changed"], counts["unchanged"]), (3, 1, 1, 1))
+            self.assertEqual((counts["candidates"], counts["hashed"], counts["unreadable"]), (2, 1, 1))
+            warnings = self.inst.core.db.query("SELECT * FROM run_log WHERE job_id=? AND event='FILE_UNREADABLE' AND level='WARNING'", (jid,))
+            self.assertEqual(len(warnings), 1)
+        finally:
+            unreadable.chmod(0o600)

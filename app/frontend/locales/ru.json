@@ -9,6 +9,8 @@
     ]
   },
   "messages": {
+    "job.library_result": "{found} файлов найдено · {changed} новых или изменённых · {unchanged} без изменений (пропущены) · {hashed} хешировано",
+    "job.unreadable": "{count} нечитаемых",
     "analysis.history": "История в Заданиях",
     "settings.library_timezone": "Часовой пояс библиотеки",
     "settings.library_timezone_hint": "Имя IANA, например Europe/Moscow. Для организации, без изменения исходных EXIF.",
