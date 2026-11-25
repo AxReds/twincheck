@@ -106,6 +106,7 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/library/status') data = analysisStatus;
   else if (path === '/api/metadata/results') data = {
     analyzed_at: '2026-11-24T20:00:00Z', summary: { analysed: 54, fills: 0, review: 50 }, review_pending: 50,
+    review_counts: { total: 50, decided: 0, pending: 50, needs_recheck: 0 }, plan_job_id: 1,
   };
   else if (path === '/api/sources') data = sourceData;
   else if (path === '/api/fs/browse') data = browseTree ?
@@ -274,7 +275,7 @@ await test('B4: initial selection and browser markings match the submitted sourc
   await go('#/home');
 });
 await test('B5: direct plan links highlight their owning section', async () => {
-  const sections = { review_plan: 'review', metadata_analyze: 'metadata', dedupe_plan: 'duplicates',
+  const sections = { review_plan: 'metadata', metadata_analyze: 'metadata', dedupe_plan: 'duplicates',
     organize_plan: 'organize', undo_moves_plan: 'report', undo_meta_plan: 'report' };
   for (const [kind, section] of Object.entries(sections)) {
     planKind = kind;
@@ -326,7 +327,7 @@ await test('B11: base-user tree stays within sources and submits the selected su
   }
 });
 await test('B6: choosing an organizing date discards stale date edits only', async () => {
-  await go('#/review/1');
+  await go('#/metadata/review/1');
   const dateInputs = [...document.querySelectorAll('input[type="datetime-local"]')];
   dateInputs.forEach((el) => { el.value = '1999-01-01T01:02:03'; });
   document.querySelector('input[type="text"]').value = 'Test title';
@@ -339,7 +340,7 @@ await test('B6: choosing an organizing date discards stale date edits only', asy
   assert(saved.date === choice.value, 'chosen organizing date was lost');
   assert(!saved.fields.datetime_original && !saved.fields.create_date, 'stale manual dates were submitted for writing');
   assert(saved.fields.title === 'Test title', 'unrelated manual edit was lost');
-  await go('#/review/1');
+  await go('#/metadata/review/1');
   document.querySelector('input[type="datetime-local"]').value = '1999-01-01T01:02:03';
   [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.save_next')).click();
   await sleep();
@@ -427,7 +428,7 @@ await test('B9: duplicate groups explain shared dates, unknown dates and keeper 
   });
   await test('B16: review item and preview start concurrently with next preview prefetched', async () => {
     const before = requests.length;
-    await go('#/review/9');
+    await go('#/metadata/review/9');
     const calls = requests.slice(before).filter((r) => r.url.startsWith('/api/review/'));
     assert(calls.some((r) => r.url === '/api/review/9') && calls.some((r) => r.url === '/api/review/9/preview'),
       'review item and preview were not requested together');
@@ -475,7 +476,7 @@ await test('U10/U11: duplicate dates and readable metadata summary are shown', a
   await go('#/metadata');
   assert(document.querySelector('main .summary').textContent.includes(t('meta.summary', { analysed: 54, fills: 0, review: 50 })),
     'metadata result is not human-readable');
-  assert([...document.querySelectorAll('main a[href="#/review"]')].some((a) => a.textContent.includes('50')),
+  assert([...document.querySelectorAll('main a[href="#/metadata/review"]')].some((a) => a.textContent.includes('50')),
     'metadata summary has no direct review link');
   await go('#/home');
 });
@@ -507,6 +508,21 @@ await test('U13: Analyze redirect, accessible titles and guide-first layout', as
   await go('#/analyze');
   assert(![...document.querySelectorAll('main .notice a')].some((el) => el.textContent === t('analysis.update')),
     'Analyze has a self-referencing update link');
+  await go('#/home');
+});
+await test('U14/B24: Review is inside Metadata, with one entry and complete status filters', async () => {
+  assert(!document.querySelector('.mainnav a[href="#/review"]'), 'Review tab is still visible');
+  await go('#/review');
+  assert(location.hash === '#/metadata/review', 'Review route does not redirect into Metadata');
+  assert(document.querySelectorAll('main .review-entry').length === 1, 'review entry is duplicated');
+  assert(document.querySelector('.mainnav a.active[href="#/metadata"]'), 'Metadata tab is not highlighted');
+  const options = [...document.querySelectorAll('.review-queue select:first-child option')].map((el) => el.value);
+  assert(['pending', 'decided', 'needs_recheck', 'all'].every((s) => options.includes(s)), 'review status filter is incomplete');
+  assert(!document.querySelector('.automatic-fills'), 'automatic preview shown despite zero fills');
+  assert(document.querySelector('.review-counts').textContent === t('review.live_counts', { total: 50, decided: 0, pending: 50 }),
+    'live review summary is inconsistent');
+  await go('#/review/1');
+  assert(location.hash === '#/metadata/review/1', 'review item legacy route does not redirect');
   await go('#/home');
 });
 await test('U12: pipeline button and five-phase progress are available', async () => {

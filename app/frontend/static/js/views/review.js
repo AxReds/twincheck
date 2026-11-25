@@ -19,9 +19,9 @@ function requestPreview(id) {
   return previewRequests.get(id);
 }
 
-export async function list(main) {
+export async function list(main, state, options = {}) {
   let offset = 0;
-  const status = h('select', {}, ['pending', 'needs_recheck', 'saved', 'skipped', 'kept'].map((s) => h('option', { value: s }, t('review.status.' + s))));
+  const status = h('select', {}, ['pending', 'decided', 'needs_recheck', 'all'].map((s) => h('option', { value: s }, t('review.status.' + s))));
   const kind = h('select', {}, KINDS.map((k) => h('option', { value: k }, k ? t('review.kind.' + k) : t('review.all_kinds'))));
   const box = h('div', {});
   const flowStatus = await get('/api/library/status');
@@ -41,16 +41,16 @@ export async function list(main) {
         h('td', {}, r.file ? h('code', {}, r.file.name) : h('code', {}, r.details.path || '')),
         h('td', {}, r.file ? h('code', {}, r.file.folder) : ''),
         h('td', {}, r.file ? fmt.localDate(r.file.chosen_date) : ''),
-        h('td', {}, h('a', { class: 'btn small', href: '#/review/' + r.id }, t('review.open')))))) : h('p', { class: 'muted' }, t('review.empty')),
+        h('td', {}, h('a', { class: 'btn small', href: '#/metadata/review/' + r.id }, t('review.open')))))) : h('p', { class: 'muted' }, t('review.empty')),
     pager(d.total, offset, 50, (o) => { offset = o; load(); }));
   };
   status.addEventListener('change', () => { offset = 0; load(); });
   kind.addEventListener('change', () => { offset = 0; load(); });
-  mount(main, h('h1', {}, t('review.title')), h('p', { class: 'intro' }, t('review.intro')),
-    stepGuide(2, flowStatus), notice, counts,
+  mount(main, options.embedded ? null : [
+    h('h1', { class: 'sr-only' }, t('review.title')), stepGuide(2, flowStatus), h('p', { class: 'intro' }, t('review.intro')), notice, counts],
     h('div', { class: 'filters' }, field('review.filter_status', status), field('review.filter_kind', kind)), box,
-    h('h2', {}, t('review.write_title')), h('p', { class: 'hint' }, t('review.write_help')),
-    flowStatus.exists &&     h('div', { class: 'actions' }, button('review.write_plan', async (event) => {
+    options.embedded ? null : [h('h2', {}, t('review.write_title')), h('p', { class: 'hint' }, t('review.write_help'))],
+    !options.embedded && flowStatus.exists && h('div', { class: 'actions' }, button('review.write_plan', async (event) => {
       event.currentTarget.disabled = true;
       try { const r = await post('/api/review/plan'); toast(t('job.started', { id: r.job_id }), 'ok'); const j = await waitForJob(r.job_id); if (j.status === 'completed') location.hash = '#/plans/' + r.job_id; } catch (e) { toast(e.message, 'error'); }
       finally { if (event.currentTarget?.isConnected) event.currentTarget.disabled = false; }
@@ -152,12 +152,12 @@ export async function item(main, state, [id]) {
       const res = await post('/api/review/' + id, { action, fields, date: dateOverride || dateChoice.value || undefined,
         proposal: dateOverride ? proposalOverride : selectedProposal, scope: scope.value });
       toast(t('review.saved', { count: res.updated }), 'ok');
-      location.hash = res.next_id ? '#/review/' + res.next_id : '#/review';
+      location.hash = res.next_id ? '#/metadata/review/' + res.next_id : '#/metadata/review';
     } catch (e) { toast(e.message, 'error'); }
   };
   const media = f ? mediaView(Number(id), f) : null;
   mount(main,
-    h('div', { class: 'review-head' }, h('a', { href: '#/review' }, '← ', t('review.back')), ' ', badge(t('review.kind.' + r.kind), 'warn'), ' ', badge(t('review.status.' + r.status), '')),
+    h('div', { class: 'review-head' }, h('a', { href: '#/metadata/review' }, '← ', t('review.back')), ' ', badge(t('review.kind.' + r.kind), 'warn'), ' ', badge(t('review.status.' + r.status), '')),
     h('div', { class: 'review' },
       media ? media.el : h('div', { class: 'media' }, h('p', { class: 'muted' }, t('review.no_file'))),
       h('div', { class: 'review-side' },

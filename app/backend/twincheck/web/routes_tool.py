@@ -438,12 +438,15 @@ def meta_results(req: Request):
         fills = db.query("SELECT p.*, f.cur_path FROM plan_items p JOIN files f ON f.id=p.file_id "
                          "WHERE p.plan_job_id=? AND p.kind='meta_fill' AND p.status='planned' AND p.owner_id=?", (latest["id"], req.user["id"]))
         summary["fills"] = sum(1 for row in fills if access.file_in_scope(common.app().settings.data_dir.as_posix(), req.user, row))
-    counts, totals = _review_counts(_visible_reviews(req))
+    review_rows = _visible_reviews(req)
+    counts, totals = _review_counts(review_rows)
+    write_pending = sum(1 for row in review_rows if row["status"] == "saved" and not row["applied"]
+                        and json.loads(row["decision"] or "{}").get("fields"))
     if summary:
         summary["review"] = totals["total"]
     return JSONResponse({"analyzed_at": latest["finished_at"] if latest else None, "summary": summary,
                          "plan_job_id": latest["id"] if latest else None,
-                         "review_pending": totals["pending"], "review_counts": totals})
+                         "review_pending": totals["pending"], "review_counts": totals, "review_write_pending": write_pending})
 
 
 @router.post("/api/organize/plan")

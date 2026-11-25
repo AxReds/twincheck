@@ -810,6 +810,8 @@
     "analysis.update": "Aggiorna analisi",
     "analysis.empty": "Analizza questa libreria prima di revisionare o modificare i file.",
     "analysis.stale": "I file sono cambiati oppure l’analisi è stata interrotta. Aggiorna l’analisi prima di continuare.",
-    "job.already_running": "Il lavoro #{id} è già in esecuzione."
+    "job.already_running": "Il lavoro #{id} è già in esecuzione.",
+    "review.status.decided": "Decisi",
+    "review.status.all": "Tutti"
   }
 }

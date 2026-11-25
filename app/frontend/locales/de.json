@@ -797,6 +797,8 @@
     "analysis.update": "Update analysis",
     "analysis.empty": "Analyze this library before reviewing or acting on files.",
     "analysis.stale": "Files changed or analysis was interrupted. Update the analysis before continuing.",
-    "job.already_running": "Job #{id} is already running."
+    "job.already_running": "Job #{id} is already running.",
+    "review.status.decided": "Entschieden",
+    "review.status.all": "Alle"
   }
 }

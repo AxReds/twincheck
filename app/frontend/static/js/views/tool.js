@@ -3,7 +3,7 @@ import { h, mount, button, field, table, modal, toast, badge } from '../dom.js';
 import { t, fmt } from '../i18n.js';
 import { get, post } from '../api.js';
 import { jobList, sourceSelect, folderBrowser, kv, pager, poll, jobBadge, stepGuide, waitForJob } from '../components.js';
-import { reviewCounts } from './review.js';
+import { reviewCounts, list as reviewQueue } from './review.js';
 
 function page(main, titleKey, introKey, ...body) {
   const guide = body[0]?.classList?.contains('step-guide') ? body.shift() : null;
@@ -60,7 +60,7 @@ function openPlanWhenReady(id) {
 // --- home -------------------------------------------------------------------------------------
 export async function home(main, state) {
   const steps = [['#/analyze', 'nav.scan', 'home.step_scan'], ['#/duplicates', 'nav.duplicates', 'home.step_duplicates'],
-    ['#/metadata', 'nav.metadata', 'home.step_metadata'], ['#/review', 'nav.review', 'home.step_review'],
+    ['#/metadata', 'nav.metadata', 'home.step_metadata'],
     ['#/organize', 'nav.organize', 'home.step_organize'], ['#/report', 'nav.report', 'home.step_report']];
   const summary = h('div', { class: 'cards' });
   page(main, 'home.title', 'home.intro',
@@ -193,29 +193,28 @@ function metadataResult(data) {
   return h('div', {},
     h('p', { class: 'summary' }, t('meta.summary', data.summary)),
     h('p', { class: 'summary review-counts' }, reviewCounts(data.review_counts)),
-    data.review_pending > 0
-      ? h('a', { class: 'btn', href: '#/review' }, t('meta.review_items', { count: data.review_pending }))
-      : null);
+    h('a', { class: 'btn review-entry', href: '#/metadata/review' }, t('meta.review_items', { count: data.review_pending || 0 })));
 }
 
-export async function metadata(main) {
-  const { select } = await sourceSelect(true);
-  const results = h('div', {});
+export async function metadata(main, state, [view] = []) {
   const flowStatus = await analysisState();
-  const loadResults = async () => {
-    const data = await get('/api/metadata/results');
-    mount(results, metadataResult(data));
-  };
+  const data = await get('/api/metadata/results');
+  const queue = h('section', { class: 'review-queue' });
   page(main, 'meta.title', 'meta.intro',
     stepGuide(2, flowStatus), analysisNotice(flowStatus),
+    flowStatus.exists ? metadataResult(data) : null,
+    h('p', { class: 'hint' }, t('review.date_choice_hint')),
+    h('p', { class: 'hint' }, t('review.write_help')),
     h('ul', { class: 'rules' }, ['meta.rule_copy', 'meta.rule_never_invent', 'meta.rule_never_overwrite', 'meta.rule_conflicts', 'meta.rule_video_utc', 'meta.rule_backup']
       .map((k) => h('li', {}, t(k)))),
-    field('scan.source', select),
-    flowStatus.exists && !flowStatus.empty ? h('div', { class: 'actions' },
-      h('a', { class: 'btn primary', href: '#/review' }, t('meta.open_review'))) : null,
-    results,
+    flowStatus.exists && data.summary?.fills > 0 ? h('div', { class: 'automatic-fills' },
+      h('h2', {}, t('review.auto_fill')),
+      h('a', { class: 'btn primary', href: '#/plans/' + data.plan_job_id }, t('job.open_plan'))) : null,
+    view === 'review' ? queue : null,
+    data.review_write_pending > 0 ? h('div', { class: 'actions' }, button('review.write_plan',
+      (event) => startJob('/api/review/plan', {}, openPlanWhenReady, event.currentTarget), 'primary')) : null,
     h('a', { class: 'small history-link', href: '#/jobs' }, t('analysis.history')));
-  await loadResults();
+  if (view === 'review') await reviewQueue(queue, state, { embedded: true });
 }
 
 // --- organise ---------------------------------------------------------------------------------
@@ -245,7 +244,7 @@ export async function plan(main, state, [id]) {
   let stopApply = null;
   const load = async () => {
     const d = await get(`/api/plans/${id}?offset=${offset}&limit=100${status ? '&status=' + status : ''}`);
-    section = { review_plan: '#/review', metadata_analyze: '#/metadata', dedupe_plan: '#/duplicates',
+    section = { review_plan: '#/metadata', metadata_analyze: '#/metadata', analyze_library: '#/metadata', dedupe_plan: '#/duplicates',
       organize_plan: '#/organize', undo_moves_plan: '#/report', undo_meta_plan: '#/report' }[d.job.kind] || '#/jobs';
     const counts = {};
     for (const s of d.summary) counts[s.status] = (counts[s.status] || 0) + s.n;

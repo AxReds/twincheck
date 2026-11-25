@@ -17,8 +17,8 @@ const root = document.getElementById('app');
 
 const ROUTES = [
   [/^#\/?$/, () => tool.home], [/^#\/home$/, () => tool.home], [/^#\/analyze$/, () => tool.scan],
-  [/^#\/duplicates$/, () => tool.duplicates], [/^#\/metadata$/, () => tool.metadata], [/^#\/review$/, () => review.list],
-  [/^#\/review\/(\d+)$/, () => review.item], [/^#\/organize$/, () => tool.organize], [/^#\/plans\/(\d+)$/, () => tool.plan],
+  [/^#\/duplicates$/, () => tool.duplicates], [/^#\/metadata(?:\/(review))?$/, () => tool.metadata],
+  [/^#\/metadata\/review\/(\d+)$/, () => review.item], [/^#\/organize$/, () => tool.organize], [/^#\/plans\/(\d+)$/, () => tool.plan],
   [/^#\/report$/, () => tool.report], [/^#\/jobs$/, () => tool.jobs], [/^#\/logs(?:\?.*)?$/, () => tool.logs], [/^#\/me$/, () => tool.me],
   [/^#\/admin\/users$/, () => admin.users], [/^#\/admin\/groups$/, () => admin.groups], [/^#\/admin\/settings$/, () => admin.settings],
   [/^#\/admin\/database$/, () => admin.database], [/^#\/admin\/transfer$/, () => transferView.transfer],
@@ -27,7 +27,7 @@ const ROUTES = [
 
 const NAV = [
   ['#/home', 'nav.home', 'house'], ['#/analyze', 'nav.scan', 'folder-search'], ['#/duplicates', 'nav.duplicates', 'copy'], ['#/metadata', 'nav.metadata', 'file-text'],
-  ['#/review', 'nav.review', 'list-checks'], ['#/organize', 'nav.organize', 'folder-tree'], ['#/report', 'nav.report', 'undo-2'], ['#/jobs', 'nav.jobs', 'activity'], ['#/logs', 'nav.logs', 'scroll-text'],
+  ['#/organize', 'nav.organize', 'folder-tree'], ['#/report', 'nav.report', 'undo-2'], ['#/jobs', 'nav.jobs', 'activity'], ['#/logs', 'nav.logs', 'scroll-text'],
 ];
 
 export function langSelect(onChange) {
@@ -219,6 +219,10 @@ export async function route() {
   const hash = location.hash || '#/home';
   if (hash === '#/scan') {
     history.replaceState(null, '', '#/analyze');
+    return route();
+  }
+  if (hash === '#/review' || /^#\/review\/\d+$/.test(hash)) {
+    history.replaceState(null, '', hash.replace('#/review', '#/metadata/review'));
     return route();
   }
   if ((hash === '#/admin' || hash.startsWith('#/admin/')) && !state.perms.manage_users) {
