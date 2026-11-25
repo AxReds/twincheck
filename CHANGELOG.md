@@ -4,7 +4,11 @@ All notable changes are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/).
 
-## [1.0.1-rc.9] - Unreleased
+## [1.0.1-rc.9] - 2026-11-25
+
+Published as a GitHub pre-release, never latest. Image `1.0.1-rc.9` and authorized alias `rc`:
+`sha256:88fb8b5634dec5741b190e1ee7dd58151dcff6bf4598018826f7fd544d5c4f33`,
+for `linux/amd64` and `linux/arm64`. Earlier exact tags and stable aliases remain unchanged.
 
 ### Upgrade
 
