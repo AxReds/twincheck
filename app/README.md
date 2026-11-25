@@ -47,6 +47,20 @@ duplicates, metadata, reviews, plans, logs, exports, previews, report data and c
 
 ## Times and CSV
 
+The admin-only **Library timezone** setting in Administration → Settings is stored in the
+encrypted vault. It accepts an IANA name, defaults to `TZ` when set, otherwise `UTC` with a
+visible recommendation to configure it; it is optional (example: `Europe/Rome`).
+Organizing dates are local wall-clock values in that timezone. File-system mtime proposals
+are converted from UTC; offset EXIF values are converted for organizing only, preserving
+the original metadata; timezone-free EXIF and manual choices are never shifted.
+Each new review decision stores its source and applied timezone, including per-field
+provenance. Schema migration 4 adds these columns to version 1–3 databases and flags
+unapplied ambiguous historical dates as **needs re-check**, without changing their values.
+Mtime-matching choices are always flagged, even if they look manual. Unambiguous metadata
+choices and already organized/applied decisions remain untouched. Organize skips flagged
+files (including at confirmation) until the owner explicitly confirms or changes the date.
+One `DECISIONS_FLAGGED_FOR_RECHECK` event summarizes the migration.
+
 Operational instants are stored and serialized as ISO 8601 UTC values ending in `Z`. The browser
 renders job, log, file-system, report and manifest instants in its local timezone. EXIF capture
 dates without a timezone are local wall-clock values and are rendered without conversion. A capture

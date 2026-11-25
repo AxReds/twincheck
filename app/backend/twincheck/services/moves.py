@@ -59,7 +59,7 @@ def organize_plan(ctx: JobContext) -> dict:
     db.execute("DELETE FROM plan_items WHERE plan_job_id=?", (ctx.id,))
     reserved: set[str] = set()
     cache: dict[str, tuple] = {}
-    stats = {"planned": 0, "already": 0, "not_analysed": 0, "no_date": 0, "skipped_duplicates": 0}
+    stats = {"planned": 0, "already": 0, "not_analysed": 0, "no_date": 0, "skipped_duplicates": 0, "needs_recheck": 0}
     seq = 0
     last = 0
     dup_root = os.path.join(area["dest"], dup_folder)
@@ -71,6 +71,15 @@ def organize_plan(ctx: JobContext) -> dict:
             break
         for f in rows:
             last = f["id"]
+            user = ctx.app.user(ctx.owner_id)
+            if not access.file_in_scope(ctx.app.settings.data_dir.as_posix(), user, f):
+                continue
+            if db.query_one("SELECT id FROM review_items WHERE file_id=? AND recheck_reason IS NOT NULL", (f["id"],)):
+                seq += 1
+                _insert_plan(db, ctx.id, ctx.owner_id, "organize", seq, f["id"], f["cur_path"], None, {},
+                             status="skipped", note="needs_recheck")
+                stats["needs_recheck"] += 1
+                continue
             if f["status"] in ("dup_moved", "duplicate") or f["cur_path"].startswith(dup_root + "/"):
                 stats["skipped_duplicates"] += 1
                 continue
@@ -197,7 +206,10 @@ def run_move_plan(ctx: JobContext) -> dict:
         ctx.check()
         payload = json.loads(item["payload"] or "{}")
         entries = [{"file_id": item["file_id"], "src": item["src"], "dst": item["dst"]}] + payload.get("companions", [])
-        problem = _validate(ctx, item["owner_id"], entries)
+        recheck = item["kind"] == "organize" and any(db.query_one(
+            "SELECT id FROM review_items WHERE file_id=? AND recheck_reason IS NOT NULL", (entry["file_id"],))
+            for entry in entries if entry.get("file_id"))
+        problem = "needs_recheck" if recheck else _validate(ctx, item["owner_id"], entries)
         if problem:
             with db.transaction():
                 db.execute("UPDATE plan_items SET status='skipped', note=? WHERE id=?", (problem, item["id"]))

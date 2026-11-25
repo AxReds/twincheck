@@ -18,6 +18,7 @@ import json
 import os
 import re
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from ..db.schema import utcnow
 from ..exif import ExifError, ExifTool
@@ -265,7 +266,28 @@ def date_from_filename(name: str) -> str | None:
     return None
 
 
-def analyse_file(f: dict, own: dict, sidecars: list[dict], enabled: set[str]) -> dict:
+def date_candidate(c: dict, library_timezone: str | None) -> dict:
+    """Organizing values are library wall-clock values; raw metadata stays intact."""
+    out = dict(c)
+    out["source"] = ("sidecar" if c.get("source", "").startswith("sidecar") else
+                     "quicktime" if c.get("tag", "").startswith(("QuickTime:", "Track", "Keys:")) else "exif")
+    out["timezone"] = None
+    off = c.get("offset")
+    if off and library_timezone:
+        instant = datetime.fromisoformat(c["value"] + off)
+        out["value"] = instant.astimezone(ZoneInfo(library_timezone)).strftime("%Y-%m-%dT%H:%M:%S")
+        out["timezone"] = library_timezone
+    return out
+
+
+def mtime_proposal(f: dict, library_timezone: str) -> dict:
+    instant = datetime.fromtimestamp((f.get("mtime_ns") or 0) / 1e9, timezone.utc)
+    return {"field": "datetime_original", "value": instant.astimezone(ZoneInfo(library_timezone)).strftime("%Y-%m-%dT%H:%M:%S"),
+            "origin": "mtime_utc", "source": "filesystem_mtime", "timezone": library_timezone,
+            "original": instant.strftime("%Y-%m-%dT%H:%M:%SZ")}
+
+
+def analyse_file(f: dict, own: dict, sidecars: list[dict], enabled: set[str], library_timezone: str | None = "UTC") -> dict:
     """Pure function: decide fills, conflicts, proposals and the chosen date."""
     kind, ext = f["media_kind"], f["ext"]
     fields: dict[str, dict] = {}
@@ -303,6 +325,9 @@ def analyse_file(f: dict, own: dict, sidecars: list[dict], enabled: set[str]) ->
     if "datetime_original" not in conflicts and "create_date" not in conflicts:
         if local:
             chosen, src, chosen_offset = local[0]["value"], local[0]["tag"], local[0].get("offset")
+            organizing = date_candidate({**local[0], "offset": chosen_offset or
+                                        next((c["value"] for c in own.get("offset", [])), None)}, library_timezone)
+            chosen = organizing["value"]
         elif utc:
             off = next((c["value"] for c in own.get("offset", [])), None)
             if off and re.match(r"^[+\-]\d{2}:\d{2}$", off):
@@ -315,9 +340,8 @@ def analyse_file(f: dict, own: dict, sidecars: list[dict], enabled: set[str]) ->
     if not chosen and not conflicts.get("datetime_original") and not conflicts.get("create_date"):
         fn = date_from_filename(f["name"])
         if fn:
-            proposals.append({"field": "datetime_original", "value": fn, "origin": "filename"})
-        mt = datetime.fromtimestamp((f.get("mtime_ns") or 0) / 1e9, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-        proposals.append({"field": "datetime_original", "value": mt, "origin": "mtime_utc"})
+            proposals.append({"field": "datetime_original", "value": fn, "origin": "filename", "source": "filename", "timezone": None})
+        proposals.append(mtime_proposal(f, library_timezone or "UTC"))
     return {"fields": fields, "fills": fills, "conflicts": conflicts, "chosen": chosen, "chosen_source": src,
             "chosen_offset": chosen_offset, "flags": flags, "proposals": proposals}
 
@@ -363,7 +387,11 @@ def ensure_capture_dates(ctx: JobContext, rows: list[dict]) -> int:
                 sidecars.append(collect(metadata.get(path, {}), "sidecar:" + os.path.basename(path)))
             else:
                 sidecars.append(takeout_candidates(path))
-        result = analyse_file(row, own, sidecars, set())
+        result = analyse_file(row, own, sidecars, set(), ctx.app.library_timezone)
+        decided = ctx.db.query_one("SELECT id FROM review_items WHERE file_id=? AND decision IS NOT NULL "
+                                   "AND (status='saved' OR recheck_reason IS NOT NULL)", (row["id"],))
+        if decided:
+            result.update(chosen=row["chosen_date"], chosen_source=row["chosen_date_source"], flags=row["date_flags"])
         stored = {"fields": result["fields"], "fills": {}, "proposals": result["proposals"]}
         ctx.db.execute("UPDATE files SET meta_read=?, chosen_date=?, chosen_date_source=?, date_flags=?, "
                        "phase_meta='analysed', updated_at=? WHERE id=?",
@@ -434,7 +462,7 @@ def metadata_analyze(ctx: JobContext) -> dict:
                     sidecars.append(collect(meta.get(sp, {}), "sidecar:" + os.path.basename(sp)))
                 else:
                     sidecars.append(takeout_candidates(sp))
-            res = analyse_file(r, own, sidecars, enabled)
+            res = analyse_file(r, own, sidecars, enabled, ctx.app.library_timezone)
             raw_subset = {k: v for k, v in meta.get(r["cur_path"], {}).items()
                           if any(k == t or (t.startswith("Track*") and k.endswith(t.split(":")[1])) for specs in READ_TAGS.values() for t, _ in specs)}
             duration = None
@@ -449,15 +477,17 @@ def metadata_analyze(ctx: JobContext) -> dict:
                            (r["id"],))
                 db.execute("DELETE FROM plan_items WHERE plan_job_id=? AND file_id=?", (ctx.id, r["id"]))
                 status = r["status"]
-                if res["conflicts"]:
+                decided = db.query_one("SELECT id FROM review_items WHERE file_id=? AND decision IS NOT NULL "
+                                       "AND (status='saved' OR recheck_reason IS NOT NULL)", (r["id"],))
+                if res["conflicts"] and not decided:
                     _add_review(db, r, "meta_conflict", {"fields": res["conflicts"]}, res["proposals"], ctx.id)
                     stats["review"] += 1
                     status = "review" if status in ("indexed", "unique") else status
-                elif not res["chosen"]:
+                elif not res["chosen"] and not decided:
                     _add_review(db, r, "no_date", {}, res["proposals"], ctx.id)
                     stats["review"] += 1
                     status = "review" if status in ("indexed", "unique") else status
-                elif res["flags"] == "utc_ambiguous":
+                elif res["flags"] == "utc_ambiguous" and not decided:
                     _add_review(db, r, "date_utc", {"value": res["chosen"], "tag": res["chosen_source"]}, [], ctx.id)
                     stats["review"] += 1
                 if res["fills"]:
@@ -467,8 +497,6 @@ def metadata_analyze(ctx: JobContext) -> dict:
                                (ctx.id, r["owner_id"], "meta_fill", seq, r["id"], r["cur_path"], None,
                                 json.dumps({"fills": res["fills"]}, ensure_ascii=False), "planned"))
                     stats["fills"] += 1
-                decided = db.query_one("SELECT id FROM review_items WHERE file_id=? AND status='saved' AND decision LIKE ?",
-                                       (r["id"], '%"date"%'))
                 db.execute("UPDATE files SET meta_read=?, chosen_date=CASE WHEN ? THEN chosen_date ELSE ? END, "
                            "chosen_date_source=CASE WHEN ? THEN chosen_date_source ELSE ? END, date_flags=?, phase_meta='analysed', "
                            "status=?, duration_s=?, meta_before=COALESCE(meta_before, ?), updated_at=? WHERE id=?",

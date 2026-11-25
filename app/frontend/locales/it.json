@@ -9,6 +9,16 @@
     ]
   },
   "messages": {
+    "settings.library_timezone": "Fuso orario della libreria",
+    "settings.library_timezone_hint": "Nome IANA, ad es. Europe/Rome. Usato per organizzare, senza modificare gli EXIF originali.",
+    "settings.library_timezone_notice": "Il fuso della libreria usa UTC. Imposta il tuo fuso prima di scegliere le date.",
+    "error.invalid_timezone": "Inserisci un nome di fuso orario IANA valido.",
+    "error.invalid_proposal": "La proposta è cambiata. Ricarica l'elemento da verificare.",
+    "review.status.needs_recheck": "Da ricontrollare",
+    "review.recheck_notice": "Questa data potrebbe essere stata salvata in UTC ({stored}). Data del file system in {timezone}: {suggested}. Confermala o modificala.",
+    "review.accept_converted": "Accetta la data convertita",
+    "review.keep_stored": "Mantieni la data salvata",
+    "plan.note.needs_recheck": "La data va ricontrollata dal proprietario prima di Organizza.",
     "app.name": "TwinCheck",
     "common.na": "n/d",
     "common.next": "Avanti",

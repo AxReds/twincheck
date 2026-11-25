@@ -5,6 +5,7 @@ import json
 import os
 import re
 import secrets
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .. import events, i18n
 from ..crypto import KeyError_, generate_key, parse_key
@@ -224,7 +225,12 @@ def get_settings(req: Request):
     require(req, "tool_settings")
     core = common.app()
     d = core.vault.data
-    out = {"settings": d["settings"], "security": d["security"] if access.can(req.user, "security_settings") else None,
+    settings = {k: v for k, v in d["settings"].items() if k != "library_timezone"}
+    if req.user["role"] == "admin":
+        settings["library_timezone"] = core.library_timezone
+    out = {"settings": settings, "library_timezone_notice": req.user["role"] == "admin" and
+           "library_timezone" not in d["settings"] and core.settings.library_timezone_notice,
+           "security": d["security"] if access.can(req.user, "security_settings") else None,
            "locales": i18n.listing(core.settings.locales_dir, core.settings.state_locales_dir)}
     return JSONResponse(out)
 
@@ -234,8 +240,22 @@ def set_settings(req: Request):
     require(req, "tool_settings")
     core = common.app()
     body = req.json()
+    if "library_timezone" in body:
+        if req.user["role"] != "admin":
+            fail(403, "forbidden")
+        try:
+            if not isinstance(body["library_timezone"], str):
+                fail(400, "invalid_value", field="library_timezone")
+            ZoneInfo(body["library_timezone"])
+        except (ZoneInfoNotFoundError, ValueError):
+            fail(400, "invalid_timezone")
     with core.vault.transaction() as data:
         s = data["settings"]
+        if "library_timezone" in body and body["library_timezone"] != core.library_timezone:
+            s["library_timezone"] = body["library_timezone"]
+            audit(data, req.user["username"], "SETTING_CHANGED", setting="library_timezone")
+        elif "library_timezone" in body:
+            s["library_timezone"] = body["library_timezone"]
         org = body.get("organize")
         if org:
             for k in ("no_date_folder", "duplicates_folder"):
@@ -261,6 +281,8 @@ def set_settings(req: Request):
                 fail(400, "unknown_language")
             s["default_lang"] = body["default_lang"]
         audit(data, req.user["username"], "SETTINGS_UPDATED", section="tool")
+    if "library_timezone" in body and core.db_ready:
+        dbm.log(core.db, "SETTING_CHANGED", actor=req.user["id"], setting="library_timezone")
     return JSONResponse({"ok": True})
 
 

@@ -81,6 +81,10 @@ class App:
         data = self.vault.data or {}
         return (data.get("settings") or {}).get(name, {})
 
+    @property
+    def library_timezone(self) -> str:
+        return (self.vault.data or {}).get("settings", {}).get("library_timezone") or self.settings.library_timezone_default
+
     def settings_password_file(self) -> str | None:
         return os.environ.get("MARIADB_PASSWORD_FILE") or None
 

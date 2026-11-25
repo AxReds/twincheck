@@ -9,6 +9,16 @@
     ]
   },
   "messages": {
+    "settings.library_timezone": "Zona horaria de la biblioteca",
+    "settings.library_timezone_hint": "Nombre IANA, p. ej. Europe/Madrid. Para organizar, sin modificar los EXIF originales.",
+    "settings.library_timezone_notice": "La zona usa UTC por defecto. Configúrela antes de elegir fechas.",
+    "error.invalid_timezone": "Introduzca un nombre de zona IANA válido.",
+    "error.invalid_proposal": "La propuesta ha cambiado. Recargue el elemento.",
+    "review.status.needs_recheck": "Necesita revisión",
+    "review.recheck_notice": "Esta fecha puede haberse guardado en UTC ({stored}). Fecha del sistema de archivos en {timezone}: {suggested}. Confirme o cambie.",
+    "review.accept_converted": "Aceptar fecha convertida",
+    "review.keep_stored": "Conservar fecha guardada",
+    "plan.note.needs_recheck": "El propietario debe revisar la fecha antes de organizar.",
     "app.name": "TwinCheck",
     "common.na": "n/d",
     "common.next": "Siguiente",

@@ -9,6 +9,16 @@
     ]
   },
   "messages": {
+    "settings.library_timezone": "ライブラリのタイムゾーン",
+    "settings.library_timezone_hint": "IANA名（例：Asia/Tokyo）。元のEXIFを変更せず整理に使用します。",
+    "settings.library_timezone_notice": "既定はUTCです。日付を選ぶ前にタイムゾーンを設定してください。",
+    "error.invalid_timezone": "有効なIANAタイムゾーン名を入力してください。",
+    "error.invalid_proposal": "候補が変更されました。項目を再読み込みしてください。",
+    "review.status.needs_recheck": "再確認が必要",
+    "review.recheck_notice": "UTCで保存された可能性があります（{stored}）。{timezone}のファイル日時：{suggested}。確認または変更してください。",
+    "review.accept_converted": "変換した日時を採用",
+    "review.keep_stored": "保存済みの日時を保持",
+    "plan.note.needs_recheck": "整理の前に所有者による日付の再確認が必要です。",
     "app.name": "TwinCheck",
     "common.na": "該当なし",
     "common.next": "次へ",

@@ -45,6 +45,7 @@ application inside the container.
 | `TRUSTED_PROXIES` | CIDR list of your own reverse proxies. Only used to read the real client IP (`X-Forwarded-For`) for login rate limiting; never for `ALLOWED_NETWORKS`. | empty | no | `172.18.0.10/32` | App |
 | `HOST_LABEL` | Host name shown in the header (the real host name is not visible from the container). Empty = container name. | empty | no | `nas-living-room` | App |
 | `APP_LANG` | Language of console commands (`generate-key`, `reset-admin-password`) and initial default language of the instance (the admin can change the latter in the UI). Logs are always English. | `en` | no | `it` | App |
+| `TZ` | Initial IANA library timezone; Administration → Settings → Library timezone takes precedence and is stored in the vault. | empty (UTC, with admin notice) | no | `Europe/Rome` | App |
 | `DISK_WARN_FREE_PERCENT` | Free-space % under which a disk is shown in the warning colour. | `15` | no | `20` | App |
 | `DISK_CRIT_FREE_PERCENT` | Free-space % under which a disk is shown in the critical colour. | `5` | no | `3` | App |
 | `PUID` | UID the whole container runs as (`user:`). Must own the library and state folders. Never 0. | `1000` | no | `1026` | Compose |

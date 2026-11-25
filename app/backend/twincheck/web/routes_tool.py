@@ -12,7 +12,7 @@ from ..fsutil import PathError
 from ..previews import ensure as ensure_preview
 from ..services import access
 from ..services.dedupe import group_capture_date, group_members, keeper_decision, set_keeper
-from ..services.metadata import FIELDS, WRITABLE, field_table, parse_dt
+from ..services.metadata import FIELDS, WRITABLE, date_candidate, field_table, mtime_proposal, parse_dt
 from . import common
 from .app import router
 from .common import disp, fail, is_admin, need_db, own_row, owner_filter, paging, require, scoped_file, scoped_rows
@@ -498,6 +498,8 @@ def _review_row(req: Request, r: dict, full: bool = False) -> dict:
     out = {"id": r["id"], "kind": r["kind"], "status": r["status"], "created_at": r["created_at"],
            "details": json.loads(r["details"] or "{}"), "proposals": json.loads(r["proposals"] or "[]"),
            "decision": json.loads(r["decision"]) if r["decision"] else None, "file_id": r["file_id"]}
+    out.update(decision_source=r["decision_source"], decision_timezone=r["decision_timezone"],
+               recheck_reason=r["recheck_reason"], library_timezone=common.app().library_timezone)
     for k in ("path", "src", "dst"):
         if isinstance(out["details"].get(k), str):
             out["details"][k] = disp(req, out["details"][k])
@@ -512,6 +514,14 @@ def _review_row(req: Request, r: dict, full: bool = False) -> dict:
                        "present": bool(f["present"]), "duration": f.get("duration_s")}
         if full:
             out["fields"] = field_table(f)
+            offset = next((c["value"] for row in out["fields"] if row["field"] == "offset" for c in row["candidates"]), None)
+            out["date_candidates"] = [date_candidate({**c, "offset": c.get("offset") or offset}, common.app().library_timezone)
+                                      for row in out["fields"] if row["field"] in ("datetime_original", "create_date")
+                                      for c in row["candidates"]]
+            out["proposals"] = [mtime_proposal(f, common.app().library_timezone) if p.get("origin") == "mtime_utc" else p
+                                for p in out["proposals"]]
+            if r["recheck_reason"]:
+                out["recheck_proposal"] = mtime_proposal(f, common.app().library_timezone)
     return out
 
 
@@ -523,8 +533,11 @@ def review_list(req: Request):
     if is_admin(req) and req.query.get("owner"):
         args[0] = req.query["owner"]
     st = req.query.get("status", "pending")
-    where.append("r.status=?")
-    args.append(st)
+    if st == "pending":
+        where.append("r.status IN ('pending','needs_recheck')")
+    else:
+        where.append("r.status=?")
+        args.append(st)
     if req.query.get("kind"):
         where.append("r.kind=?")
         args.append(req.query["kind"])
@@ -548,7 +561,7 @@ def review_get(req: Request):
     if not is_admin(req):
         scoped_file(req, db.query_one("SELECT * FROM files WHERE id=?", (r["file_id"],)))
     out = _review_row(req, r, full=True)
-    nxt = db.query_one("SELECT id FROM review_items WHERE owner_id=? AND status='pending' AND id>? ORDER BY id LIMIT 1", (r["owner_id"], r["id"]))
+    nxt = _next_review(req, r["owner_id"], r["id"])
     out["next_id"] = nxt["id"] if nxt else None
     return JSONResponse(out)
 
@@ -596,6 +609,9 @@ def review_decide(req: Request):
         scoped_file(req, db.query_one("SELECT * FROM files WHERE id=?", (r["file_id"],)))
     if r["owner_id"] != req.user["id"] and not is_admin(req):
         fail(404, "not_found")
+    f = db.query_one("SELECT * FROM files WHERE id=?", (r["file_id"],))
+    if r["applied"] or f and f["phase_org"] == "done":
+        fail(409, "already_applied")
     body = req.json()
     action = body.get("action")
     if action not in ("save", "skip", "keep"):
@@ -607,6 +623,24 @@ def review_decide(req: Request):
         if not p:
             fail(400, "invalid_date", field="date")
         date = p[0]
+    source, applied_timezone = "manual", None
+    provenance = {k: {"source": "manual", "timezone": None} for k in fields}
+    selected = body.get("proposal")
+    if action == "save" and selected is not None:
+        if not f or not isinstance(selected, dict):
+            fail(400, "invalid_proposal")
+        candidates = _review_row(req, r, full=True)
+        choices = candidates.get("date_candidates", []) + candidates["proposals"]
+        if candidates.get("recheck_proposal"):
+            choices.append(candidates["recheck_proposal"])
+        match = next((c for c in choices if c.get("source", c.get("origin")) == selected.get("source")
+                      and c["value"] == date and c.get("tag") == selected.get("tag")), None)
+        if not match:
+            fail(400, "invalid_proposal")
+        source, applied_timezone = match.get("source", match.get("origin", "other")), match.get("timezone")
+        for k in ("datetime_original", "create_date"):
+            if fields.get(k) == date:
+                provenance[k] = {"source": source, "timezone": applied_timezone}
     scope = body.get("scope", "item")
     targets = [r]
     if scope == "folder" and r.get("group_key"):
@@ -622,11 +656,25 @@ def review_decide(req: Request):
         targets = [x for x in db.query("SELECT * FROM review_items WHERE owner_id=? AND status='pending' AND kind=?", (r["owner_id"], r["kind"]))
                    if x["file_id"] in ids] or [r]
     status = {"save": "saved", "skip": "skipped", "keep": "kept"}[action]
-    decision = {"fields": fields, "date": date, "offset": fields.get("offset"), "scope": scope}
+    decision = {"fields": fields, "date": date, "offset": fields.get("offset"), "scope": scope,
+                "source": source, "timezone": applied_timezone}
+    if date:
+        provenance["date"] = {"source": source, "timezone": applied_timezone}
     with db.transaction():
+        updated = 0
         for t in targets:
-            db.execute("UPDATE review_items SET status=?, decision=?, decided_by=?, decided_at=? WHERE id=?",
-                       (status, json.dumps(decision, ensure_ascii=False), req.user["id"], utcnow(), t["id"]))
+            target_file = db.query_one("SELECT * FROM files WHERE id=?", (t["file_id"],))
+            if t["applied"] or target_file and target_file["phase_org"] == "done":
+                continue
+            if not is_admin(req) and target_file and not access.file_in_scope(common.app().settings.data_dir.as_posix(), req.user, target_file):
+                continue
+            if t["recheck_reason"] and (action != "save" or not date):
+                continue
+            db.execute("UPDATE review_items SET status=?, decision=?, decided_by=?, decided_at=?, decision_source=?, "
+                       "decision_timezone=?, decision_provenance=?, recheck_reason=NULL WHERE id=?",
+                       (status, json.dumps(decision, ensure_ascii=False), req.user["id"], utcnow(), source,
+                        applied_timezone, json.dumps(provenance), t["id"]))
+            updated += 1
             if action == "save" and date and t["file_id"]:
                 db.execute("UPDATE files SET chosen_date=?, chosen_date_source='review', date_flags='', updated_at=? WHERE id=?",
                            (date, utcnow(), t["file_id"]))
@@ -634,9 +682,17 @@ def review_decide(req: Request):
                 f = db.query_one("SELECT cur_path FROM files WHERE id=?", (t["file_id"],))
                 from ..db.manager import log
                 log(db, "REVIEW_DECIDED", owner_id=t["owner_id"], actor=req.user["username"], decision=status, path=(f or {}).get("cur_path"))
-    nxt = db.query_one("SELECT id FROM review_items WHERE owner_id=? AND status='pending' AND id>? ORDER BY id LIMIT 1", (r["owner_id"], r["id"])) \
-        or db.query_one("SELECT id FROM review_items WHERE owner_id=? AND status='pending' ORDER BY id LIMIT 1", (r["owner_id"],))
-    return JSONResponse({"ok": True, "updated": len(targets), "next_id": nxt["id"] if nxt else None})
+    nxt = _next_review(req, r["owner_id"], r["id"]) or _next_review(req, r["owner_id"], 0)
+    return JSONResponse({"ok": True, "updated": updated, "next_id": nxt["id"] if nxt else None})
+
+
+def _next_review(req: Request, owner: str, after: int) -> dict | None:
+    db = need_db()
+    for row in db.query("SELECT r.id AS review_id, f.* FROM review_items r JOIN files f ON f.id=r.file_id "
+                        "WHERE r.owner_id=? AND r.status IN ('pending','needs_recheck') AND r.id>? ORDER BY r.id", (owner, after)):
+        if is_admin(req) or access.file_in_scope(common.app().settings.data_dir.as_posix(), req.user, row):
+            return {"id": row["review_id"]}
+    return None
 
 
 @router.post("/api/review/{id:int}/reopen")
@@ -645,7 +701,8 @@ def review_reopen(req: Request):
     r = own_row(req, db.query_one("SELECT * FROM review_items WHERE id=?", (req.path_params["id"],)))
     if not is_admin(req):
         scoped_file(req, db.query_one("SELECT * FROM files WHERE id=?", (r["file_id"],)))
-    if r["applied"]:
+    f = db.query_one("SELECT phase_org FROM files WHERE id=?", (r["file_id"],))
+    if r["applied"] or f and f["phase_org"] == "done":
         fail(409, "already_applied")
     db.execute("UPDATE review_items SET status='pending' WHERE id=?", (r["id"],))
     return JSONResponse({"ok": True})

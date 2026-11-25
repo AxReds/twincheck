@@ -21,7 +21,7 @@ function requestPreview(id) {
 
 export async function list(main) {
   let offset = 0;
-  const status = h('select', {}, ['pending', 'saved', 'skipped', 'kept'].map((s) => h('option', { value: s }, t('review.status.' + s))));
+  const status = h('select', {}, ['pending', 'needs_recheck', 'saved', 'skipped', 'kept'].map((s) => h('option', { value: s }, t('review.status.' + s))));
   const kind = h('select', {}, KINDS.map((k) => h('option', { value: k }, k ? t('review.kind.' + k) : t('review.all_kinds'))));
   const box = h('div', {});
   const flowStatus = await get('/api/library/status');
@@ -99,11 +99,14 @@ export async function item(main, state, [id]) {
   const f = r.file;
   const inputs = {};
   const dateChoice = h('select', {}, h('option', { value: '' }, t('review.date_keep')));
+  let selectedProposal = null;
   const allDates = [];
-  for (const row of r.fields || []) {
-    if (row.field === 'datetime_original' || row.field === 'create_date') for (const c of row.candidates) allDates.push({ value: c.value, label: c.tag });
+  if (r.date_candidates) {
+    for (const c of r.date_candidates) allDates.push({ ...c, label: c.tag });
+  } else for (const row of r.fields || []) {
+    if (row.field === 'datetime_original' || row.field === 'create_date') for (const c of row.candidates) allDates.push({ ...c, source: 'exif', label: c.tag });
   }
-  for (const p of r.proposals) allDates.push({ value: p.value, label: t('review.origin.' + p.origin) });
+  for (const p of r.proposals) allDates.push({ ...p, source: p.source || p.origin, label: t('review.origin.' + p.origin) });
   for (const d of allDates) dateChoice.appendChild(h('option', { value: d.value }, fmt.localDate(d.value) + ' — ' + d.label));
   const rows = (r.fields || []).map((row) => {
     let editor = null;
@@ -114,27 +117,35 @@ export async function item(main, state, [id]) {
       const prop = r.proposals.find((p) => p.field === row.field);
       if (prop) inp.dataset.proposal = prop.value;
       inputs[row.field] = inp;
+      inp.addEventListener('input', () => { selectedProposal = null; });
       editor = inp;
     }
     const proposals = r.proposals.filter((p) => p.field === row.field).map((p) => h('div', { class: 'proposal small' },
       badge(t('review.proposal'), 'info'), ' ', h('code', {}, p.value), ' ', t('review.origin.' + p.origin), ' ',
-      inputs[row.field] ? h('button', { type: 'button', class: 'link', onclick: () => { inputs[row.field].value = p.value.slice(0, 19); } }, t('review.use_proposal')) : null));
+      inputs[row.field] ? h('button', { type: 'button', class: 'link', onclick: () => {
+        inputs[row.field].value = p.value.slice(0, 19);
+        dateChoice.value = '';
+        selectedProposal = { source: p.source || p.origin, tag: p.tag };
+      } }, t('review.use_proposal')) : null));
     return h('tr', { class: row.present ? '' : 'is-missing' }, h('th', { scope: 'row' }, t('field.' + row.field)),
       h('td', {}, candidateList(row.candidates), row.fill ? h('div', { class: 'small' }, badge(t('review.auto_fill'), 'ok'), ' ', h('code', {}, String(row.fill.value)), ' ← ', row.fill.from) : null, proposals),
       h('td', {}, editor || (row.present ? h('span', { class: 'muted small' }, t('review.present_readonly')) : h('span', { class: 'muted small' }, t('review.not_writable')))));
   });
   dateChoice.addEventListener('change', () => {
+    const choice = allDates[dateChoice.selectedIndex - 1];
+    selectedProposal = choice ? { source: choice.source, tag: choice.tag } : null;
     if (!dateChoice.value) return;
     for (const key of ['datetime_original', 'create_date']) {
       if (inputs[key]) inputs[key].value = '';
     }
   });
   const scope = h('select', {}, ['item', 'folder', 'group'].map((s) => h('option', { value: s }, t('review.scope.' + s))));
-  const decide = async (action) => {
+  const decide = async (action, dateOverride = null, proposalOverride = null) => {
     const fields = {};
-    for (const [k, el] of Object.entries(inputs)) if (el.value) fields[k] = el.value;
+    if (!dateOverride) for (const [k, el] of Object.entries(inputs)) if (el.value) fields[k] = el.value;
     try {
-      const res = await post('/api/review/' + id, { action, fields, date: dateChoice.value || undefined, scope: scope.value });
+      const res = await post('/api/review/' + id, { action, fields, date: dateOverride || dateChoice.value || undefined,
+        proposal: dateOverride ? proposalOverride : selectedProposal, scope: scope.value });
       toast(t('review.saved', { count: res.updated }), 'ok');
       location.hash = res.next_id ? '#/review/' + res.next_id : '#/review';
     } catch (e) { toast(e.message, 'error'); }
@@ -145,6 +156,13 @@ export async function item(main, state, [id]) {
     h('div', { class: 'review' },
       media ? media.el : h('div', { class: 'media' }, h('p', { class: 'muted' }, t('review.no_file'))),
       h('div', { class: 'review-side' },
+        r.recheck_reason ? h('div', { class: 'notice warn recheck-notice' },
+          t('review.recheck_notice', { stored: fmt.localDate(r.decision?.date), timezone: r.library_timezone,
+            suggested: fmt.localDate(r.recheck_proposal?.value) }),
+          h('div', { class: 'actions' },
+            button('review.accept_converted', () => decide('save', r.recheck_proposal.value,
+              { source: 'filesystem_mtime' }), 'primary'),
+            button('review.keep_stored', () => decide('save', r.decision.date)))) : null,
         f ? h('dl', { class: 'kv' }, h('dt', {}, t('review.file_name')), h('dd', {}, h('code', {}, f.name)),
           h('dt', {}, t('review.file_path')), h('dd', {}, h('code', {}, f.path)),
           h('dt', {}, t('review.file_origin')), h('dd', {}, h('code', {}, f.origin)),

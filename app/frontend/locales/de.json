@@ -9,6 +9,16 @@
     ]
   },
   "messages": {
+    "settings.library_timezone": "Zeitzone der Bibliothek",
+    "settings.library_timezone_hint": "IANA-Name, z. B. Europe/Berlin. Zum Organisieren, ohne originale EXIF zu ändern.",
+    "settings.library_timezone_notice": "Standard ist UTC. Stellen Sie die Zeitzone vor der Datumsauswahl ein.",
+    "error.invalid_timezone": "Geben Sie einen gültigen IANA-Zeitzonennamen ein.",
+    "error.invalid_proposal": "Der Vorschlag wurde geändert. Laden Sie den Eintrag erneut.",
+    "review.status.needs_recheck": "Erneut prüfen",
+    "review.recheck_notice": "Dieses Datum wurde möglicherweise in UTC gespeichert ({stored}). Dateisystemdatum in {timezone}: {suggested}. Bestätigen oder ändern.",
+    "review.accept_converted": "Umgerechnetes Datum akzeptieren",
+    "review.keep_stored": "Gespeichertes Datum behalten",
+    "plan.note.needs_recheck": "Datum vor dem Organisieren vom Eigentümer erneut prüfen lassen.",
     "app.name": "TwinCheck",
     "common.na": "k. A.",
     "common.next": "Weiter",

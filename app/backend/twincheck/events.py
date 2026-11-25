@@ -42,6 +42,8 @@ EVENTS: dict[str, str] = {
     "GROUP_DELETED": "Group {name} deleted by {actor}",
     "SOURCES_UPDATED": "Sources of {username} updated by {actor}",
     "SETTINGS_UPDATED": "Settings {section} updated by {actor}",
+    "SETTING_CHANGED": "Setting {setting} changed by {actor}",
+    "DECISIONS_FLAGGED_FOR_RECHECK": "{count} historical decisions flagged for owner re-check; stored values unchanged",
     "OWNER_REASSIGNED": "Records of owner {old_owner} reassigned to {username} by {actor}",
     "ACCESS_DENIED_NETWORK": "Request from {ip} rejected by ALLOWED_NETWORKS",
     # database

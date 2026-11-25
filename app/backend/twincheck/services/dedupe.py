@@ -34,7 +34,7 @@ def group_capture_date(members: list[dict]) -> dict:
                        if c.get("source") == "file"
                        and (field not in ("datetime_original", "create_date") or parse_dt(c.get("value")))]
                for field, info in fields.items()}
-        result = analyse_file(member, own, [], set())
+        result = analyse_file(member, own, [], set(), None)
         if result["chosen"]:
             dates.append(result)
     if not dates:

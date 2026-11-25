@@ -9,6 +9,16 @@
     ]
   },
   "messages": {
+    "settings.library_timezone": "图库时区",
+    "settings.library_timezone_hint": "IANA名称，例如Asia/Shanghai。用于整理，不修改原始EXIF。",
+    "settings.library_timezone_notice": "默认使用UTC。选择日期前请设置图库时区。",
+    "error.invalid_timezone": "请输入有效的IANA时区名称。",
+    "error.invalid_proposal": "建议已更改。请重新加载此项目。",
+    "review.status.needs_recheck": "需要复查",
+    "review.recheck_notice": "此日期可能以UTC保存（{stored}）。{timezone}的文件系统日期：{suggested}。请确认或更改。",
+    "review.accept_converted": "接受转换后的日期",
+    "review.keep_stored": "保留已保存的日期",
+    "plan.note.needs_recheck": "整理前需由所有者复查日期。",
     "app.name": "TwinCheck",
     "common.na": "不适用",
     "common.next": "下一步",

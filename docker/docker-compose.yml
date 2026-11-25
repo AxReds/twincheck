@@ -20,6 +20,7 @@ services:
       APP_MASTER_KEY: ${APP_MASTER_KEY:?APP_MASTER_KEY missing in .env - generate it with docker compose run --rm app generate-key (see README)}
       APP_MASTER_KEY_FILE: ${APP_MASTER_KEY_FILE:-}
       APP_LANG: ${APP_LANG:-en}
+      TZ: ${TZ:-}
       HOST_LABEL: ${HOST_LABEL:-}
       ALLOWED_NETWORKS: ${ALLOWED_NETWORKS:-}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}

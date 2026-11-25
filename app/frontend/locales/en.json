@@ -10,6 +10,16 @@
     "source": true
   },
   "messages": {
+    "settings.library_timezone": "Library timezone",
+    "settings.library_timezone_hint": "IANA name, e.g. Europe/Rome. Used for organizing dates, not for changing original EXIF.",
+    "settings.library_timezone_notice": "Library timezone defaults to UTC. Set your library timezone before choosing dates.",
+    "error.invalid_timezone": "Enter a valid IANA timezone name.",
+    "error.invalid_proposal": "This proposal has changed. Reload the review item.",
+    "review.status.needs_recheck": "Needs re-check",
+    "review.recheck_notice": "This date may have been saved in UTC ({stored}). File-system date in {timezone}: {suggested}. Confirm or change it.",
+    "review.accept_converted": "Accept converted date",
+    "review.keep_stored": "Keep stored date",
+    "plan.note.needs_recheck": "Date needs owner re-check before Organize.",
     "app.name": "TwinCheck",
     "common.na": "n/a",
     "common.next": "Next",

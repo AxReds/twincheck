@@ -9,6 +9,16 @@
     ]
   },
   "messages": {
+    "settings.library_timezone": "المنطقة الزمنية للمكتبة",
+    "settings.library_timezone_hint": "اسم IANA، مثل Asia/Riyadh. للتنظيم دون تغيير EXIF الأصلي.",
+    "settings.library_timezone_notice": "الافتراضي UTC. اضبط المنطقة قبل اختيار التواريخ.",
+    "error.invalid_timezone": "أدخل اسم منطقة زمنية IANA صالحًا.",
+    "error.invalid_proposal": "تغير الاقتراح. أعد تحميل العنصر.",
+    "review.status.needs_recheck": "يحتاج إعادة فحص",
+    "review.recheck_notice": "ربما حُفظ التاريخ بتوقيت UTC ({stored}). تاريخ نظام الملفات في {timezone}: {suggested}. أكده أو غيّره.",
+    "review.accept_converted": "قبول التاريخ المحوّل",
+    "review.keep_stored": "الاحتفاظ بالتاريخ المحفوظ",
+    "plan.note.needs_recheck": "يجب أن يعيد المالك فحص التاريخ قبل التنظيم.",
     "app.name": "TwinCheck",
     "common.na": "غير متاح",
     "common.next": "التالي",

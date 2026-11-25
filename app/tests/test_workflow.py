@@ -85,7 +85,7 @@ class PureMetadataRules(unittest.TestCase):
         self.assertEqual(r["flags"], "utc_ambiguous")
         self.assertNotIn("datetime_original", r["fills"], "no local time written from a UTC value")
         own2 = collect({"QuickTime:CreateDate": "2022:08:01 22:30:00", "Keys:CreationDate": "2022:08:02 00:30:00+02:00"}, "file")
-        r2 = analyse_file(f, own2, [], {"create_date"})
+        r2 = analyse_file(f, own2, [], {"create_date"}, "Europe/Rome")
         self.assertEqual(r2["chosen"], "2022-08-02T00:30:00")
         self.assertEqual(r2["conflicts"], {}, "UTC and local differing by a whole offset are consistent")
 

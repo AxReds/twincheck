@@ -19,6 +19,7 @@ services:
       APP_MASTER_KEY: ${APP_MASTER_KEY:?APP_MASTER_KEY missing - generate it with docker run --rm ghcr.io/axreds/twincheck generate-key}
       APP_MASTER_KEY_FILE: ${APP_MASTER_KEY_FILE:-}
       APP_LANG: ${APP_LANG:-en}
+      TZ: ${TZ:-}
       HOST_LABEL: ${HOST_LABEL:-}
       ALLOWED_NETWORKS: ${ALLOWED_NETWORKS:-}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}

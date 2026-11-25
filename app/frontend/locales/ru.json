@@ -9,6 +9,16 @@
     ]
   },
   "messages": {
+    "settings.library_timezone": "Часовой пояс библиотеки",
+    "settings.library_timezone_hint": "Имя IANA, например Europe/Moscow. Для организации, без изменения исходных EXIF.",
+    "settings.library_timezone_notice": "По умолчанию UTC. Настройте пояс перед выбором дат.",
+    "error.invalid_timezone": "Введите допустимое имя часового пояса IANA.",
+    "error.invalid_proposal": "Предложение изменилось. Перезагрузите элемент.",
+    "review.status.needs_recheck": "Нужна повторная проверка",
+    "review.recheck_notice": "Дата могла быть сохранена в UTC ({stored}). Дата файловой системы в {timezone}: {suggested}. Подтвердите или измените.",
+    "review.accept_converted": "Принять преобразованную дату",
+    "review.keep_stored": "Сохранить прежнюю дату",
+    "plan.note.needs_recheck": "Владелец должен проверить дату перед организацией.",
     "app.name": "TwinCheck",
     "common.na": "н/д",
     "common.next": "Далее",

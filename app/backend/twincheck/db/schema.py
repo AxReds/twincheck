@@ -35,7 +35,7 @@ from dataclasses import dataclass
 from .. import VERSION
 from .engine import Database, DBError
 
-CURRENT_VERSION = 3
+CURRENT_VERSION = 4
 
 SQLITE_TYPES = {
     "pk": "INTEGER PRIMARY KEY AUTOINCREMENT", "int": "INTEGER", "bool": "INTEGER", "float": "REAL",
@@ -148,6 +148,13 @@ MIGRATIONS: dict[int, list[tuple]] = {
         ("column", "jobs", C("auto_resume", "bool", 0)),
         ("index", "run_log", "ix_log_event", ["event"], False),
     ],
+    4: [
+        ("column", "review_items", C("decision_source", "key", "unknown")),
+        ("column", "review_items", C("decision_timezone", "key", "unknown")),
+        ("column", "review_items", C("decision_provenance", "text")),
+        ("column", "review_items", C("recheck_reason", "key")),
+        ("recheck",),
+    ],
 }
 
 # tables that make up the operational state (exported / migrated, in this order)
@@ -202,6 +209,47 @@ def _apply_op(db: Database, op: tuple) -> None:
         if name in db.indexes(table):
             return
         db.execute(f"CREATE {'UNIQUE ' if unique else ''}INDEX {name} ON {table} ({', '.join(cols)})")
+    elif kind == "recheck":
+        _flag_historical_decisions(db)
+
+
+def _flag_historical_decisions(db: Database) -> None:
+    from datetime import datetime, timezone
+    from ..services.metadata import parse_dt
+    from ..db.manager import log
+
+    count = 0
+    last = 0
+    while True:
+        rows = db.query(
+            "SELECT r.*, f.mtime_ns, f.meta_read, f.phase_org FROM review_items r "
+            "JOIN files f ON f.id=r.file_id WHERE r.id>? AND r.applied=0 "
+            "AND r.decision_source='unknown' AND r.status IN ('saved','kept','skipped') ORDER BY r.id LIMIT 500", (last,))
+        if not rows:
+            break
+        for r in rows:
+            last = r["id"]
+            if r["phase_org"] == "done" or db.query_one(
+                    "SELECT id FROM manifest WHERE file_id=? AND action='move' AND undone_at IS NULL LIMIT 1", (r["file_id"],)):
+                continue
+            decision = json.loads(r["decision"] or "{}")
+            fields = decision.get("fields") or {}
+            parsed = parse_dt(decision.get("date") or fields.get("datetime_original") or fields.get("create_date"))
+            if not parsed:
+                continue
+            value = parsed[0]
+            mt = datetime.fromtimestamp((r["mtime_ns"] or 0) / 1e9, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+            metadata = json.loads(r["meta_read"] or "{}").get("fields", {})
+            candidates = [c for name in ("datetime_original", "create_date")
+                          for c in metadata.get(name, {}).get("candidates", []) if c.get("value") == value]
+            sources = {c.get("source", "file") + ":" + c.get("semantic", "local") for c in candidates}
+            if value != mt and len(sources) == 1:
+                continue
+            reason = "mtime_utc_match" if value == mt else "unknown_provenance"
+            db.execute("UPDATE review_items SET status='needs_recheck', recheck_reason=? WHERE id=?", (reason, r["id"]))
+            count += 1
+    if count:
+        log(db, "DECISIONS_FLAGGED_FOR_RECHECK", count=count)
 
 
 def utcnow() -> str:
