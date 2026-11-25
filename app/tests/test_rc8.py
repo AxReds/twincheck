@@ -171,3 +171,21 @@ class ReviewDates(unittest.TestCase):
         self.assertEqual(data["analyzed_at"], pipeline["finished_at"])
         self.assertEqual(data["plan_job_id"], pipeline["id"])
         self.assertEqual(self.user.get("/api/duplicates").json()["analyzed_at"], pipeline["finished_at"])
+
+    def test_phase_events_have_real_counts_once_even_after_resume(self):
+        jid = self.run_job("/api/library/analyze", {"source_id": self.sid})
+        db = self.inst.core.db
+        events = db.query("SELECT event, params FROM run_log WHERE job_id=? AND event LIKE 'ANALYSIS_PHASE_%' ORDER BY id", (jid,))
+        names = ["scan", "hash", "capture_dates", "duplicates", "metadata"]
+        self.assertEqual([(r["event"], json.loads(r["params"])["phase"]) for r in events],
+                         [(event, name) for name in names for event in ("ANALYSIS_PHASE_STARTED", "ANALYSIS_PHASE_COMPLETED")])
+        scan = json.loads(events[1]["params"])
+        self.assertEqual((scan["found"], scan["new"], scan["changed"], scan["unchanged"], scan["removed"]), (2, 0, 0, 2, 0))
+        hash_counts = json.loads(events[3]["params"])
+        self.assertEqual((hash_counts["candidates"], hash_counts["hashed"], hash_counts["unreadable"]), (0, 0, 0))
+        self.assertEqual(json.loads(events[5]["params"])["unknown"], 2)
+        from twincheck.jobs import JobContext
+        from twincheck.services.scan import analyze_library
+        ctx = JobContext(self.inst.core.jobs, db.query_one("SELECT * FROM jobs WHERE id=?", (jid,)))
+        analyze_library(ctx)
+        self.assertEqual(db.scalar("SELECT COUNT(*) FROM run_log WHERE job_id=? AND event LIKE 'ANALYSIS_PHASE_%'", (jid,)), 10)

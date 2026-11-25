@@ -94,6 +94,7 @@ def analyze(ctx: JobContext, scope: str, owner_filter: str | None) -> dict:
         ctx.save_checkpoint(started=True, after=None, groups=0, dups=0)
     after = tuple(ctx.checkpoint.get("after") or ())
     groups, dups = ctx.checkpoint.get("groups", 0), ctx.checkpoint.get("dups", 0)
+    file_count = ctx.checkpoint.get("files", groups + dups)
     pending = list(_groups(db, owner_filter, after, scope_filter))
     total = len(pending) + groups
     for g in pending:
@@ -134,9 +135,10 @@ def analyze(ctx: JobContext, scope: str, owner_filter: str | None) -> dict:
                 ctx.log("DUP_GROUP", sha256=g["sha256"], count=len(confirmed), keeper=keeper["cur_path"])
             groups += 1
             dups += len(confirmed) - 1
+            file_count += len(confirmed)
         ctx.progress(done=groups, total=total, phase="compare")
-        ctx.save_checkpoint(after=[g["size"], g["sha256"]], groups=groups, dups=dups)
-    return {"groups": groups, "duplicates": dups}
+        ctx.save_checkpoint(after=[g["size"], g["sha256"]], groups=groups, dups=dups, files=file_count)
+    return {"groups": groups, "duplicates": dups, "files": file_count}
 
 
 @register("dedupe_analyze", auto_resume=True)

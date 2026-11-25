@@ -37,7 +37,10 @@ The job stores a separate checkpoint for every completed phase/batch. After inte
 from the last checkpoint; it never moves, writes metadata or organizes files. Those actions remain
 separate plan-and-confirm jobs and revalidate the file immediately before execution.
 
-The log records `ANALYSIS_PHASE_STARTED`, `ANALYSIS_PHASE_COMPLETED` (phase and count) and
+The log records one `ANALYSIS_PHASE_STARTED` and one `ANALYSIS_PHASE_COMPLETED` per phase,
+including on resume. Completion parameters contain scan found/new/changed/unchanged/removed,
+hash candidates/hashed/unreadable, capture dates read/unknown, duplicate groups/files and
+metadata analysed/fills/review counts. It also records
 `ANALYSIS_RESUMED` (phase and checkpoint position). These are English-only operational event codes.
 The UI displays the phase name, `n/5`, and one overall progress value.
 
