@@ -87,6 +87,8 @@ EVENTS: dict[str, str] = {
     "META_SKIPPED": "Metadata not written to {path}: {reason}",
     "REVIEW_ADDED": "File queued for review {path}: {reason}",
     "REVIEW_DECIDED": "Review decision {decision} for {path}",
+    "REVIEW_SKIPPED": "Review postponed for {path}",
+    "REVIEW_SKIPS_RETURNED_TO_PENDING": "{count} skip-only review records returned to pending; skip timestamps preserved",
     "UNDO_MOVE": "Move undone {src} -> {dst}",
     "VERIFY_MISMATCH": "Verification mismatch {path}: {reason}",
     "VERIFY_OK": "Verification passed for {count} files",

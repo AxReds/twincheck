@@ -72,7 +72,7 @@ export async function home(main, state) {
     const r = await get('/api/report');
     const total = r.files.reduce((a, x) => a + x.n, 0);
     const bytes = r.files.reduce((a, x) => a + x.bytes, 0);
-    const pending = r.review.filter((x) => ['pending', 'needs_recheck'].includes(x.status)).reduce((n, x) => n + x.n, 0);
+    const pending = r.review.filter((x) => ['pending', 'skipped', 'needs_recheck'].includes(x.status)).reduce((n, x) => n + x.n, 0);
     mount(summary, card('home.files', t('home.files_value', { count: total, size: fmt.bytes(bytes) })),
       card('home.duplicates', t('home.duplicates_value', { count: r.duplicates.groups, size: fmt.bytes(r.duplicates.recoverable) })),
       card('home.review_pending', fmt.number(pending)), card('home.missing', fmt.number(r.missing)));

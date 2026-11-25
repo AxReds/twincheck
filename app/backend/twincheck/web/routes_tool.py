@@ -10,7 +10,7 @@ import time
 from ..db.schema import utcnow
 from ..fsutil import PathError, media_kind, is_within
 from ..previews import ensure as ensure_preview
-from ..services import access
+from ..services import access, review_state
 from ..services.dedupe import group_capture_date, group_members, keeper_decision, set_keeper
 from ..services.metadata import FIELDS, WRITABLE, date_candidate, field_table, mtime_proposal, parse_dt
 from ..services.scan import iter_dirs
@@ -555,7 +555,8 @@ def _review_row(req: Request, r: dict, full: bool = False) -> dict:
     f = db.query_one("SELECT * FROM files WHERE id=?", (r["file_id"],)) if r["file_id"] else None
     if not is_admin(req) and f and not access.file_in_scope(common.app().settings.data_dir.as_posix(), req.user, f):
         fail(404, "not_found")
-    out = {"id": r["id"], "kind": r["kind"], "status": r["status"], "created_at": r["created_at"],
+    out = {"id": r["id"], "kind": r["kind"], "status": review_state.status(r), "created_at": r["created_at"],
+           "skipped_at": r.get("skipped_at"),
            "details": json.loads(r["details"] or "{}"), "proposals": json.loads(r["proposals"] or "[]"),
            "decision": json.loads(r["decision"]) if r["decision"] else None, "file_id": r["file_id"]}
     out.update(decision_source=r["decision_source"], decision_timezone=r["decision_timezone"],
@@ -593,8 +594,8 @@ def review_list(req: Request):
     st = req.query.get("status", "pending")
     rows = _visible_reviews(req)
     counts, totals = _review_counts(rows)
-    statuses = {"pending", "needs_recheck"} if st == "pending" else {"saved", "skipped", "kept"} if st == "decided" else {st}
-    rows = [row for row in rows if (st == "all" or row["status"] in statuses)
+    statuses = {"pending", "skipped", "needs_recheck"} if st == "pending" else {st}
+    rows = [row for row in rows if (st == "all" or review_state.status(row) in statuses)
             and (not req.query.get("kind") or row["kind"] == req.query["kind"])]
     page = rows[off:off + lim]
     return JSONResponse({"items": [_review_row(req, r) for r in page], "total": len(rows),
@@ -611,9 +612,10 @@ def _visible_reviews(req: Request) -> list[dict]:
 def _review_counts(rows: list[dict]) -> tuple[dict, dict]:
     counts = {}
     for row in rows:
-        counts[row["status"]] = counts.get(row["status"], 0) + 1
-    return counts, {"total": len(rows), "decided": sum(counts.get(s, 0) for s in ("saved", "kept", "skipped")),
-                    "pending": counts.get("pending", 0) + counts.get("needs_recheck", 0),
+        state = review_state.status(row)
+        counts[state] = counts.get(state, 0) + 1
+    return counts, {"total": len(rows), "decided": counts.get("decided", 0),
+                    "pending": sum(counts.get(s, 0) for s in ("pending", "skipped", "needs_recheck")),
                     "needs_recheck": counts.get("needs_recheck", 0)}
 
 
@@ -679,6 +681,8 @@ def review_decide(req: Request):
     action = body.get("action")
     if action not in ("save", "skip", "keep"):
         fail(400, "bad_action")
+    if action == "skip" and review_state.status(r) not in ("pending", "skipped"):
+        fail(409, "bad_action")
     fields = validate_fields(body.get("fields") or {}) if action == "save" else {}
     date = fields.get("datetime_original") or fields.get("create_date")
     if action == "save" and body.get("date"):
@@ -718,7 +722,7 @@ def review_decide(req: Request):
             ids += [x["id"] for x in db.query("SELECT id FROM files WHERE dup_group_id=?", (f["dup_group_id"],))]
         targets = [x for x in db.query("SELECT * FROM review_items WHERE owner_id=? AND status='pending' AND kind=?", (r["owner_id"], r["kind"]))
                    if x["file_id"] in ids] or [r]
-    status = {"save": "saved", "skip": "skipped", "keep": "kept"}[action]
+    status = {"save": "saved", "skip": "pending", "keep": "kept"}[action]
     decision = {"fields": fields, "date": date, "offset": fields.get("offset"), "scope": scope,
                 "source": source, "timezone": applied_timezone}
     if date:
@@ -733,10 +737,15 @@ def review_decide(req: Request):
                 continue
             if t["recheck_reason"] and (action != "save" or not date):
                 continue
-            db.execute("UPDATE review_items SET status=?, decision=?, decided_by=?, decided_at=?, decision_source=?, "
-                       "decision_timezone=?, decision_provenance=?, recheck_reason=NULL WHERE id=?",
-                       (status, json.dumps(decision, ensure_ascii=False), req.user["id"], utcnow(), source,
-                        applied_timezone, json.dumps(provenance), t["id"]))
+            if action == "skip":
+                if review_state.status(t) not in ("pending", "skipped"):
+                    continue
+                db.execute("UPDATE review_items SET status='pending', skipped_at=? WHERE id=?", (utcnow(), t["id"]))
+            else:
+                db.execute("UPDATE review_items SET status=?, decision=?, decided_by=?, decided_at=?, decision_source=?, "
+                           "decision_timezone=?, decision_provenance=?, recheck_reason=NULL, skipped_at=NULL WHERE id=?",
+                           (status, json.dumps(decision, ensure_ascii=False), req.user["id"], utcnow(), source,
+                            applied_timezone, json.dumps(provenance), t["id"]))
             updated += 1
             if action == "save" and date and t["file_id"]:
                 db.execute("UPDATE files SET chosen_date=?, chosen_date_source='review', date_flags='', updated_at=? WHERE id=?",
@@ -744,17 +753,17 @@ def review_decide(req: Request):
             if t["file_id"]:
                 f = db.query_one("SELECT cur_path FROM files WHERE id=?", (t["file_id"],))
                 from ..db.manager import log
-                log(db, "REVIEW_DECIDED", owner_id=t["owner_id"], actor=req.user["username"], decision=status, path=(f or {}).get("cur_path"))
+                log(db, "REVIEW_SKIPPED" if action == "skip" else "REVIEW_DECIDED",
+                    owner_id=t["owner_id"], actor=req.user["username"], decision=status, path=(f or {}).get("cur_path"))
     nxt = _next_review(req, r["owner_id"], r["id"]) or _next_review(req, r["owner_id"], 0)
     return JSONResponse({"ok": True, "updated": updated, "next_id": nxt["id"] if nxt else None})
 
 
 def _next_review(req: Request, owner: str, after: int) -> dict | None:
     db = need_db()
-    for row in db.query("SELECT r.id AS review_id, f.* FROM review_items r JOIN files f ON f.id=r.file_id "
-                        "WHERE r.owner_id=? AND r.status IN ('pending','needs_recheck') AND r.id>? ORDER BY r.id", (owner, after)):
-        if is_admin(req) or access.file_in_scope(common.app().settings.data_dir.as_posix(), req.user, row):
-            return {"id": row["review_id"]}
+    for row in _visible_reviews(req):
+        if row["owner_id"] == owner and row["id"] > after and review_state.status(row) in ("pending", "skipped", "needs_recheck"):
+            return {"id": row["id"]}
     return None
 
 
@@ -767,7 +776,7 @@ def review_reopen(req: Request):
     f = db.query_one("SELECT phase_org FROM files WHERE id=?", (r["file_id"],))
     if r["applied"] or f and f["phase_org"] == "done":
         fail(409, "already_applied")
-    db.execute("UPDATE review_items SET status='pending' WHERE id=?", (r["id"],))
+    db.execute("UPDATE review_items SET status='pending', skipped_at=NULL WHERE id=?", (r["id"],))
     return JSONResponse({"ok": True})
 
 
@@ -850,11 +859,12 @@ def report(req: Request):
     review_rows = [r for r in db.query(f"SELECT * FROM review_items WHERE {w}", a) if r["file_id"] in allowed_ids]
     review = []
     for r in review_rows:
-        found = next((x for x in review if x["status"] == r["status"]), None)
+        state = review_state.status(r)
+        found = next((x for x in review if x["status"] == state), None)
         if found:
             found["n"] += 1
         else:
-            review.append({"status": r["status"], "n": 1})
+            review.append({"status": state, "n": 1})
     duplicate_groups = 0
     recoverable = 0
     data_dir = common.app().settings.data_dir.as_posix()

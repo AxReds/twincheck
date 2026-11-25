@@ -8,6 +8,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Skip now postpones review, remains in pending with a skipped badge, emits `REVIEW_SKIPPED`
+  and blocks Organize at preview and confirmation. Schema 6 returns only skip-only historical
+  records to pending, preserving their skip timestamps and all genuine decisions
+  ([#62](https://github.com/AxReds/twincheck/issues/62)).
+- One shared review status drives item badges, filters, counts and Organize. Re-analysis
+  preserves skipped/kept/saved/re-check records and stable item ids instead of creating a second
+  pending record for the same file ([#63](https://github.com/AxReds/twincheck/issues/63)).
 - Confirmed schema upgrades emit one `DB_MIGRATED` event with real numeric versions;
   the re-check count is logged once at INFO and retained in the encrypted audit log
   ([#61](https://github.com/AxReds/twincheck/issues/61)).

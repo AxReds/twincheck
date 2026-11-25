@@ -29,6 +29,7 @@ let duplicateGroups = [];
 let analysisStatus = { exists: true, empty: false, stale: false, analyzed_at: '2026-11-24T20:00:00Z', active_job: null };
 let planKind = 'review_plan';
 let recheckFixture = false;
+let reviewStateFixture = null;
 let authenticated = interactive ? localStorage.getItem('fixture_signed_out') !== '1' : true;
 let rejectLogin = !interactive;
 let expiring = false;
@@ -121,6 +122,25 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/plans/1') data = {
     job: { id: 1, kind: planKind, status: 'completed' }, summary: [], items: [], apply_jobs: [], can_confirm: false,
   };
+  else if (reviewStateFixture && /^\/api\/review\/\d+$/.test(path) && opts.method === 'POST') {
+    const row = reviewStateFixture.find((r) => r.id === Number(path.split('/').at(-1)));
+    const body = JSON.parse(opts.body);
+    row.status = body.action === 'skip' ? 'skipped' : 'decided';
+    row.decision = body.action === 'skip' ? null : { date: body.date };
+    data = { updated: 1, next_id: row.id === 1 ? 2 : null };
+  }
+  else if (reviewStateFixture && /^\/api\/review\/\d+$/.test(path)) {
+    data = reviewStateFixture.find((r) => r.id === Number(path.split('/').at(-1)));
+  }
+  else if (reviewStateFixture && path === '/api/review') {
+    const status = new URL(String(url), location.href).searchParams.get('status');
+    const items = reviewStateFixture.filter((r) => status === 'all' ||
+      (status === 'pending' ? ['pending', 'skipped', 'needs_recheck'].includes(r.status) : r.status === status));
+    data = { items, total: items.length, review_counts: {
+      total: 2, pending: reviewStateFixture.filter((r) => r.status !== 'decided').length,
+      decided: reviewStateFixture.filter((r) => r.status === 'decided').length, needs_recheck: 0,
+    } };
+  }
   else if (path === '/api/review/1' && opts.method === 'POST') data = { updated: 1, next_id: null };
   else if (/^\/api\/review\/\d+$/.test(path) && opts.method !== 'POST') data = {
     file: null, fields: ['datetime_original', 'create_date', 'title'].map((field) => ({ field, candidates: [], writable: true, present: false })),
@@ -594,6 +614,33 @@ await test('B23: re-check notice preserves UTC date and exposes both confirmatio
       assert(converted ? saved.proposal.source === 'filesystem_mtime' : !saved.proposal, 'confirmation provenance is incorrect');
     }
   } finally { recheckFixture = false; await go('#/home'); }
+});
+await test('B28/B30: re-analysis retains skip and decisions in badge, filters and counts', async () => {
+  reviewStateFixture = [1, 2].map((id) => ({
+    id, file_id: id, kind: 'no_date', status: 'pending', fields: [], details: {}, proposals: [],
+    file: { name: 'synthetic-' + id + '.jpg', folder: 'lib', path: 'lib/synthetic-' + id + '.jpg', media_kind: 'image' },
+  }));
+  try {
+    const { post } = await import('../frontend/static/js/api.js');
+    await post('/api/review/1', { action: 'skip' });
+    await post('/api/review/2', { action: 'save', date: '2001-02-03T04:05:06' });
+    await post('/api/library/analyze', { source_id: 'synthetic' });
+    await post('/api/library/analyze', { source_id: 'synthetic' });
+    await go('#/metadata/review/1');
+    assert(document.querySelector('.review-head').textContent.includes(t('review.status.skipped')), 'skipped item badge reset');
+    await go('#/metadata/review/2');
+    assert(document.querySelector('.review-head').textContent.includes(t('review.status.decided')), 'decided item badge reset');
+    await go('#/metadata/review');
+    assert(document.querySelector('main').textContent.includes('synthetic-1.jpg') &&
+      !document.querySelector('main').textContent.includes('synthetic-2.jpg'), 'pending list disagrees with badges');
+    const summary = document.querySelector('main .summary').textContent;
+    const select = document.querySelector('main select');
+    select.value = 'decided'; select.dispatchEvent(new Event('change')); await sleep();
+    assert(!document.querySelector('main').textContent.includes('synthetic-1.jpg') &&
+      document.querySelector('main').textContent.includes('synthetic-2.jpg'), 'decided list disagrees with badges');
+    assert(document.querySelector('main .summary').textContent === summary, 'status filter changes counts');
+    assert(document.documentElement.scrollWidth <= innerWidth, 'review status overflows viewport');
+  } finally { reviewStateFixture = null; await go('#/home'); }
 });
 await test('B19: login version ON/OFF uses public bootstrap only and fits both themes', async () => {
   const { renderLogin } = await import('../frontend/static/js/views/login.js');

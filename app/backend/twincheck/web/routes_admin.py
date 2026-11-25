@@ -495,7 +495,7 @@ def db_migrate_schema(req: Request):
         with core.vault.transaction() as data:
             audit(data, req.user["username"], "DB_MIGRATED", from_version=from_version, to_version=CURRENT_VERSION)
             for entry in core.db.query("SELECT event, params FROM run_log WHERE id>? "
-                                       "AND event='DECISIONS_FLAGGED_FOR_RECHECK'", (last_log,)):
+                                       "AND event IN ('DECISIONS_FLAGGED_FOR_RECHECK','REVIEW_SKIPS_RETURNED_TO_PENDING')", (last_log,)):
                 audit(data, req.user["username"], entry["event"], **json.loads(entry["params"]))
     core.jobs.start()
     return JSONResponse({"ok": True})

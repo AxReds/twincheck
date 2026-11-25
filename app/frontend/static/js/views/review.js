@@ -38,7 +38,8 @@ export async function list(main, state, options = {}) {
     counts.textContent = reviewCounts(d.review_counts);
     mount(box, d.items.length ? table(['review.col_kind', 'review.col_file', 'review.col_folder', 'review.col_date', ''],
       d.items.map((r) => h('tr', {}, h('td', {}, badge(t('review.kind.' + r.kind), 'warn')),
-        h('td', {}, r.file ? h('code', {}, r.file.name) : h('code', {}, r.details.path || '')),
+        h('td', {}, r.file ? h('code', {}, r.file.name) : h('code', {}, r.details.path || ''),
+          r.status === 'skipped' ? [' ', badge(t('review.status.skipped'), 'warn')] : null),
         h('td', {}, r.file ? h('code', {}, r.file.folder) : ''),
         h('td', {}, r.file ? fmt.localDate(r.file.chosen_date) : ''),
         h('td', {}, h('a', { class: 'btn small', href: '#/metadata/review/' + r.id }, t('review.open')))))) : h('p', { class: 'muted' }, t('review.empty')),

@@ -35,7 +35,7 @@ from dataclasses import dataclass
 from .. import VERSION
 from .engine import Database, DBError
 
-CURRENT_VERSION = 5
+CURRENT_VERSION = 6
 
 SQLITE_TYPES = {
     "pk": "INTEGER PRIMARY KEY AUTOINCREMENT", "int": "INTEGER", "bool": "INTEGER", "float": "REAL",
@@ -160,6 +160,10 @@ MIGRATIONS: dict[int, list[tuple]] = {
         ("column", "files", C("device", "int")),
         ("column", "files", C("file_changed_at", "ts")),
     ],
+    6: [
+        ("column", "review_items", C("skipped_at", "ts")),
+        ("postponed_reviews",),
+    ],
 }
 
 # tables that make up the operational state (exported / migrated, in this order)
@@ -216,6 +220,30 @@ def _apply_op(db: Database, op: tuple) -> None:
         db.execute(f"CREATE {'UNIQUE ' if unique else ''}INDEX {name} ON {table} ({', '.join(cols)})")
     elif kind == "recheck":
         _flag_historical_decisions(db)
+    elif kind == "postponed_reviews":
+        _return_skip_only_reviews_to_pending(db)
+
+
+def _return_skip_only_reviews_to_pending(db: Database) -> None:
+    from .manager import log
+
+    count, last = 0, 0
+    with db.transaction():
+        while True:
+            rows = db.query("SELECT * FROM review_items WHERE status='skipped' AND applied=0 "
+                            "AND recheck_reason IS NULL AND id>? ORDER BY id LIMIT 500", (last,))
+            if not rows:
+                break
+            for row in rows:
+                last = row["id"]
+                decision = json.loads(row["decision"] or "{}")
+                if decision.get("date") or any((decision.get("fields") or {}).values()):
+                    continue
+                db.execute("UPDATE review_items SET status='pending', skipped_at=COALESCE(decided_at,created_at,?), "
+                           "decision=NULL WHERE id=?", (utcnow(), row["id"]))
+                count += 1
+        if count:
+            log(db, "REVIEW_SKIPS_RETURNED_TO_PENDING", echo=True, count=count)
 
 
 def _flag_historical_decisions(db: Database) -> None:

@@ -25,6 +25,7 @@ from ..exif import ExifError, ExifTool
 from ..fsutil import path_hash, sha256_file
 from ..jobs import JobContext, register
 from .companions import group_directory
+from . import review_state
 
 FIELDS = ["datetime_original", "create_date", "modify_date", "offset", "gps", "make", "model", "orientation",
           "dimensions", "duration", "title", "description"]
@@ -347,6 +348,15 @@ def analyse_file(f: dict, own: dict, sidecars: list[dict], enabled: set[str], li
 
 
 def _add_review(db, f: dict, kind: str, details: dict, proposals: list, job_id: int) -> None:
+    existing = db.query_one("SELECT * FROM review_items WHERE file_id=? AND owner_id=? "
+                            "AND (kind=? OR skipped_at IS NOT NULL) ORDER BY id LIMIT 1",
+                            (f["id"], f["owner_id"], kind))
+    if existing:
+        if review_state.status(existing) == "pending":
+            db.execute("UPDATE review_items SET details=?, proposals=?, job_id=? WHERE id=?",
+                       (json.dumps(details, ensure_ascii=False), json.dumps(proposals, ensure_ascii=False),
+                        job_id, existing["id"]))
+        return
     db.execute(
         "INSERT INTO review_items (owner_id, file_id, kind, details, proposals, status, created_at, job_id, group_key, applied) "
         "VALUES (?,?,?,?,?,?,?,?,?,?)",
@@ -388,8 +398,7 @@ def ensure_capture_dates(ctx: JobContext, rows: list[dict]) -> int:
             else:
                 sidecars.append(takeout_candidates(path))
         result = analyse_file(row, own, sidecars, set(), ctx.app.library_timezone)
-        decided = ctx.db.query_one("SELECT id FROM review_items WHERE file_id=? AND decision IS NOT NULL "
-                                   "AND (status='saved' OR recheck_reason IS NOT NULL)", (row["id"],))
+        decided = review_state.preserves_decision(ctx.db, row["id"])
         if decided:
             result.update(chosen=row["chosen_date"], chosen_source=row["chosen_date_source"], flags=row["date_flags"])
         stored = {"fields": result["fields"], "fills": {}, "proposals": result["proposals"]}
@@ -473,12 +482,13 @@ def metadata_analyze(ctx: JobContext) -> dict:
                 except ValueError:
                     pass
             with db.transaction():
-                db.execute("DELETE FROM review_items WHERE file_id=? AND status='pending' AND kind IN ('meta_conflict','no_date','date_utc')",
-                           (r["id"],))
+                current_kind = "meta_conflict" if res["conflicts"] else "no_date" if not res["chosen"] else "date_utc" if res["flags"] == "utc_ambiguous" else ""
+                db.execute("DELETE FROM review_items WHERE file_id=? AND status='pending' AND skipped_at IS NULL "
+                           "AND decision IS NULL AND kind IN ('meta_conflict','no_date','date_utc') AND kind<>?",
+                           (r["id"], current_kind))
                 db.execute("DELETE FROM plan_items WHERE plan_job_id=? AND file_id=?", (ctx.id, r["id"]))
                 status = r["status"]
-                decided = db.query_one("SELECT id FROM review_items WHERE file_id=? AND decision IS NOT NULL "
-                                       "AND (status='saved' OR recheck_reason IS NOT NULL)", (r["id"],))
+                decided = review_state.preserves_decision(db, r["id"])
                 if res["conflicts"] and not decided:
                     _add_review(db, r, "meta_conflict", {"fields": res["conflicts"]}, res["proposals"], ctx.id)
                     stats["review"] += 1
@@ -501,7 +511,7 @@ def metadata_analyze(ctx: JobContext) -> dict:
                            "chosen_date_source=CASE WHEN ? THEN chosen_date_source ELSE ? END, date_flags=?, phase_meta='analysed', "
                            "status=?, duration_s=?, meta_before=COALESCE(meta_before, ?), updated_at=? WHERE id=?",
                            (json.dumps({"fields": res["fields"], "fills": res["fills"], "proposals": res["proposals"]}, ensure_ascii=False),
-                            1 if decided else 0, res["chosen"], 1 if decided else 0, res["chosen_source"], res["flags"],
+                            1 if decided else 0, res["chosen"], 1 if decided else 0, res["chosen_source"], r["date_flags"] if decided else res["flags"],
                             status, duration, json.dumps(raw_subset, ensure_ascii=False), utcnow(), r["id"]))
             stats["analysed"] += 1
             ctx.progress(done=stats["analysed"], total=total, phase="metadata")
