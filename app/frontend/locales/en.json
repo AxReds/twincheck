@@ -809,6 +809,7 @@
     "review.status.decided": "Decided",
     "review.status.all": "All",
     "meta.review_population": "Review queue: {items} items for {files} current files across all assigned folders. Analysis counts above describe the latest selected-folder run.",
-    "meta.analysis_summary": "Latest analysis: {analysed} files analysed · {fills} metadata fills"
+    "meta.analysis_summary": "Latest analysis: {analysed} files analysed · {fills} metadata fills",
+    "db.update_required": "Database update required. Contact an administrator."
   }
 }

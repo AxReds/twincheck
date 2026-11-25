@@ -33,6 +33,13 @@ export function stepGuide(current, status) {
       : h('a', { href }, status?.exists && number < current ? t('analysis.step_done', { step: t(label) }) : t(label)))));
 }
 
+export function databaseNotice(state) {
+  return h('div', { class: 'notice warn database-notice', role: 'status' },
+    state.perms.switch_database
+      ? h('a', { href: '#/admin/database' }, t('db.update_required'))
+      : t('db.update_required'));
+}
+
 export function jobCard(job, onChange) {
   const actions = [];
   if (job.status === 'running' || job.status === 'queued') actions.push(button('job.pause', () => act(job, 'pause', onChange)));

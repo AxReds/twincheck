@@ -2,7 +2,7 @@
 import { h, mount, clear, toast } from './dom.js';
 import { t, fmt, setLanguage, listLocales, browserLanguage, onLanguage, currentLang } from './i18n.js';
 import { get, post, setCsrf } from './api.js';
-import { poll, stopPolling, resumePolling } from './components.js';
+import { poll, stopPolling, resumePolling, databaseNotice } from './components.js';
 import { setThemeUser, themeSelect, themeToggle } from './theme.js';
 import { icon } from './icons.js';
 import { renderSetup } from './views/setup.js';
@@ -97,8 +97,11 @@ async function renderShell() {
     toggle, metrics, h('div', { class: 'header-actions' }, themeToggle(), userMenu()));
   const nav = h('nav', { class: 'mainnav', 'aria-label': t('nav.label') },
     NAV.map(([href, key, name]) => h('a', { href, title: t(key), 'aria-label': t(key) }, icon(name), h('span', { class: 'nav-label' }, t(key)))));
-  shell = { header, nav, main, metrics };
-  mount(root, header, nav, main);
+  const databaseBanner = databaseNotice(state);
+  databaseBanner.classList.add('content');
+  databaseBanner.hidden = state.boot.db?.connected !== false;
+  shell = { header, nav, main, metrics, databaseBanner };
+  mount(root, header, nav, databaseBanner, main);
   stopMetrics();
   resumePolling();
   state.stopMetrics = poll(refreshMetrics, 5000);
@@ -172,6 +175,8 @@ let lastMetrics = null;
 async function refreshMetrics() {
   const m = await get('/api/sysinfo');
   lastMetrics = m;
+  state.boot.db = m.database;
+  if (shell?.databaseBanner) shell.databaseBanner.hidden = m.database?.connected !== false;
   drawMetrics();
 }
 

@@ -821,6 +821,7 @@
     "review.status.decided": "Décidés",
     "review.status.all": "Tous",
     "meta.review_population": "File de révision : {items} éléments pour {files} fichiers actuels dans tous les dossiers attribués. Les nombres ci-dessus décrivent la dernière analyse du dossier sélectionné.",
-    "meta.analysis_summary": "Dernière analyse : {analysed} fichiers analysés · {fills} métadonnées complétées"
+    "meta.analysis_summary": "Dernière analyse : {analysed} fichiers analysés · {fills} métadonnées complétées",
+    "db.update_required": "Mise à jour de la base de données requise. Contactez un administrateur."
   }
 }

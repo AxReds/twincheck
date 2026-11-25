@@ -2,7 +2,7 @@
 import { h, mount, button, field, table, modal, toast, badge, instant } from '../dom.js';
 import { t, fmt } from '../i18n.js';
 import { get, post } from '../api.js';
-import { jobList, sourceSelect, folderBrowser, kv, pager, poll, jobBadge, stepGuide, waitForJob } from '../components.js';
+import { jobList, sourceSelect, folderBrowser, kv, pager, poll, jobBadge, stepGuide, waitForJob, databaseNotice } from '../components.js';
 import { reviewCounts, list as reviewQueue } from './review.js';
 
 function page(main, titleKey, introKey, ...body) {
@@ -68,6 +68,10 @@ export async function home(main, state) {
   page(main, 'home.title', 'home.intro',
     h('ol', { class: 'flow' }, steps.map(([href, k, d]) => h('li', {}, h('a', { href }, t(k)), h('p', {}, t(d))))),
     h('h2', {}, t('home.summary')), summary, h('h2', {}, t('home.open_jobs')));
+  if (state.boot.db?.connected === false) {
+    mount(summary, databaseNotice(state));
+    return;
+  }
   try {
     const r = await get('/api/report');
     const total = r.files.reduce((a, x) => a + x.n, 0);

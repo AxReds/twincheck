@@ -99,7 +99,7 @@ window.fetch = async (url, opts = {}) => {
   }
   let data;
   if (path === '/api/locales') data = [{ code: 'en', name: 'English' }, { code: 'it', name: 'Italiano' }];
-  else if (path === '/api/bootstrap') data = { authenticated, user: authenticated ? user : null, permissions };
+  else if (path === '/api/bootstrap') data = { authenticated, user: authenticated ? user : null, permissions, db: metrics.database };
   else if (path === '/api/sysinfo') data = metrics;
   else if (path === '/api/me/theme') {
     user.theme = JSON.parse(opts.body).theme;
@@ -668,6 +668,22 @@ await test('B27: all rendered pages use numeric 24-hour dates with instant offse
       }
     }
   } finally { jobFixture = []; await go('#/home'); }
+});
+await test('U17: database-required banner explains the problem to every role', async () => {
+  const { databaseNotice } = await import('../frontend/static/js/components.js');
+  for (const admin of [false, true]) {
+    const notice = databaseNotice({ perms: { switch_database: admin } });
+    assert(notice.textContent === t('db.update_required'), 'database explanation differs by role');
+    assert(admin ? notice.querySelector('a')?.getAttribute('href') === '#/admin/database' :
+      !notice.querySelector('a'), 'database migration link permission is wrong');
+  }
+  const old = app.state.boot.db;
+  app.state.boot.db = { connected: false, error: 'needs_migration' };
+  try {
+    await go('#/home');
+    assert(document.querySelector('main .database-notice')?.textContent === t('db.update_required'),
+      'Home still has a vague database error');
+  } finally { app.state.boot.db = old; await go('#/home'); }
 });
 await test('B19: login version ON/OFF uses public bootstrap only and fits both themes', async () => {
   const { renderLogin } = await import('../frontend/static/js/views/login.js');

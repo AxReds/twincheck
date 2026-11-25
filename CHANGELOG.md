@@ -8,6 +8,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Every signed-in user sees an unavailable/outdated-database banner; administrators can open
+  Administration → Database directly. Home uses the same explanation
+  ([#65](https://github.com/AxReds/twincheck/issues/65)).
 - Every displayed date/time uses locale-independent `yyyy-mm-dd hh:mm:ss` (24-hour).
   Operational instants remain browser-local with offset/timezone on hover; capture wall-clock
   values stay unshifted and CSV retains ISO 8601 ([#58](https://github.com/AxReds/twincheck/issues/58)).

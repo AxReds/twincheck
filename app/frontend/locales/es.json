@@ -821,6 +821,7 @@
     "review.status.decided": "Decididos",
     "review.status.all": "Todos",
     "meta.review_population": "Cola de revisión: {items} elementos para {files} archivos actuales en todas las carpetas asignadas. Los recuentos anteriores describen el último análisis de la carpeta seleccionada.",
-    "meta.analysis_summary": "Último análisis: {analysed} archivos analizados · {fills} metadatos completados"
+    "meta.analysis_summary": "Último análisis: {analysed} archivos analizados · {fills} metadatos completados",
+    "db.update_required": "Se requiere actualizar la base de datos. Contacta con un administrador."
   }
 }

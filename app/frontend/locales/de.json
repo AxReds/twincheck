@@ -808,6 +808,7 @@
     "review.status.decided": "Entschieden",
     "review.status.all": "Alle",
     "meta.review_population": "Prüfwarteschlange: {items} Einträge für {files} aktuelle Dateien in allen zugewiesenen Ordnern. Die Zahlen oben beschreiben die letzte Analyse des ausgewählten Ordners.",
-    "meta.analysis_summary": "Letzte Analyse: {analysed} Dateien analysiert · {fills} Metadaten ergänzt"
+    "meta.analysis_summary": "Letzte Analyse: {analysed} Dateien analysiert · {fills} Metadaten ergänzt",
+    "db.update_required": "Datenbankaktualisierung erforderlich. Wenden Sie sich an einen Administrator."
   }
 }
