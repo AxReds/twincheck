@@ -71,21 +71,23 @@ def index_dir(ctx: JobContext, source_id: str, files: list, scan_job: int) -> in
                 continue
             p = e.path
             ph = path_hash(p)
-            row = db.query_one("SELECT id, size, mtime_ns FROM files WHERE owner_id=? AND cur_path_hash=?", (ctx.owner_id, ph))
+            row = db.query_one("SELECT id, size, mtime_ns, inode, device, present FROM files WHERE owner_id=? AND cur_path_hash=?", (ctx.owner_id, ph))
             if row:
-                if row["size"] != st.st_size or row["mtime_ns"] != st.st_mtime_ns:
+                if (row["size"] != st.st_size or row["mtime_ns"] != st.st_mtime_ns or not row["present"]
+                        or row["inode"] is not None and (row["inode"], row["device"]) != (st.st_ino, st.st_dev)):
                     db.execute("UPDATE files SET size=?, mtime_ns=?, sha256=NULL, phase_hash='pending', phase_meta='pending', "
-                               "present=1, last_scan_job=?, source_id=?, updated_at=? WHERE id=?",
-                               (st.st_size, st.st_mtime_ns, scan_job, source_id, now, row["id"]))
+                               "present=1, last_scan_job=?, source_id=?, inode=?, device=?, file_changed_at=?, updated_at=? WHERE id=?",
+                               (st.st_size, st.st_mtime_ns, scan_job, source_id, st.st_ino, st.st_dev, now, now, row["id"]))
                 else:
-                    db.execute("UPDATE files SET present=1, last_scan_job=?, source_id=? WHERE id=?", (scan_job, source_id, row["id"]))
+                    db.execute("UPDATE files SET present=1, last_scan_job=?, source_id=?, inode=?, device=? WHERE id=?",
+                               (scan_job, source_id, st.st_ino, st.st_dev, row["id"]))
             else:
                 db.execute(
                     "INSERT INTO files (owner_id, source_id, orig_path, orig_path_hash, cur_path, cur_path_hash, name, ext, size, "
-                    "mtime_ns, media_kind, status, phase_scan, phase_hash, phase_meta, phase_org, present, last_scan_job, first_seen, updated_at) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "mtime_ns, media_kind, status, phase_scan, phase_hash, phase_meta, phase_org, present, last_scan_job, first_seen, updated_at, inode, device, file_changed_at) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (ctx.owner_id, source_id, p, ph, p, ph, e.name, ext_of(e.name), st.st_size, st.st_mtime_ns, kind, "indexed",
-                     "done", "pending", "pending", "pending", 1, scan_job, now, now),
+                     "done", "pending", "pending", "pending", 1, scan_job, now, now, st.st_ino, st.st_dev, now),
                 )
             n += 1
     return n
@@ -129,7 +131,7 @@ def scan_job(ctx: JobContext) -> dict:
                 if partial and not any(is_within(r["cur_path"], root) for root in roots):
                     continue
                 if not os.path.lexists(r["cur_path"]):
-                    db.execute("UPDATE files SET present=0, updated_at=? WHERE id=?", (utcnow(), r["id"]))
+                    db.execute("UPDATE files SET present=0, file_changed_at=?, updated_at=? WHERE id=?", (utcnow(), utcnow(), r["id"]))
                     ctx.log("FILE_MISSING", level="WARNING", path=r["cur_path"])
                     missing += 1
                 else:

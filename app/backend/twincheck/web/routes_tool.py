@@ -8,11 +8,12 @@ import os
 import time
 
 from ..db.schema import utcnow
-from ..fsutil import PathError
+from ..fsutil import PathError, media_kind, is_within
 from ..previews import ensure as ensure_preview
 from ..services import access
 from ..services.dedupe import group_capture_date, group_members, keeper_decision, set_keeper
 from ..services.metadata import FIELDS, WRITABLE, date_candidate, field_table, mtime_proposal, parse_dt
+from ..services.scan import iter_dirs
 from . import common
 from .app import router
 from .common import disp, fail, is_admin, need_db, own_row, owner_filter, paging, require, scoped_file, scoped_rows
@@ -248,15 +249,46 @@ def library_status(req: Request):
     latest = db.query_one(f"SELECT * FROM jobs WHERE {where} AND status='completed' ORDER BY id DESC LIMIT 1", args)
     active = db.query_one(f"SELECT id, status, phase, progress_done, progress_total, checkpoint FROM jobs "
                           f"WHERE {where} AND status IN ('queued','running','paused','interrupted') ORDER BY id DESC LIMIT 1", args)
-    stale = False
+    changes = {"new": 0, "changed": 0, "removed": 0}
     if latest:
-        latest_changed = db.query_one(
-            "SELECT MAX(updated_at) AS changed_at FROM files WHERE owner_id=? AND present=1" +
-            (" AND source_id=?" if source_id else ""), ([owner, source_id] if source_id else [owner]))
-        stale = bool(latest_changed and latest_changed["changed_at"] and
-                     latest_changed["changed_at"] > latest["finished_at"])
+        core = common.app()
+        params = json.loads(latest["params"] or "{}")
+        roots = params.get("roots") or [params.get("root")]
+        roots = [root for root in roots if root and access.path_in_scope(core.settings.data_dir.as_posix(), req.user, root)]
+        rows = db.query("SELECT * FROM files WHERE owner_id=?", (owner,))
+        rows = [row for row in rows if any(is_within(row["cur_path"], root) for root in roots)
+                and access.file_in_scope(core.settings.data_dir.as_posix(), req.user, row)]
+        indexed = {row["cur_path"]: row for row in rows}
+        patterns = core.settings_section("scan").get("exclude", [])
+        seen = set()
+        for root in roots:
+            for _, _, entries in iter_dirs(root, patterns):
+                for entry in entries:
+                    if media_kind(entry.name) == "other" or entry.path in seen:
+                        continue
+                    seen.add(entry.path)
+                    row = indexed.get(entry.path)
+                    if not row or not row["present"]:
+                        changes["new"] += 1
+                        continue
+                    try:
+                        st = entry.stat(follow_symlinks=False)
+                    except OSError:
+                        continue  # read warnings alone do not invalidate a completed analysis
+                    if ((st.st_size, st.st_mtime_ns) != (row["size"], row["mtime_ns"])
+                            or row["inode"] is not None and (st.st_ino, st.st_dev) != (row["inode"], row["device"])
+                            or row["file_changed_at"] and row["file_changed_at"] > latest["finished_at"]):
+                        changes["changed"] += 1
+        for row in rows:
+            if row["cur_path"] in seen:
+                continue
+            if row["present"] and not os.path.lexists(row["cur_path"]) or not row["present"] and (
+                    row["file_changed_at"] and row["file_changed_at"] > latest["finished_at"]):
+                changes["removed"] += 1
+    incomplete = bool(active and active["status"] in ("paused", "interrupted"))
+    stale = bool(any(changes.values()) or incomplete)
     return JSONResponse({"exists": bool(latest), "empty": not bool(latest),
-                         "stale": stale or bool(active and active["status"] in ("paused", "interrupted")),
+                         "stale": stale, "changes": changes, "incomplete": incomplete,
                          "analyzed_at": latest["finished_at"] if latest else None,
                          "active_job": ({k: active[k] for k in ("id", "status", "phase", "progress_done", "progress_total")}
                                         if active else None)})

@@ -237,8 +237,8 @@ def run_move_plan(ctx: JobContext) -> dict:
                     status_sql = {"organize": "status=CASE WHEN status IN ('indexed','unique','normalized','review') THEN 'moved' ELSE status END, phase_org='done'",
                                   "dup_move": "status='dup_moved'",
                                   "undo_move": "status=CASE WHEN status='dup_moved' THEN 'duplicate' ELSE 'unique' END, phase_org='pending'"}[item["kind"]]
-                    db.execute(f"UPDATE files SET cur_path=?, cur_path_hash=?, name=?, {status_sql}, updated_at=? WHERE id=?",
-                               (e["dst"], path_hash(e["dst"]), os.path.basename(e["dst"]), utcnow(), e["file_id"]))
+                    db.execute(f"UPDATE files SET cur_path=?, cur_path_hash=?, name=?, {status_sql}, file_changed_at=?, updated_at=? WHERE id=?",
+                               (e["dst"], path_hash(e["dst"]), os.path.basename(e["dst"]), utcnow(), utcnow(), e["file_id"]))
                 if item["kind"] == "undo_move" and idx == 0 and payload.get("manifest_id"):
                     db.execute("UPDATE manifest SET undone_at=?, undo_job_id=? WHERE id=?", (utcnow(), ctx.id, payload["manifest_id"]))
                 if item["kind"] == "undo_move" and idx > 0 and e.get("manifest_id"):

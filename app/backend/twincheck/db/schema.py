@@ -35,7 +35,7 @@ from dataclasses import dataclass
 from .. import VERSION
 from .engine import Database, DBError
 
-CURRENT_VERSION = 4
+CURRENT_VERSION = 5
 
 SQLITE_TYPES = {
     "pk": "INTEGER PRIMARY KEY AUTOINCREMENT", "int": "INTEGER", "bool": "INTEGER", "float": "REAL",
@@ -154,6 +154,11 @@ MIGRATIONS: dict[int, list[tuple]] = {
         ("column", "review_items", C("decision_provenance", "text")),
         ("column", "review_items", C("recheck_reason", "key")),
         ("recheck",),
+    ],
+    5: [
+        ("column", "files", C("inode", "int")),
+        ("column", "files", C("device", "int")),
+        ("column", "files", C("file_changed_at", "ts")),
     ],
 }
 

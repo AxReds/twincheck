@@ -61,6 +61,11 @@ choices and already organized/applied decisions remain untouched. Organize skips
 files (including at confirmation) until the owner explicitly confirms or changes the date.
 One `DECISIONS_FLAGGED_FOR_RECHECK` event summarizes the migration.
 
+Schema migration 5 separates `files.file_changed_at`, inode and device from ordinary
+record updates. The stale-analysis check compares current scoped paths, sizes, mtimes
+and inode/device against the index, including new and removed files. Saving a review
+decision or logging a per-file read warning does not invalidate a completed analysis.
+
 Operational instants are stored and serialized as ISO 8601 UTC values ending in `Z`. The browser
 renders job, log, file-system, report and manifest instants in its local timezone. EXIF capture
 dates without a timezone are local wall-clock values and are rendered without conversion. A capture

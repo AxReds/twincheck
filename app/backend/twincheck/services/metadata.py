@@ -557,9 +557,10 @@ def apply_fill(ctx: JobContext, item: dict, et: ExifTool) -> str:
     sha_after = sha256_file(f["cur_path"])
     with db.transaction():
         db.execute("UPDATE manifest SET sha256_after=? WHERE id=?", (sha_after, mid))
-        db.execute("UPDATE files SET sha256=?, size=?, mtime_ns=?, meta_after=?, status=CASE WHEN status IN ('indexed','unique') "
+        db.execute("UPDATE files SET sha256=?, size=?, mtime_ns=?, meta_after=?, inode=?, device=?, file_changed_at=?, status=CASE WHEN status IN ('indexed','unique') "
                    "THEN 'normalized' ELSE status END, phase_meta='done', updated_at=? WHERE id=?",
-                   (sha_after, st2.st_size, st2.st_mtime_ns, json.dumps(tags, ensure_ascii=False, default=str), utcnow(), f["id"]))
+                   (sha_after, st2.st_size, st2.st_mtime_ns, json.dumps(tags, ensure_ascii=False, default=str),
+                    st2.st_ino, st2.st_dev, utcnow(), utcnow(), f["id"]))
         ctx.log("META_WRITTEN", path=f["cur_path"], tags=", ".join(sorted(tags)))
     return "done"
 

@@ -134,3 +134,32 @@ class ReviewDates(unittest.TestCase):
         self.assertEqual(self.admin.patch("/api/admin/settings", {"library_timezone": "../etc/passwd"}).status, 400)
         self.assertEqual(self.inst.core.library_timezone, "Europe/Rome")
         self.assertTrue(any(e["event"] == "SETTING_CHANGED" for e in self.inst.core.vault.snapshot()["audit"]))
+
+    def test_stale_only_for_disk_changes_not_decisions_or_unreadable_warning(self):
+        status = lambda: self.user.get("/api/library/status").json()
+        self.assertFalse(status()["stale"])
+        item = self.user.get("/api/review").json()["items"][0]
+        self.assertEqual(self.user.post("/api/review/" + str(item["id"]),
+                                       {"action": "save", "date": "2000-01-02T03:04:05"}).status, 200)
+        self.assertFalse(status()["stale"], "database-only review decision does not change the file")
+        root = self.inst.data / "lib"
+        unreadable = root / "unreadable.jpg"
+        write(unreadable, jpeg_bytes(309))
+        unreadable.chmod(0)
+        try:
+            self.run_job("/api/library/analyze", {"source_id": self.sid})
+            self.assertFalse(status()["stale"], "FILE_UNREADABLE does not invalidate completed analysis")
+            target = root / "other.jpg"
+            old = target.stat()
+            os.utime(target, ns=(old.st_atime_ns, old.st_mtime_ns + 10**9))
+            self.assertEqual(status()["changes"]["changed"], 1)
+            self.run_job("/api/library/analyze", {"source_id": self.sid})
+            self.assertFalse(status()["stale"])
+            new = root / "new.jpg"
+            write(new, jpeg_bytes(310))
+            self.assertEqual(status()["changes"]["new"], 1)
+            self.run_job("/api/library/analyze", {"source_id": self.sid})
+            new.unlink()
+            self.assertEqual(status()["changes"]["removed"], 1)
+        finally:
+            unreadable.chmod(0o600)
