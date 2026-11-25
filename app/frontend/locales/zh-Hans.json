@@ -796,6 +796,8 @@
     "review.status.all": "全部",
     "meta.review_population": "审核队列：所有已分配文件夹中 {files} 个当前文件的 {items} 个审核项。上方统计描述最近一次所选文件夹的分析。",
     "meta.analysis_summary": "最近分析：已分析 {analysed} 个文件 · {fills} 项元数据补全",
-    "db.update_required": "需要更新数据库。请联系管理员。"
+    "db.update_required": "需要更新数据库。请联系管理员。",
+    "settings.timezone_search": "搜索时区",
+    "settings.timezone_offset_hint": "显示当前 UTC 偏移量，会随夏令时变化。用于整理日期，不更改原始 EXIF。"
   }
 }

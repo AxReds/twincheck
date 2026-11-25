@@ -165,6 +165,15 @@ window.fetch = async (url, opts = {}) => {
     current: { type: 'sqlite', path: '/state/synthetic.sqlite3' }, status: { connected: true, schema_version: 6 },
     info: { last_update: '2026-11-24T20:00:00Z', db_id: 'synthetic', files: 2, open_jobs: 0 }, previous: [],
   };
+  else if (path === '/api/admin/settings') data = opts.method === 'PATCH' ? { ok: true } : {
+    settings: { organize: { no_date_folder: 'No_date', duplicates_folder: 'Duplicates' }, scan: { exclude: [] },
+      metadata: { fields: [] }, previews: { transcode_height: 720, crf: 28 }, default_lang: 'en',
+      library_timezone: 'Europe/Rome', show_version_on_login: true },
+    locales: [{ code: 'en', name: 'English' }], timezones: [
+      { name: 'UTC', offset: '+00:00' }, { name: 'Europe/Rome', offset: '+01:00' },
+      { name: 'Asia/Kathmandu', offset: '+05:45' },
+    ],
+  };
   else if (path === '/api/duplicates') data = { groups: duplicateGroups, total: duplicateGroups.length, recoverable: 12 };
   else throw new Error('Unmocked request: ' + url);
   requests.push({ url: String(url), body: opts.body && JSON.parse(opts.body), at: performance.now() });
@@ -684,6 +693,21 @@ await test('U17: database-required banner explains the problem to every role', a
     assert(document.querySelector('main .database-notice')?.textContent === t('db.update_required'),
       'Home still has a vague database error');
   } finally { app.state.boot.db = old; await go('#/home'); }
+});
+await test('U18: searchable timezone selector preserves the saved zone and shows offsets', async () => {
+  await go('#/admin/settings');
+  const select = document.querySelector('.timezone-select');
+  assert(select.value === 'Europe/Rome', 'saved timezone is not selected');
+  assert(select.selectedOptions[0].textContent === 'Europe/Rome (UTC+01:00)', 'timezone offset not shown');
+  const search = document.querySelector('.timezone-search');
+  search.value = 'Kathmandu'; search.dispatchEvent(new Event('input'));
+  assert(select.options.length === 2 && select.value === 'Europe/Rome', 'filter loses saved selection');
+  select.value = 'Asia/Kathmandu';
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('common.save')).click();
+  await sleep();
+  assert(requests.filter((r) => r.url === '/api/admin/settings' && r.body).at(-1).body.library_timezone === 'Asia/Kathmandu',
+    'timezone save did not send the IANA name');
+  await go('#/home');
 });
 await test('B19: login version ON/OFF uses public bootstrap only and fits both themes', async () => {
   const { renderLogin } = await import('../frontend/static/js/views/login.js');

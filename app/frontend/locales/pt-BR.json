@@ -822,6 +822,8 @@
     "review.status.all": "Todos",
     "meta.review_population": "Fila de revisão: {items} itens para {files} arquivos atuais em todas as pastas atribuídas. As contagens acima descrevem a última análise da pasta selecionada.",
     "meta.analysis_summary": "Última análise: {analysed} arquivos analisados · {fills} metadados preenchidos",
-    "db.update_required": "Atualização do banco de dados necessária. Contate um administrador."
+    "db.update_required": "Atualização do banco de dados necessária. Contate um administrador.",
+    "settings.timezone_search": "Pesquisar fusos horários",
+    "settings.timezone_offset_hint": "Os desvios atuais são mostrados e mudam com o horário de verão. Usado para organizar datas; o EXIF original não muda."
   }
 }

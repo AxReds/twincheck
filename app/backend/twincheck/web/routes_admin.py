@@ -5,7 +5,8 @@ import json
 import os
 import re
 import secrets
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 
 from .. import events, i18n
 from ..crypto import KeyError_, generate_key, parse_key
@@ -233,6 +234,15 @@ def get_settings(req: Request):
            "library_timezone" not in d["settings"] and core.settings.library_timezone_notice,
            "security": d["security"] if access.can(req.user, "security_settings") else None,
            "locales": i18n.listing(core.settings.locales_dir, core.settings.state_locales_dir)}
+    if req.user["role"] == "admin":
+        now = datetime.now(timezone.utc)
+        zones = []
+        for name in sorted(available_timezones()):
+            offset = now.astimezone(ZoneInfo(name)).utcoffset()
+            minutes = int(offset.total_seconds() / 60)
+            sign = "-" if minutes < 0 else "+"
+            zones.append({"name": name, "offset": f"{sign}{abs(minutes) // 60:02d}:{abs(minutes) % 60:02d}"})
+        out["timezones"] = zones
     return JSONResponse(out)
 
 

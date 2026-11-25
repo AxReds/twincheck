@@ -151,7 +151,19 @@ export async function settings(main, state) {
   const height = h('input', { type: 'number', min: '240', max: '2160', value: String(s.previews.transcode_height) });
   const crf = h('input', { type: 'number', min: '18', max: '40', value: String(s.previews.crf) });
   const lang = h('select', { disabled: !state.perms.security_settings }, d.locales.map((l) => h('option', { value: l.code, selected: l.code === s.default_lang }, l.name)));
-  const timezone = state.user.role === 'admin' ? h('input', { type: 'text', value: s.library_timezone }) : null;
+  const timezone = state.user.role === 'admin' ? h('select', { class: 'timezone-select' }) : null;
+  const timezoneSearch = timezone ? h('input', { type: 'search', class: 'timezone-search' }) : null;
+  if (timezone) {
+    const options = d.timezones;
+    const filterZones = () => {
+      const selected = timezone.value || s.library_timezone;
+      const term = timezoneSearch.value.trim().toLowerCase();
+      mount(timezone, options.filter((zone) => zone.name === selected || zone.name.toLowerCase().includes(term))
+        .map((zone) => h('option', { value: zone.name, selected: zone.name === selected }, `${zone.name} (UTC${zone.offset})`)));
+    };
+    timezoneSearch.addEventListener('input', filterZones);
+    filterZones();
+  }
   const loginVersion = state.user.role === 'admin' ? h('input', { type: 'checkbox', checked: s.show_version_on_login }) : null;
   const save = async () => {
     const body = { organize: { no_date_folder: noDate.value, duplicates_folder: dupDir.value }, scan: { exclude: exclude.value.split('\n').map((x) => x.trim()).filter(Boolean) },
@@ -170,7 +182,8 @@ export async function settings(main, state) {
       h('h3', {}, t('settings.metadata')), field('settings.fields', fields),
       h('h3', {}, t('settings.previews')), field('settings.preview_height', height), field('settings.preview_crf', crf),
       h('h3', {}, t('settings.instance')), field('settings.default_lang', lang, 'settings.default_lang_hint'),
-      timezone ? field('settings.library_timezone', timezone, 'settings.library_timezone_hint') : null,
+      timezone ? [field('settings.timezone_search', timezoneSearch),
+        field('settings.library_timezone', timezone, 'settings.timezone_offset_hint')] : null,
       loginVersion ? field('settings.show_version_on_login', loginVersion) : null,
       d.library_timezone_notice ? h('p', { class: 'notice warn' }, t('settings.library_timezone_notice')) : null,
       h('div', { class: 'actions' }, button('common.save', save, 'primary'))),

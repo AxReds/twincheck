@@ -8,6 +8,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Library timezone is a searchable IANA-zone selector populated by the container, with
+  current UTC offsets, daylight-saving help and the saved zone selected
+  ([#66](https://github.com/AxReds/twincheck/issues/66)).
 - Every signed-in user sees an unavailable/outdated-database banner; administrators can open
   Administration → Database directly. Home uses the same explanation
   ([#65](https://github.com/AxReds/twincheck/issues/65)).

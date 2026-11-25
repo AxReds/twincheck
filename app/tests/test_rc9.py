@@ -12,6 +12,22 @@ from twincheck.db.schema import CURRENT_VERSION, create_structure, migrate, set_
 
 
 class MigrationEvents(unittest.TestCase):
+    def test_timezone_catalogue_uses_container_zones_and_current_offsets(self):
+        from zoneinfo import available_timezones
+        inst = Instance().start()
+        try:
+            inst.setup()
+            admin = inst.admin()
+            admin.patch("/api/admin/settings", {"library_timezone": "Europe/Rome"})
+            response = admin.get("/api/admin/settings").json()
+            zones = {z["name"]: z["offset"] for z in response["timezones"]}
+            self.assertEqual(set(zones), available_timezones())
+            self.assertEqual(zones["UTC"], "+00:00")
+            self.assertEqual(zones["Asia/Kathmandu"], "+05:45")
+            self.assertEqual(response["settings"]["library_timezone"], "Europe/Rome")
+        finally:
+            inst.cleanup()
+
     def test_confirmed_migration_logs_once_with_real_versions_and_audits_flags(self):
         inst = Instance().start()
         try:

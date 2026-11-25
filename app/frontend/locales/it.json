@@ -822,6 +822,8 @@
     "review.status.all": "Tutti",
     "meta.review_population": "Coda di revisione: {items} elementi per {files} file attuali in tutte le cartelle assegnate. I conteggi sopra descrivono l'ultima analisi della cartella selezionata.",
     "meta.analysis_summary": "Ultima analisi: {analysed} file analizzati · {fills} completamenti metadati",
-    "db.update_required": "Aggiornamento del database richiesto. Contatta un amministratore."
+    "db.update_required": "Aggiornamento del database richiesto. Contatta un amministratore.",
+    "settings.timezone_search": "Cerca fusi orari",
+    "settings.timezone_offset_hint": "Sono mostrati gli scostamenti attuali, che cambiano con l'ora legale. Usato per organizzare le date; l'EXIF originale non cambia."
   }
 }
