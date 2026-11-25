@@ -7,6 +7,7 @@ the few dialect-specific statements (upsert, insert-ignore, locks).
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import os
 import sqlite3
 import threading
@@ -266,6 +267,23 @@ class Database:
             finally:
                 self._local.depth = 0
                 c.rollback()
+
+    @contextlib.contextmanager
+    def job_submission_lock(self, owner_id: str, kind: str, params: dict) -> Iterator["Database"]:
+        """Serialize duplicate-job checks and inserts for one submission scope."""
+        material = owner_id + "\0" + kind + "\0" + repr(sorted(params.items()))
+        name = "twincheck_job_" + hashlib.sha256(material.encode("utf-8")).hexdigest()[:40]
+        if self.kind == "sqlite":
+            with self.transaction(immediate=True):
+                yield self
+            return
+        acquired = self.scalar("SELECT GET_LOCK(?, 30) AS locked", (name,))
+        if acquired != 1:
+            raise DBError("lock_timeout")
+        try:
+            yield self
+        finally:
+            self.scalar("SELECT RELEASE_LOCK(?) AS released", (name,))
 
     # -- dialect helpers ------------------------------------------------------------------
     def upsert(self, table: str, keys: list[str], data: dict) -> None:
