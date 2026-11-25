@@ -19,7 +19,7 @@ LABEL org.opencontainers.image.title="TwinCheck" \
       org.opencontainers.image.licenses="GPL-3.0-only" \
       org.opencontainers.image.description="Safe, multi-user reorganisation of photo and video libraries"
 
-RUN apk add --no-cache python3 py3-cryptography exiftool ffmpeg \
+RUN apk add --no-cache python3 py3-cryptography exiftool ffmpeg tzdata \
     && find /usr/lib/python3* -name '__pycache__' -prune -exec rm -rf {} + || true
 
 COPY --from=deps /opt/twincheck/site /opt/twincheck/site

@@ -99,7 +99,8 @@ def analyze(ctx: JobContext, scope: str, owner_filter: str | None) -> dict:
     total = len(pending) + groups
     for g in pending:
         ctx.check()
-        members = db.query("SELECT id, owner_id, cur_path, name, ext, media_kind, size, mtime_ns, meta_read, phase_meta FROM files WHERE size=? AND sha256=? AND present=1 "
+        members = db.query("SELECT id, owner_id, cur_path, name, ext, media_kind, size, mtime_ns, meta_read, phase_meta, "
+                           "chosen_date, chosen_date_source, date_flags FROM files WHERE size=? AND sha256=? AND present=1 "
                            "AND media_kind IN ('image','video') AND status<>'dup_moved'" + (" AND owner_id=?" if owner_filter else ""),
                            (g["size"], g["sha256"], owner_filter) if owner_filter else (g["size"], g["sha256"]))
         if scope_filter:
