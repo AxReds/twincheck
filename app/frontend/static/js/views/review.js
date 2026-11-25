@@ -115,9 +115,11 @@ export async function item(main, state, [id]) {
   organizingDate.addEventListener('input', () => {
     dateChoice.value = '';
     selectedProposal = null;
+    selectedProposalField = null;
     for (const key of ['datetime_original', 'create_date']) if (inputs[key]) inputs[key].value = '';
   });
   let selectedProposal = null;
+  let selectedProposalField = null;
   const allDates = [];
   if (r.date_candidates) {
     for (const c of r.date_candidates) allDates.push({ ...c, label: c.tag });
@@ -136,7 +138,12 @@ export async function item(main, state, [id]) {
       const prop = r.proposals.find((p) => p.field === row.field);
       if (prop) inp.dataset.proposal = prop.value;
       inputs[row.field] = inp;
-      inp.addEventListener('input', () => { selectedProposal = null; });
+      inp.addEventListener('input', () => {
+        if (selectedProposalField === row.field) {
+          selectedProposal = null;
+          selectedProposalField = null;
+        }
+      });
       editor = inp;
     }
     const proposals = r.proposals.filter((p) => p.field === row.field).map((p) => h('div', { class: 'proposal small' },
@@ -147,6 +154,7 @@ export async function item(main, state, [id]) {
         dateChoice.value = '';
         organizingDate.value = '';
         selectedProposal = { source: p.source || p.origin, tag: p.tag };
+        selectedProposalField = row.field;
       } }, t('review.use_proposal')) : null));
     return h('tr', { class: row.present ? '' : 'is-missing' }, h('th', { scope: 'row' }, t('field.' + row.field)),
       h('td', {}, candidateList(row.candidates), row.fill ? h('div', { class: 'small' }, badge(t('review.auto_fill'), 'ok'), ' ', h('code', {}, String(row.fill.value)), ' ← ', row.fill.from) : null, proposals),
@@ -155,6 +163,7 @@ export async function item(main, state, [id]) {
   dateChoice.addEventListener('change', () => {
     const choice = allDates[dateChoice.selectedIndex - 1];
     selectedProposal = choice ? { source: choice.source, tag: choice.tag } : null;
+    selectedProposalField = null;
     organizingDate.value = choice ? wallDate(choice.value) : '';
     if (!dateChoice.value) return;
     for (const key of ['datetime_original', 'create_date']) {

@@ -340,12 +340,14 @@ await test('B6: choosing an organizing date discards stale date edits only', asy
   const choice = document.querySelector('main select');
   choice.value = '2020-01-02T03:04:05';
   choice.dispatchEvent(new Event('change'));
+  document.querySelector('input[aria-label="' + t('field.title') + '"]').dispatchEvent(new Event('input'));
   [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.save_next')).click();
   await sleep();
   const saved = requests.filter((r) => r.url === '/api/review/1' && r.body).at(-1).body;
   assert(saved.date === choice.value, 'chosen organizing date was lost');
   assert(!saved.fields.datetime_original && !saved.fields.create_date, 'stale manual dates were submitted for writing');
   assert(saved.fields.title === 'Test title', 'unrelated manual edit was lost');
+  assert(saved.proposal?.source === 'filesystem_mtime', 'unrelated manual edit discarded organizing-date provenance');
   await go('#/metadata/review/1');
   document.querySelector('input.date-input').value = '1999-01-01T01:02:03';
   [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.save_next')).click();
@@ -568,6 +570,13 @@ await test('U16: 24-hour inputs, Use copies proposal, sticky controls precede fi
   window.scrollTo(0, 0);
   assert(![...document.querySelectorAll('main input')].some((el) => ['+01:00', '45.464200, 9.190000'].includes(el.placeholder)),
     'example values look like real data');
+  const title = document.querySelector('input[aria-label="' + t('field.title') + '"]');
+  title.value = 'Manual title after Use';
+  title.dispatchEvent(new Event('input'));
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.save_next')).click();
+  await sleep();
+  const saved = requests.filter((r) => r.url === '/api/review/1' && r.body).at(-1).body;
+  assert(saved.proposal?.source === 'filesystem_mtime', 'unrelated manual edit discarded Use provenance');
   await go('#/home');
 });
 await test('B23: re-check notice preserves UTC date and exposes both confirmation paths', async () => {

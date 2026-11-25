@@ -65,7 +65,8 @@ Organizing dates are local wall-clock values in that timezone. File-system mtime
 are converted from UTC; offset EXIF values are converted for organizing only, preserving
 the original metadata; timezone-free EXIF and manual choices are never shifted.
 Each new review decision stores its source and applied timezone, including per-field
-provenance. Schema migration 4 adds these columns to version 1–3 databases and flags
+provenance. Editing unrelated fields preserves the selected date's provenance; editing
+the date itself records a manual choice. Schema migration 4 adds these columns to version 1–3 databases and flags
 unapplied ambiguous historical dates as **needs re-check**, without changing their values.
 Mtime-matching choices are always flagged, even if they look manual. Unambiguous metadata
 choices and already organized/applied decisions remain untouched. Organize skips flagged

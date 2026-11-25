@@ -143,7 +143,8 @@ class ReviewDates(unittest.TestCase):
         item = self.user.get("/api/review").json()["items"][0]
         proposal = self.user.get("/api/review/" + str(item["id"])).json()["proposals"][0]
         self.assertEqual(self.user.post("/api/review/" + str(item["id"]), {
-            "action": "save", "fields": {"datetime_original": proposal["value"]},
+            "action": "save", "fields": {"datetime_original": proposal["value"].replace("T", " "),
+                                        "title": "Manual title after Use"},
             "proposal": {"source": "filesystem_mtime"}}).status, 200)
         row = self.inst.core.db.query_one("SELECT * FROM review_items WHERE id=?", (item["id"],))
         self.assertEqual(json.loads(row["decision_provenance"])["datetime_original"],
