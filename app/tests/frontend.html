@@ -129,6 +129,7 @@ window.fetch = async (url, opts = {}) => {
     const row = reviewStateFixture.find((r) => r.id === Number(path.split('/').at(-1)));
     const body = JSON.parse(opts.body);
     row.status = body.action === 'skip' ? 'skipped' : 'decided';
+    row.decision_kind = body.action === 'skip' ? null : 'date';
     row.decision = body.action === 'skip' ? null : { date: body.date };
     data = { updated: 1, next_id: row.id === 1 ? 2 : null };
   }
@@ -661,6 +662,8 @@ await test('B28/B30: re-analysis retains skip and decisions in badge, filters an
     assert(!document.querySelector('main').textContent.includes('synthetic-1.jpg') &&
       document.querySelector('main').textContent.includes('synthetic-2.jpg'), 'decided list disagrees with badges');
     assert(document.querySelector('main .summary').textContent === summary, 'status filter changes counts');
+    assert(document.querySelector('.review-decision')?.textContent.includes(t('review.decision.date')),
+      'Decided list lacks the Decision column');
     assert(document.documentElement.scrollWidth <= innerWidth, 'review status overflows viewport');
   } finally { reviewStateFixture = null; await go('#/home'); }
 });

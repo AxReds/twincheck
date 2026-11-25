@@ -8,6 +8,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Review capitalizes Proposal, keeps the full organizing-date explanation only in the item
+  panel, and labels the Decided list's Decision (chosen date, left unchanged, accepted converted,
+  kept stored or saved fields). New re-check confirmations retain the explicit choice;
+  historical choices are not inferred or rewritten ([#58](https://github.com/AxReds/twincheck/issues/58)).
 - Empty Logs explains that no events match and offers Clear filters. The shared table helper
   supplies an explained empty state for all remaining header-only lists, including Audit
   and Report & undo ([#57](https://github.com/AxReds/twincheck/issues/57)).

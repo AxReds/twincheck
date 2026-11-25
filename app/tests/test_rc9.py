@@ -222,6 +222,7 @@ class ReviewPostponement(unittest.TestCase):
                         decided = user.get("/api/review?status=decided").json()
                         self.assertEqual([r["id"] for r in pending["items"]], [skipped["id"]])
                         self.assertEqual({r["id"] for r in decided["items"]}, {saved["id"], kept["id"]})
+                        self.assertEqual({r["decision_kind"] for r in decided["items"]}, {"date", "kept"})
                         self.assertEqual(pending["review_counts"], {"total": 3, "pending": 1, "decided": 2, "needs_recheck": 0})
                         for row in pending["items"] + decided["items"]:
                             detail = user.get(f"/api/review/{row['id']}").json()

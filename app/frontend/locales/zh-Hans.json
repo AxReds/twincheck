@@ -814,6 +814,13 @@
     "scan.change_folder": "更改文件夹",
     "scan.all_analysis_jobs": "在任务中查看所有分析任务",
     "logs.empty": "没有符合这些筛选条件的事件。",
-    "common.empty_list": "没有可显示的项目。"
+    "common.empty_list": "没有可显示的项目。",
+    "review.short_date_help": "整理选择保存在数据库中；详情见审核面板。",
+    "review.col_decision": "决定",
+    "review.decision.date": "已选择日期",
+    "review.decision.kept": "保持原样",
+    "review.decision.accepted": "已接受转换日期",
+    "review.decision.stored": "已保留存储日期",
+    "review.decision.fields": "已保存元数据"
   }
 }

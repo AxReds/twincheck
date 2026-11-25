@@ -404,7 +404,7 @@
     "review.missing": "manquant",
     "review.source_file": "fichier",
     "review.utc": "UTC",
-    "review.proposal": "proposition",
+    "review.proposal": "Proposition",
     "review.use_proposal": "Utiliser",
     "review.auto_fill": "sera complété",
     "review.origin.filename": "déduit du nom de fichier",
@@ -840,6 +840,13 @@
     "scan.change_folder": "Changer de dossier",
     "scan.all_analysis_jobs": "Toutes les analyses dans Tâches",
     "logs.empty": "Aucun événement ne correspond à ces filtres.",
-    "common.empty_list": "Aucun élément à afficher."
+    "common.empty_list": "Aucun élément à afficher.",
+    "review.short_date_help": "Les choix de classement sont enregistrés en base ; les détails figurent dans le panneau de révision.",
+    "review.col_decision": "Décision",
+    "review.decision.date": "Date choisie",
+    "review.decision.kept": "Laissé tel quel",
+    "review.decision.accepted": "Conversion acceptée",
+    "review.decision.stored": "Date enregistrée conservée",
+    "review.decision.fields": "Métadonnées enregistrées"
   }
 }

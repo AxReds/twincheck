@@ -217,7 +217,7 @@ export async function metadata(main, state, [view] = []) {
   page(main, 'meta.title', 'meta.intro',
     stepGuide(2, flowStatus), analysisNotice(flowStatus),
     flowStatus.exists ? metadataResult(data) : null,
-    h('p', { class: 'hint' }, t('review.date_choice_hint')),
+    h('p', { class: 'hint' }, t('review.short_date_help')),
     h('p', { class: 'hint' }, t('review.write_help')),
     h('ul', { class: 'rules' }, ['meta.rule_copy', 'meta.rule_never_invent', 'meta.rule_never_overwrite', 'meta.rule_conflicts', 'meta.rule_video_utc', 'meta.rule_backup']
       .map((k) => h('li', {}, t(k)))),

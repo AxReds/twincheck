@@ -814,6 +814,13 @@
     "scan.change_folder": "フォルダーを変更",
     "scan.all_analysis_jobs": "ジョブですべての分析ジョブを表示",
     "logs.empty": "このフィルターに一致するイベントはありません。",
-    "common.empty_list": "表示する項目がありません。"
+    "common.empty_list": "表示する項目がありません。",
+    "review.short_date_help": "整理の選択はデータベースに保存されます。詳細はレビューパネルにあります。",
+    "review.col_decision": "判断",
+    "review.decision.date": "日付を選択",
+    "review.decision.kept": "そのまま保持",
+    "review.decision.accepted": "変換後を承認",
+    "review.decision.stored": "保存済みを保持",
+    "review.decision.fields": "メタデータを保存"
   }
 }

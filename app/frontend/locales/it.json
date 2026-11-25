@@ -404,7 +404,7 @@
     "review.missing": "mancante",
     "review.source_file": "file",
     "review.utc": "UTC",
-    "review.proposal": "proposta",
+    "review.proposal": "Proposta",
     "review.use_proposal": "Usa",
     "review.auto_fill": "verrà completato",
     "review.origin.filename": "dedotto dal nome del file",
@@ -840,6 +840,13 @@
     "scan.change_folder": "Cambia cartella",
     "scan.all_analysis_jobs": "Tutti i lavori di analisi in Lavori",
     "logs.empty": "Nessun evento corrisponde a questi filtri.",
-    "common.empty_list": "Nessun elemento da mostrare."
+    "common.empty_list": "Nessun elemento da mostrare.",
+    "review.short_date_help": "Le scelte per organizzare sono salvate nel database; i dettagli sono nel pannello di revisione.",
+    "review.col_decision": "Decisione",
+    "review.decision.date": "Data scelta",
+    "review.decision.kept": "Lasciato invariato",
+    "review.decision.accepted": "Conversione accettata",
+    "review.decision.stored": "Data memorizzata mantenuta",
+    "review.decision.fields": "Metadati salvati"
   }
 }

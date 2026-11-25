@@ -36,12 +36,17 @@ export async function list(main, state, options = {}) {
     if (kind.value) q.set('kind', kind.value);
     const d = await get('/api/review?' + q);
     counts.textContent = reviewCounts(d.review_counts);
-    mount(box, d.items.length ? table(['review.col_kind', 'review.col_file', 'review.col_folder', 'review.col_date', ''],
+    const showDecision = ['decided', 'all'].includes(status.value);
+    mount(box, d.items.length ? table(['review.col_kind', 'review.col_file', 'review.col_folder', 'review.col_date',
+      ...(showDecision ? ['review.col_decision'] : []), ''],
       d.items.map((r) => h('tr', {}, h('td', {}, badge(t('review.kind.' + r.kind), 'warn')),
         h('td', {}, r.file ? h('code', {}, r.file.name) : h('code', {}, r.details.path || ''),
           r.status === 'skipped' ? [' ', badge(t('review.status.skipped'), 'warn')] : null),
         h('td', {}, r.file ? h('code', {}, r.file.folder) : ''),
         h('td', {}, r.file ? fmt.localDate(r.file.chosen_date) : ''),
+        showDecision ? h('td', { class: 'review-decision' }, r.decision_kind ? [
+          t('review.decision.' + r.decision_kind), r.decision?.date ? ' · ' + fmt.localDate(r.decision.date) : '',
+        ] : t('review.status.' + r.status)) : null,
         h('td', {}, h('a', { class: 'btn small', href: '#/metadata/review/' + r.id }, t('review.open')))))) : h('p', { class: 'muted' }, t('review.empty')),
     pager(d.total, offset, 50, (o) => { offset = o; load(); }));
   };

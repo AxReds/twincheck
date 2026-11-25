@@ -413,7 +413,7 @@
     "review.missing": "отсутствует",
     "review.source_file": "файл",
     "review.utc": "UTC",
-    "review.proposal": "предложение",
+    "review.proposal": "Предложение",
     "review.use_proposal": "Использовать",
     "review.auto_fill": "будет заполнено",
     "review.origin.filename": "выведено из имени файла",
@@ -853,6 +853,13 @@
     "scan.change_folder": "Изменить папку",
     "scan.all_analysis_jobs": "Все задания анализа в разделе Задания",
     "logs.empty": "Нет событий, соответствующих этим фильтрам.",
-    "common.empty_list": "Нет записей для отображения."
+    "common.empty_list": "Нет записей для отображения.",
+    "review.short_date_help": "Выбор дат для организации хранится в базе; подробности в панели проверки.",
+    "review.col_decision": "Решение",
+    "review.decision.date": "Дата выбрана",
+    "review.decision.kept": "Оставлено как есть",
+    "review.decision.accepted": "Преобразование принято",
+    "review.decision.stored": "Сохранённая дата оставлена",
+    "review.decision.fields": "Метаданные сохранены"
   }
 }

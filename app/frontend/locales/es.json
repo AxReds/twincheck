@@ -404,7 +404,7 @@
     "review.missing": "falta",
     "review.source_file": "archivo",
     "review.utc": "UTC",
-    "review.proposal": "propuesta",
+    "review.proposal": "Propuesta",
     "review.use_proposal": "Usar",
     "review.auto_fill": "se completará",
     "review.origin.filename": "deducido del nombre del archivo",
@@ -840,6 +840,13 @@
     "scan.change_folder": "Cambiar carpeta",
     "scan.all_analysis_jobs": "Todos los análisis en Trabajos",
     "logs.empty": "Ningún evento coincide con estos filtros.",
-    "common.empty_list": "No hay elementos para mostrar."
+    "common.empty_list": "No hay elementos para mostrar.",
+    "review.short_date_help": "Las fechas para organizar se guardan en la base de datos; los detalles están en el panel de revisión.",
+    "review.col_decision": "Decisión",
+    "review.decision.date": "Fecha elegida",
+    "review.decision.kept": "Dejado como está",
+    "review.decision.accepted": "Conversión aceptada",
+    "review.decision.stored": "Fecha guardada conservada",
+    "review.decision.fields": "Metadatos guardados"
   }
 }

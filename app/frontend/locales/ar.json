@@ -879,6 +879,13 @@
     "scan.change_folder": "تغيير المجلد",
     "scan.all_analysis_jobs": "جميع مهام التحليل في المهام",
     "logs.empty": "لا توجد أحداث تطابق هذه المرشحات.",
-    "common.empty_list": "لا توجد عناصر لعرضها."
+    "common.empty_list": "لا توجد عناصر لعرضها.",
+    "review.short_date_help": "تُحفظ خيارات التنظيم في قاعدة البيانات؛ التفاصيل في لوحة المراجعة.",
+    "review.col_decision": "القرار",
+    "review.decision.date": "تم اختيار التاريخ",
+    "review.decision.kept": "تُرك كما هو",
+    "review.decision.accepted": "تم قبول التحويل",
+    "review.decision.stored": "تم إبقاء التاريخ المخزن",
+    "review.decision.fields": "تم حفظ البيانات الوصفية"
   }
 }

@@ -565,6 +565,10 @@ def _review_row(req: Request, r: dict, full: bool = False) -> dict:
     out.update(decision_source=r["decision_source"], decision_timezone=r["decision_timezone"],
                recheck_reason=r["recheck_reason"], library_timezone=common.app().library_timezone,
                applied=bool(r["applied"] or f and f["phase_org"] == "done"))
+    if review_state.status(r) == "decided":
+        decision = out["decision"] or {}
+        out["decision_kind"] = decision.get("confirmation") or (
+            "kept" if r["status"] == "kept" else "date" if decision.get("date") else "fields")
     for k in ("path", "src", "dst"):
         if isinstance(out["details"].get(k), str):
             out["details"][k] = disp(req, out["details"][k])
@@ -729,6 +733,8 @@ def review_decide(req: Request):
     status = {"save": "saved", "skip": "pending", "keep": "kept"}[action]
     decision = {"fields": fields, "date": date, "offset": fields.get("offset"), "scope": scope,
                 "source": source, "timezone": applied_timezone}
+    if r["recheck_reason"] and action == "save" and date:
+        decision["confirmation"] = "accepted" if selected else "stored" if date == json.loads(r["decision"] or "{}").get("date") else "date"
     if date:
         provenance["date"] = {"source": source, "timezone": applied_timezone}
     with db.transaction():

@@ -396,7 +396,7 @@
     "review.missing": "missing",
     "review.source_file": "file",
     "review.utc": "UTC",
-    "review.proposal": "proposal",
+    "review.proposal": "Proposal",
     "review.use_proposal": "Use",
     "review.auto_fill": "will be completed",
     "review.origin.filename": "deduced from the file name",
@@ -828,6 +828,13 @@
     "scan.change_folder": "Change folder",
     "scan.all_analysis_jobs": "All analysis jobs in Jobs",
     "logs.empty": "No events match these filters.",
-    "common.empty_list": "No items to display."
+    "common.empty_list": "No items to display.",
+    "review.short_date_help": "Organizing choices are saved in the database; details are shown in the review panel.",
+    "review.col_decision": "Decision",
+    "review.decision.date": "Date chosen",
+    "review.decision.kept": "Left as it is",
+    "review.decision.accepted": "Accepted converted",
+    "review.decision.stored": "Kept stored",
+    "review.decision.fields": "Metadata saved"
   }
 }

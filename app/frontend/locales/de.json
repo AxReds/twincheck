@@ -827,6 +827,13 @@
     "scan.change_folder": "Ordner ändern",
     "scan.all_analysis_jobs": "Alle Analyseaufträge unter Aufträge",
     "logs.empty": "Keine Ereignisse entsprechen diesen Filtern.",
-    "common.empty_list": "Keine Einträge vorhanden."
+    "common.empty_list": "Keine Einträge vorhanden.",
+    "review.short_date_help": "Datumsentscheidungen werden in der Datenbank gespeichert; Details stehen im Prüffenster.",
+    "review.col_decision": "Entscheidung",
+    "review.decision.date": "Datum gewählt",
+    "review.decision.kept": "Unverändert gelassen",
+    "review.decision.accepted": "Umrechnung akzeptiert",
+    "review.decision.stored": "Gespeichertes Datum behalten",
+    "review.decision.fields": "Metadaten gespeichert"
   }
 }
