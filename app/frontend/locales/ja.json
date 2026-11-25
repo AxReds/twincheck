@@ -805,6 +805,9 @@
     "review.postponed": "{count} 項目を延期しました。",
     "settings.login_version_hint": "サインインページにアプリのバージョンを表示します。",
     "logs.all_events": "すべてのイベント",
-    "logs.clear": "フィルターをクリア"
+    "logs.clear": "フィルターをクリア",
+    "logs.csv_scope": "CSV の行",
+    "logs.csv_filtered": "現在フィルター済みのイベント",
+    "logs.csv_all": "表示可能なすべてのイベント"
   }
 }

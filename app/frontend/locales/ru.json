@@ -844,6 +844,9 @@
     "review.postponed": "Отложено записей: {count}.",
     "settings.login_version_hint": "Показывать версию приложения на странице входа.",
     "logs.all_events": "Все события",
-    "logs.clear": "Сбросить фильтры"
+    "logs.clear": "Сбросить фильтры",
+    "logs.csv_scope": "Строки CSV",
+    "logs.csv_filtered": "Текущие отфильтрованные события",
+    "logs.csv_all": "Все доступные события"
   }
 }

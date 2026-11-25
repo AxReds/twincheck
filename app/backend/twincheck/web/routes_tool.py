@@ -6,6 +6,7 @@ import io
 import json
 import os
 import time
+from datetime import datetime, timezone
 
 from ..events import EVENTS
 from ..db.schema import utcnow
@@ -895,14 +896,16 @@ def logs(req: Request):
     return JSONResponse({"items": rows[off:off + lim], "total": len(rows), "event_counts": counts})
 
 
-def _log_rows(req: Request, include_event: bool = True) -> list[dict]:
+def _log_rows(req: Request, include_event: bool = True, filtered: bool = True) -> list[dict]:
     db = need_db()
     where, args = ["1=1"], []
-    owner = owner_filter(req)
+    owner = owner_filter(req) if filtered else None if is_admin(req) else req.user["id"]
     if owner:
         where.append("owner_id=?")
         args.append(owner)
     for k in ("job_id", "event", "level"):
+        if not filtered:
+            continue
         if k == "event" and not include_event:
             continue
         if req.query.get(k):
@@ -930,6 +933,33 @@ def _log_rows(req: Request, include_event: bool = True) -> list[dict]:
             filtered.append(r)
         rows = filtered
     return rows
+
+
+@router.get("/api/logs.csv")
+def logs_csv(req: Request):
+    scope = req.query.get("scope", "filtered")
+    if scope not in ("filtered", "all"):
+        fail(400, "invalid_value", field="scope")
+    rows = _log_rows(req, filtered=scope == "filtered")
+
+    def factory():
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(["time", "level", "event", "message", "job_id"])
+        for index, row in enumerate(rows):
+            instant = datetime.fromisoformat(row["ts"].replace("Z", "+00:00"))
+            if instant.tzinfo is None:
+                instant = instant.replace(tzinfo=timezone.utc)
+            writer.writerow([instant.isoformat().replace("+00:00", "Z"), row["level"], row["event"],
+                             row["message"], row["job_id"] or ""])
+            if index % 500 == 499:
+                yield buf.getvalue().encode("utf-8")
+                buf.seek(0)
+                buf.truncate()
+        yield buf.getvalue().encode("utf-8")
+
+    return StreamResponse(factory, content_type="text/csv; charset=utf-8",
+                          headers={"content-disposition": 'attachment; filename="logs.csv"'})
 
 
 @router.get("/api/manifest.csv")

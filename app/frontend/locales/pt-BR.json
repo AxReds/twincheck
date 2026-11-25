@@ -831,6 +831,9 @@
     "review.postponed": "{count} itens adiados.",
     "settings.login_version_hint": "Mostrar a versão do aplicativo na página de acesso.",
     "logs.all_events": "Todos os eventos",
-    "logs.clear": "Limpar filtros"
+    "logs.clear": "Limpar filtros",
+    "logs.csv_scope": "Linhas CSV",
+    "logs.csv_filtered": "Eventos filtrados atualmente",
+    "logs.csv_all": "Todos os eventos visíveis"
   }
 }

@@ -8,6 +8,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Logs CSV export offers the applied filters or all accessible rows, reusing server-side
+  visibility checks, English messages and ISO 8601 times with offset/Z
+  ([#71](https://github.com/AxReds/twincheck/issues/71)).
 - Logs offers the complete event catalogue with counts (including zero) under the other
   active filters, Clear filters, and unwrapped event codes
   ([#70](https://github.com/AxReds/twincheck/issues/70)).

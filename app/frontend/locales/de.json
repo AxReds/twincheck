@@ -818,6 +818,9 @@
     "review.postponed": "{count} Einträge zurückgestellt.",
     "settings.login_version_hint": "Anwendungsversion auf der Anmeldeseite anzeigen.",
     "logs.all_events": "Alle Ereignisse",
-    "logs.clear": "Filter zurücksetzen"
+    "logs.clear": "Filter zurücksetzen",
+    "logs.csv_scope": "CSV-Zeilen",
+    "logs.csv_filtered": "Aktuell gefilterte Ereignisse",
+    "logs.csv_all": "Alle sichtbaren Ereignisse"
   }
 }

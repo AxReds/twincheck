@@ -768,6 +768,18 @@ await test('U22: event dropdown includes zero-count codes and filters can be cle
   assert(getComputedStyle(document.querySelector('.event-code')).whiteSpace === 'nowrap', 'event codes can wrap');
   await go('#/home');
 });
+await test('U23: CSV choice exports applied filters or all accessible events', async () => {
+  await go('#/logs?event=REVIEW_DECIDED&job_id=1');
+  const link = document.querySelector('.log-export');
+  let q = new URL(link.href).searchParams;
+  assert(q.get('event') === 'REVIEW_DECIDED' && q.get('job_id') === '1' && q.get('scope') === 'filtered',
+    'filtered CSV loses current filters');
+  const select = document.querySelector('.log-csv-scope');
+  select.value = 'all'; select.dispatchEvent(new Event('change'));
+  q = new URL(link.href).searchParams;
+  assert(q.get('scope') === 'all' && !q.has('event') && !q.has('job_id'), 'all CSV keeps filters');
+  await go('#/home');
+});
 await test('B19: login version ON/OFF uses public bootstrap only and fits both themes', async () => {
   const { renderLogin } = await import('../frontend/static/js/views/login.js');
   const root = document.createElement('div');

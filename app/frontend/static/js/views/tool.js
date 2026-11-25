@@ -347,12 +347,23 @@ export async function logs(main) {
   lv.value = params.get('level') || '';
   job.value = params.get('job_id') || '';
   const box = h('div', {});
+  const csvScope = h('select', { class: 'log-csv-scope' }, ['filtered', 'all'].map((scope) =>
+    h('option', { value: scope }, t('logs.csv_' + scope))));
+  const exportCSV = h('a', { class: 'btn log-export', download: 'logs.csv' }, t('dup.export_csv'));
+  let appliedFilters = new URLSearchParams();
+  const updateExport = () => {
+    const q = csvScope.value === 'filtered' ? new URLSearchParams(appliedFilters) : new URLSearchParams();
+    q.delete('offset'); q.delete('limit'); q.set('scope', csvScope.value);
+    exportCSV.href = '/api/logs.csv?' + q;
+  };
+  csvScope.addEventListener('change', updateExport);
   const load = async () => {
     const q = new URLSearchParams({ offset, limit: 100 });
     if (selectedEvent) q.set('event', selectedEvent);
     if (lv.value) q.set('level', lv.value);
     if (job.value) q.set('job_id', job.value);
     const d = await get('/api/logs?' + q);
+    appliedFilters = q; updateExport();
     mount(ev, h('option', { value: '' }, t('logs.all_events')),
       Object.entries(d.event_counts).map(([code, count]) => h('option', { value: code, selected: code === selectedEvent },
         `${code} (${fmt.number(count)})`)));
@@ -366,7 +377,7 @@ export async function logs(main) {
     button('logs.clear', () => {
       selectedEvent = ''; ev.value = ''; lv.value = ''; job.value = ''; offset = 0;
       history.replaceState(null, '', '#/logs'); load();
-    })), box);
+    })), h('div', { class: 'actions' }, field('logs.csv_scope', csvScope), exportCSV), box);
   await load();
 }
 

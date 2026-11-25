@@ -819,6 +819,9 @@
     "review.postponed": "{count} items postponed.",
     "settings.login_version_hint": "Show the application version on the sign-in page.",
     "logs.all_events": "All events",
-    "logs.clear": "Clear filters"
+    "logs.clear": "Clear filters",
+    "logs.csv_scope": "CSV rows",
+    "logs.csv_filtered": "Currently filtered events",
+    "logs.csv_all": "All events you can see"
   }
 }
