@@ -1,5 +1,5 @@
 // Administration: users, groups, sources, settings, database, audit, security.
-import { h, mount, button, field, table, modal, toast, badge } from '../dom.js';
+import { h, mount, button, field, table, modal, toast, badge, instant } from '../dom.js';
 import { t, fmt } from '../i18n.js';
 import { get, post, patch, del } from '../api.js';
 import { folderBrowser, kv, pager } from '../components.js';
@@ -242,8 +242,8 @@ export async function database(main, state) {
     kv([['db.type', cur.type ? t('db.type.' + cur.type) : null], ['db.target', cur.type === 'sqlite' ? cur.path : cur.type ? `${cur.user}@${cur.host}:${cur.port}/${cur.database}` : null],
       ['db.password', cur.password || null], ['db.connected', d.status.connected ? t('common.yes') : t('common.no')], ['db.schema_version', d.status.schema_version ? String(d.status.schema_version) : null],
       ['db.db_id', d.info && d.info.db_id], ['db.files', d.info ? String(d.info.files) : null], ['db.open_jobs', d.info ? String(d.info.open_jobs) : null],
-      ['db.last_update', d.info && d.info.last_update]]),
-    d.info && d.info.provenance ? h('p', { class: 'hint' }, t('db.provenance', { source: d.info.provenance.source_db_id, date: fmt.date(d.info.provenance.date) })) : null,
+      ['db.last_update', d.info ? instant(d.info.last_update) : null]]),
+    d.info && d.info.provenance ? h('p', { class: 'hint', title: fmt.dateTooltip(d.info.provenance.date) }, t('db.provenance', { source: d.info.provenance.source_db_id, date: fmt.date(d.info.provenance.date) })) : null,
     h('h3', {}, t('db.change')), h('p', { class: 'hint' }, t('db.change_help')), form.el,
     h('div', { class: 'actions' }, button('db.test', () => doTest({ database: form.value() }))), result,
     d.previous.length ? [h('h3', {}, t('db.previous')), table(['db.type', 'db.target', ''], d.previous.map((p, i) => h('tr', {},
@@ -258,7 +258,7 @@ export async function audit(main, state) {
   const load = async () => {
     const d = await get(`/api/admin/audit?offset=${offset}&limit=100`);
     mount(box, table(['logs.col_time', 'audit.col_actor', 'logs.col_event', 'logs.col_message'],
-      d.items.map((a) => h('tr', {}, h('td', {}, fmt.date(a.ts)), h('td', {}, a.actor), h('td', {}, h('code', {}, a.event)), h('td', { lang: 'en', dir: 'ltr' }, a.message)))),
+      d.items.map((a) => h('tr', {}, h('td', {}, instant(a.ts)), h('td', {}, a.actor), h('td', {}, h('code', {}, a.event)), h('td', { lang: 'en', dir: 'ltr' }, a.message)))),
     pager(d.total, offset, 100, (o) => { offset = o; load(); }));
   };
   shell(main, state, 'audit', 'admin.audit', h('p', { class: 'hint' }, t('audit.english_note')), box);

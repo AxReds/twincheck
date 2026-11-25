@@ -1,5 +1,5 @@
 // First-run wizard: token -> database -> admin password -> summary.
-import { h, mount, field, button, toast } from '../dom.js';
+import { h, mount, field, button, toast, instant } from '../dom.js';
 import { t } from '../i18n.js';
 import { post } from '../api.js';
 import { langSelect } from '../app.js';
@@ -90,7 +90,7 @@ export function testResult(r) {
   const rows = [['db.structure', t('db.structure.' + (r.database_missing ? 'absent' : r.structure))]];
   if (r.structure === 'present') {
     rows.push(['db.db_id', r.db_id], ['db.schema_version', String(r.schema_version)], ['db.files', String(r.files)],
-      ['db.open_jobs', String(r.open_jobs)], ['db.last_update', r.last_update]);
+      ['db.open_jobs', String(r.open_jobs)], ['db.last_update', instant(r.last_update)]);
   }
   return h('div', { class: 'notice ' + (r.compatible === false ? 'error' : 'ok') },
     r.structure === 'present' ? t('db.structure_present') : t('db.structure_will_be_created'), kv(rows),

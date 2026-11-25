@@ -1,6 +1,6 @@
 // DOM helpers. Text is always inserted as text nodes (never innerHTML).
 // Every visible string must come from t(...) or from data (paths, values).
-import { t } from './i18n.js';
+import { t, fmt } from './i18n.js';
 
 export function h(tag, attrs, ...children) {
   const el = document.createElement(tag);
@@ -39,6 +39,10 @@ export function button(labelKey, onClick, cls = '', params) {
 }
 
 export function badge(text, kind = '') { return h('span', { class: 'badge ' + kind }, text); }
+
+export function instant(iso) {
+  return h('time', { datetime: iso || undefined, title: fmt.dateTooltip(iso) }, fmt.date(iso));
+}
 
 export function progress(done, total) {
   const pct = total > 0 ? Math.min(100, Math.round((100 * done) / total)) : null;

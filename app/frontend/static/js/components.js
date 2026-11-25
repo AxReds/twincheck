@@ -1,5 +1,5 @@
 // Reusable UI pieces: job progress, polling, source picker, folder browser.
-import { h, button, badge, progress, mount, toast } from './dom.js';
+import { h, button, badge, progress, mount, toast, instant } from './dom.js';
 import { t, fmt } from './i18n.js';
 import { get, post, ApiError } from './api.js';
 
@@ -64,7 +64,7 @@ export function jobCard(job, onChange) {
       job.owner ? h('span', { class: 'muted' }, ' · ' + job.owner) : null),
     job.status === 'running' || job.status === 'queued' ? progress(job.progress_done, job.progress_total) : null,
     h('div', { class: 'job-meta' }, pipelineResult || scanResult || [(phaseText ? phaseText + ' · ' : ''), count].join(''),
-      job.updated_at ? ' · ' + fmt.date(job.updated_at) : ''),
+      job.updated_at ? [' · ', instant(job.updated_at)] : ''),
     job.status === 'interrupted' && !['scan', 'verify', 'reconcile'].includes(job.kind) ? h('p', { class: 'notice warn' }, t('job.needs_confirmation')) : null,
     job.error ? h('p', { class: 'notice error' }, h('code', {}, job.error)) : null,
     actions.length ? h('div', { class: 'actions' }, actions) : null);

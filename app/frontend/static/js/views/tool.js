@@ -1,5 +1,5 @@
 // Tool pages: home, scan, duplicates, metadata, organise, plans, report & undo, jobs, logs, personal settings.
-import { h, mount, button, field, table, modal, toast, badge } from '../dom.js';
+import { h, mount, button, field, table, modal, toast, badge, instant } from '../dom.js';
 import { t, fmt } from '../i18n.js';
 import { get, post } from '../api.js';
 import { jobList, sourceSelect, folderBrowser, kv, pager, poll, jobBadge, stepGuide, waitForJob } from '../components.js';
@@ -49,7 +49,7 @@ function analysisNotice(status, current = false) {
     status.changes ? t('analysis.changes', Object.fromEntries(Object.entries(status.changes).map(([key, n]) => [key, fmt.number(n)]))) : t('analysis.stale'),
     status.incomplete ? ' ' + t('analysis.incomplete') : '', ' ',
     current ? null : h('a', { href: '#/analyze' }, t('analysis.update')));
-  if (status.analyzed_at) return h('p', { class: 'notice' },
+  if (status.analyzed_at) return h('p', { class: 'notice', title: fmt.dateTooltip(status.analyzed_at) },
     t('analysis.results_from', { date: fmt.date(status.analyzed_at) }), ' ',
     current ? null : h('a', { href: '#/analyze' }, t('analysis.update')), ' · ', t('analysis.recheck_before_action'));
   return null;
@@ -157,7 +157,7 @@ export async function duplicates(main, state) {
   const group = (g) => h('fieldset', { class: 'dup-group' },
     h('legend', {}, t('dup.group_title', { size: fmt.bytes(g.size), count: g.members.length, recoverable: fmt.bytes(g.recoverable) })),
     h('code', { class: 'hash' }, g.sha256),
-    h('p', { class: 'keeper-decision' },
+    h('p', { class: 'keeper-decision', title: !g.capture_date ? fmt.dateTooltip(g.keeper_date) : undefined },
       g.capture_date ? t('dup.capture_date', { date: fmt.localDate(g.capture_date) }) : t('dup.date_unknown'),
       g.date_flags === 'utc_ambiguous' ? ' · ' + t('review.utc') : '',
       ' · ', t('dup.keeper_date', { date: g.capture_date ? fmt.localDate(g.keeper_date) : fmt.date(g.keeper_date) }),
@@ -167,7 +167,7 @@ export async function duplicates(main, state) {
       r.addEventListener('change', async () => { try { await post(`/api/duplicates/${g.id}/keeper`, { file_id: m.id }); load(); } catch (e) { toast(e.message, 'error'); } });
       const exif = h(g.keeper_rule.startsWith('capture_date_') ? 'strong' : 'span', { class: 'dup-date-exif' },
         t('dup.exif_date', { date: m.exif_date ? fmt.exifDate(m.exif_date, m.exif_offset) : t('dup.unknown_date') }));
-      const filesystem = h(g.keeper_rule.startsWith('mtime') ? 'strong' : 'span', { class: 'dup-date-filesystem' },
+      const filesystem = h(g.keeper_rule.startsWith('mtime') ? 'strong' : 'span', { class: 'dup-date-filesystem', title: fmt.dateTooltip(m.filesystem_date) },
         t('dup.filesystem_date', { date: fmt.date(m.filesystem_date) }));
       return h('li', { class: m.id === g.keeper_file_id ? 'keeper' : '' }, h('label', {}, r, ' ', m.id === g.keeper_file_id ? badge(t('dup.kept'), 'ok') : badge(t('dup.duplicate'), 'warn'), ' ',
         h('code', {}, m.path || t('dup.other_user')), m.owner ? h('span', { class: 'muted' }, ' · ' + m.owner) : null,
@@ -350,7 +350,7 @@ export async function logs(main) {
     if (job.value) q.set('job_id', job.value);
     const d = await get('/api/logs?' + q);
     mount(box, table(['logs.col_time', 'logs.col_level', 'logs.col_event', 'logs.col_message', 'logs.col_job'],
-      d.items.map((r) => h('tr', {}, h('td', {}, fmt.date(r.ts)), h('td', {}, r.level), h('td', {}, h('code', {}, r.event)),
+      d.items.map((r) => h('tr', {}, h('td', {}, instant(r.ts)), h('td', {}, r.level), h('td', {}, h('code', {}, r.event)),
         h('td', { lang: 'en', dir: 'ltr' }, r.message), h('td', {}, r.job_id ? '#' + r.job_id : '')))),
     pager(d.total, offset, 100, (o) => { offset = o; load(); }));
   };

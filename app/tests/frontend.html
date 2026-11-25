@@ -30,6 +30,7 @@ let analysisStatus = { exists: true, empty: false, stale: false, analyzed_at: '2
 let planKind = 'review_plan';
 let recheckFixture = false;
 let reviewStateFixture = null;
+let jobFixture = [];
 let authenticated = interactive ? localStorage.getItem('fixture_signed_out') !== '1' : true;
 let rejectLogin = !interactive;
 let expiring = false;
@@ -110,6 +111,7 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/metadata/results') data = {
     analyzed_at: '2026-11-24T20:00:00Z', summary: { analysed: 54, fills: 0, review: 50 }, review_pending: 50,
     review_counts: { total: 50, decided: 0, pending: 50, needs_recheck: 0 }, plan_job_id: 1,
+    review_file_count: 50,
   };
   else if (path === '/api/sources') data = sourceData;
   else if (path === '/api/fs/browse') data = browseTree ?
@@ -154,7 +156,15 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/review') data = { items: [], total: 0, counts: {} };
   else if (path === '/api/admin/users' && opts.method !== 'PATCH') data = { users: [user], groups: [] };
   else if (path === '/api/admin/users/test-admin' && opts.method === 'PATCH') data = { ok: true };
-  else if (path === '/api/jobs') data = { items: [], total: 0 };
+  else if (path === '/api/jobs') data = { items: jobFixture, total: jobFixture.length };
+  else if (path === '/api/logs' || path === '/api/admin/audit') data = { items: [{
+    ts: '2026-11-24T20:00:00Z', level: 'INFO', event: 'REVIEW_DECIDED',
+    message: 'Review decision saved for synthetic.jpg', actor: 'synthetic', job_id: 1,
+  }], total: 1 };
+  else if (path === '/api/admin/db') data = {
+    current: { type: 'sqlite', path: '/state/synthetic.sqlite3' }, status: { connected: true, schema_version: 6 },
+    info: { last_update: '2026-11-24T20:00:00Z', db_id: 'synthetic', files: 2, open_jobs: 0 }, previous: [],
+  };
   else if (path === '/api/duplicates') data = { groups: duplicateGroups, total: duplicateGroups.length, recoverable: 12 };
   else throw new Error('Unmocked request: ' + url);
   requests.push({ url: String(url), body: opts.body && JSON.parse(opts.body), at: performance.now() });
@@ -187,7 +197,10 @@ const contrast = (el) => {
   const colors = [lum(css.color), lum(background)].sort((a, b) => a - b);
   return (colors[1] + .05) / (colors[0] + .05);
 };
-const go = async (hash) => { location.hash = hash; await sleep(); await app.route(); await sleep(); };
+const go = async (hash) => {
+  location.hash = hash; await sleep(); await app.route(); await sleep();
+  assert(!/\b(?:AM|PM)\b/.test(document.querySelector('#app').textContent), 'AM/PM rendered on ' + hash);
+};
 const results = [];
 async function test(name, fn) {
   try { await fn(); results.push({ name, passed: true }); }
@@ -483,14 +496,10 @@ await test('B9: duplicate groups explain shared dates, unknown dates and keeper 
       return new OriginalDateTimeFormat(locales, { ...options, timeZone: options?.timeZone || 'Europe/Rome' });
     };
     duplicateGroups[0].members[0].filesystem_date = '2026-11-24T22:47:50Z';
-    const expected = new OriginalDateTimeFormat('en', {
-      dateStyle: 'medium', timeStyle: 'medium', timeZone: 'Europe/Rome',
-    }).format(new Date('2026-11-24T22:47:50Z'));
+    const expected = '2026-11-24 23:47:50';
     assert(fmt.date(duplicateGroups[0].members[0].filesystem_date) === expected,
       'UTC filesystem instant is not displayed in Europe/Rome');
-    const expectedExif = new OriginalDateTimeFormat('en', {
-      dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC',
-    }).format(new Date('2026-11-24T23:47:50Z'));
+    const expectedExif = '2026-11-24 23:47:50';
     assert(fmt.exifDate('2026-11-24T23:47:50') === expectedExif,
       'naive EXIF capture date was converted to another timezone');
   } finally {
@@ -502,8 +511,10 @@ await test('B9: duplicate groups explain shared dates, unknown dates and keeper 
 });
 await test('U10/U11: duplicate dates and readable metadata summary are shown', async () => {
   await go('#/metadata');
-  assert(document.querySelector('main .summary').textContent.includes(t('meta.summary', { analysed: 54, fills: 0, review: 50 })),
+  assert(document.querySelector('main .summary').textContent.includes(t('meta.analysis_summary', { analysed: 54, fills: 0 })),
     'metadata result is not human-readable');
+  assert(document.querySelector('.review-population').textContent === t('meta.review_population', { items: 50, files: 50 }),
+    'review file/item population is not explained separately');
   assert([...document.querySelectorAll('main a[href="#/metadata/review"]')].some((a) => a.textContent.includes('50')),
     'metadata summary has no direct review link');
   await go('#/home');
@@ -641,6 +652,22 @@ await test('B28/B30: re-analysis retains skip and decisions in badge, filters an
     assert(document.querySelector('main .summary').textContent === summary, 'status filter changes counts');
     assert(document.documentElement.scrollWidth <= innerWidth, 'review status overflows viewport');
   } finally { reviewStateFixture = null; await go('#/home'); }
+});
+await test('B27: all rendered pages use numeric 24-hour dates with instant offset tooltips', async () => {
+  assert(fmt.localDate('2001-02-03T04:05:06') === '2001-02-03 04:05:06', 'capture date shifted or localized');
+  assert(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(fmt.date('2026-11-24T20:00:00Z')), 'instant date not numeric 24-hour');
+  assert(/UTC[+-]\d{2}:\d{2}/.test(fmt.dateTooltip('2026-11-24T20:00:00Z')), 'local offset missing');
+  jobFixture = [{ id: 1, kind: 'analyze_library', status: 'completed', updated_at: '2026-11-24T20:00:00Z' }];
+  try {
+    for (const route of ['#/home', '#/analyze', '#/duplicates', '#/metadata', '#/metadata/review/1',
+      '#/report', '#/jobs', '#/logs', '#/admin/audit', '#/admin/database']) {
+      await go(route);
+      for (const time of document.querySelectorAll('main time')) {
+        assert(/UTC[+-]\d{2}:\d{2}/.test(time.title), 'instant hover offset missing on ' + route);
+        assert(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(time.textContent), 'instant format wrong on ' + route);
+      }
+    }
+  } finally { jobFixture = []; await go('#/home'); }
 });
 await test('B19: login version ON/OFF uses public bootstrap only and fits both themes', async () => {
   const { renderLogin } = await import('../frontend/static/js/views/login.js');

@@ -87,16 +87,26 @@ export const fmt = {
     if (!iso) return t('common.na');
     const d = new Date(iso.length <= 19 ? iso + (iso.length === 10 ? 'T00:00:00' : '') : iso);
     if (isNaN(d)) return iso;
-    return new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: iso.length > 10 ? 'medium' : undefined }).format(d);
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hourCycle: 'h23', numberingSystem: 'latn',
+    }).formatToParts(d).map((part) => [part.type, part.value]));
+    return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+  },
+  dateTooltip(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return String(iso);
+    const minutes = -d.getTimezoneOffset();
+    const offset = (minutes < 0 ? '-' : '+') + String(Math.floor(Math.abs(minutes) / 60)).padStart(2, '0') +
+      ':' + String(Math.abs(minutes) % 60).padStart(2, '0');
+    return `${fmt.date(iso)} UTC${offset} · ${Intl.DateTimeFormat().resolvedOptions().timeZone} · ${iso}`;
   },
   localDate(iso) {
     // capture dates are local wall-clock times without a zone: show them as they are
     if (!iso) return t('common.na');
-    const [d, tm] = iso.split('T');
-    const [y, mo, da] = d.split('-').map(Number);
-    const [h, mi, s] = (tm || '00:00:00').split(':').map(Number);
-    const dt = new Date(Date.UTC(y, mo - 1, da, h, mi, s || 0));
-    return new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC' }).format(dt);
+    const value = String(iso).replace('T', ' ');
+    return value.length === 10 ? value + ' 00:00:00' : value.slice(0, 19);
   },
   exifDate(iso, offset = '') {
     if (!iso) return t('common.na');

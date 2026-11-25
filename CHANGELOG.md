@@ -8,6 +8,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Every displayed date/time uses locale-independent `yyyy-mm-dd hh:mm:ss` (24-hour).
+  Operational instants remain browser-local with offset/timezone on hover; capture wall-clock
+  values stay unshifted and CSV retains ISO 8601 ([#58](https://github.com/AxReds/twincheck/issues/58)).
 - Current review counts exclude missing/moved-duplicate files without deleting history.
   Metadata distinguishes the latest selected-folder analysis from the all-folders review queue,
   including both item and distinct-file counts; multiple review reasons are not counted as files
