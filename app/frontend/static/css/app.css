@@ -107,6 +107,7 @@ input, select, textarea { font: inherit; color: var(--fg); background: var(--car
 table { border-collapse: collapse; inline-size: 100%; }
 th, td { text-align: start; padding-block: 0.4rem; padding-inline: 0.6rem; border-block-end: 1px solid var(--line); vertical-align: top; }
 thead th { position: sticky; inset-block-start: 0; z-index: 2; background: var(--bg); font-size: 0.85em; color: var(--muted); box-shadow: 0 1px var(--line); }
+.event-code, .event-code code { white-space: nowrap; overflow-wrap: normal; }
 tr.is-missing th, tr.is-missing td { background: color-mix(in srgb, var(--warn) 12%, transparent); }
 .missing { color: var(--warn); font-weight: 600; }
 .pager { display: flex; gap: 0.5rem; align-items: center; margin-block: 0.5rem; flex-wrap: wrap; }

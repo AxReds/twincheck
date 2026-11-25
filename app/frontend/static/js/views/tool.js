@@ -339,27 +339,34 @@ export async function jobs(main) {
 // --- logs (entries stay in English; only the surrounding UI is translated) -------------------------
 export async function logs(main) {
   let offset = 0;
-  const ev = h('input', { type: 'text', placeholder: 'FILE_MOVED', size: '16' });
+  const ev = h('select', { class: 'log-event-filter' }, h('option', { value: '' }, t('logs.all_events')));
   const lv = h('select', {}, ['', 'INFO', 'WARNING', 'ERROR'].map((l) => h('option', { value: l }, l || t('logs.all_levels'))));
   const job = h('input', { type: 'number', min: '1', size: '6' });
   const params = new URLSearchParams(location.hash.split('?')[1] || '');
-  ev.value = params.get('event') || '';
+  let selectedEvent = params.get('event') || '';
   lv.value = params.get('level') || '';
   job.value = params.get('job_id') || '';
   const box = h('div', {});
   const load = async () => {
     const q = new URLSearchParams({ offset, limit: 100 });
-    if (ev.value) q.set('event', ev.value.trim().toUpperCase());
+    if (selectedEvent) q.set('event', selectedEvent);
     if (lv.value) q.set('level', lv.value);
     if (job.value) q.set('job_id', job.value);
     const d = await get('/api/logs?' + q);
+    mount(ev, h('option', { value: '' }, t('logs.all_events')),
+      Object.entries(d.event_counts).map(([code, count]) => h('option', { value: code, selected: code === selectedEvent },
+        `${code} (${fmt.number(count)})`)));
     mount(box, table(['logs.col_time', 'logs.col_level', 'logs.col_event', 'logs.col_message', 'logs.col_job'],
-      d.items.map((r) => h('tr', {}, h('td', {}, instant(r.ts)), h('td', {}, r.level), h('td', {}, h('code', {}, r.event)),
+      d.items.map((r) => h('tr', {}, h('td', {}, instant(r.ts)), h('td', {}, r.level), h('td', { class: 'event-code' }, h('code', {}, r.event)),
         h('td', { lang: 'en', dir: 'ltr' }, r.message), h('td', {}, r.job_id ? '#' + r.job_id : '')))),
     pager(d.total, offset, 100, (o) => { offset = o; load(); }));
   };
   page(main, 'logs.title', 'logs.intro', stepGuide(0, await analysisState()), h('div', { class: 'filters' }, field('logs.event', ev), field('logs.level', lv), field('logs.job', job),
-    button('logs.apply', () => { offset = 0; load(); })), box);
+    button('logs.apply', () => { selectedEvent = ev.value; offset = 0; load(); }),
+    button('logs.clear', () => {
+      selectedEvent = ''; ev.value = ''; lv.value = ''; job.value = ''; offset = 0;
+      history.replaceState(null, '', '#/logs'); load();
+    })), box);
   await load();
 }
 

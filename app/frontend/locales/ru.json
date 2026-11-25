@@ -842,6 +842,8 @@
     "review.accept_next": "Принять и далее",
     "review.keep_next": "Оставить и далее",
     "review.postponed": "Отложено записей: {count}.",
-    "settings.login_version_hint": "Показывать версию приложения на странице входа."
+    "settings.login_version_hint": "Показывать версию приложения на странице входа.",
+    "logs.all_events": "Все события",
+    "logs.clear": "Сбросить фильтры"
   }
 }

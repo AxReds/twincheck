@@ -7,6 +7,7 @@ import json
 import os
 import time
 
+from ..events import EVENTS
 from ..db.schema import utcnow
 from ..fsutil import PathError, media_kind, is_within
 from ..previews import ensure as ensure_preview
@@ -883,17 +884,36 @@ def report(req: Request):
 
 @router.get("/api/logs")
 def logs(req: Request):
-    db = need_db()
     off, lim = paging(req, 100, 1000)
+    rows = _log_rows(req, include_event=False)
+    counts = dict.fromkeys(sorted(EVENTS), 0)
+    for row in rows:
+        counts[row["event"]] = counts.get(row["event"], 0) + 1
+    selected = req.query.get("event")
+    if selected:
+        rows = [row for row in rows if row["event"] == selected]
+    return JSONResponse({"items": rows[off:off + lim], "total": len(rows), "event_counts": counts})
+
+
+def _log_rows(req: Request, include_event: bool = True) -> list[dict]:
+    db = need_db()
     where, args = ["1=1"], []
     owner = owner_filter(req)
     if owner:
         where.append("owner_id=?")
         args.append(owner)
     for k in ("job_id", "event", "level"):
+        if k == "event" and not include_event:
+            continue
         if req.query.get(k):
             where.append(f"{k}=?")
-            args.append(int(req.query[k]) if k == "job_id" else req.query[k])
+            if k == "job_id":
+                try:
+                    args.append(int(req.query[k]))
+                except ValueError:
+                    fail(400, "invalid_value", field=k)
+            else:
+                args.append(req.query[k])
     w = " AND ".join(where)
     rows = db.query(f"SELECT id, ts, level, event, message, params, job_id, owner_id, actor FROM run_log WHERE {w} ORDER BY id DESC", args)
     if not is_admin(req):
@@ -909,9 +929,7 @@ def logs(req: Request):
             r["params"] = None
             filtered.append(r)
         rows = filtered
-    total = len(rows)
-    rows = rows[off:off + lim]
-    return JSONResponse({"items": rows, "total": total})
+    return rows
 
 
 @router.get("/api/manifest.csv")

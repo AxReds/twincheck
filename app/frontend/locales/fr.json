@@ -829,6 +829,8 @@
     "review.accept_next": "Accepter et suivant",
     "review.keep_next": "Conserver et suivant",
     "review.postponed": "{count} éléments reportés.",
-    "settings.login_version_hint": "Afficher la version de l'application sur la page de connexion."
+    "settings.login_version_hint": "Afficher la version de l'application sur la page de connexion.",
+    "logs.all_events": "Tous les événements",
+    "logs.clear": "Effacer les filtres"
   }
 }

@@ -803,6 +803,8 @@
     "review.accept_next": "承認して次へ",
     "review.keep_next": "保持して次へ",
     "review.postponed": "{count} 項目を延期しました。",
-    "settings.login_version_hint": "サインインページにアプリのバージョンを表示します。"
+    "settings.login_version_hint": "サインインページにアプリのバージョンを表示します。",
+    "logs.all_events": "すべてのイベント",
+    "logs.clear": "フィルターをクリア"
   }
 }

@@ -8,6 +8,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Logs offers the complete event catalogue with counts (including zero) under the other
+  active filters, Clear filters, and unwrapped event codes
+  ([#70](https://github.com/AxReds/twincheck/issues/70)).
 - Checkboxes precede their labels on one left-aligned line; field help stays underneath,
   including the login-version setting ([#69](https://github.com/AxReds/twincheck/issues/69)).
 - Shared data tables use bounded keyboard-scrollable containers with sticky, opaque headers

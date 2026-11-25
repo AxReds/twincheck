@@ -829,6 +829,8 @@
     "review.accept_next": "Aceitar e próximo",
     "review.keep_next": "Manter e próximo",
     "review.postponed": "{count} itens adiados.",
-    "settings.login_version_hint": "Mostrar a versão do aplicativo na página de acesso."
+    "settings.login_version_hint": "Mostrar a versão do aplicativo na página de acesso.",
+    "logs.all_events": "Todos os eventos",
+    "logs.clear": "Limpar filtros"
   }
 }

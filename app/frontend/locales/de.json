@@ -816,6 +816,8 @@
     "review.accept_next": "Akzeptieren und weiter",
     "review.keep_next": "Behalten und weiter",
     "review.postponed": "{count} Einträge zurückgestellt.",
-    "settings.login_version_hint": "Anwendungsversion auf der Anmeldeseite anzeigen."
+    "settings.login_version_hint": "Anwendungsversion auf der Anmeldeseite anzeigen.",
+    "logs.all_events": "Alle Ereignisse",
+    "logs.clear": "Filter zurücksetzen"
   }
 }

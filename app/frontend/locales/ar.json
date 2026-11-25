@@ -868,6 +868,8 @@
     "review.accept_next": "قبول والتالي",
     "review.keep_next": "إبقاء والتالي",
     "review.postponed": "تم تأجيل {count} عناصر.",
-    "settings.login_version_hint": "إظهار إصدار التطبيق في صفحة تسجيل الدخول."
+    "settings.login_version_hint": "إظهار إصدار التطبيق في صفحة تسجيل الدخول.",
+    "logs.all_events": "جميع الأحداث",
+    "logs.clear": "مسح المرشحات"
   }
 }

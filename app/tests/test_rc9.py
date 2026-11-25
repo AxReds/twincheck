@@ -12,6 +12,20 @@ from twincheck.db.schema import CURRENT_VERSION, create_structure, migrate, set_
 
 
 class MigrationEvents(unittest.TestCase):
+    def test_log_event_catalogue_includes_zero_counts_under_filters(self):
+        inst = Instance().start()
+        try:
+            inst.setup()
+            dbm.log(inst.core.db, "REVIEW_SKIPPED", owner_id="synthetic", path="/synthetic")
+            response = inst.admin().get("/api/logs?level=WARNING").json()
+            self.assertEqual(set(response["event_counts"]), set(events.EVENTS))
+            self.assertEqual(response["event_counts"]["REVIEW_SKIPPED"], 0)
+            response = inst.admin().get("/api/logs?event=REVIEW_SKIPPED").json()
+            self.assertEqual(response["total"], 1)
+            self.assertEqual(response["event_counts"]["REVIEW_SKIPPED"], 1)
+        finally:
+            inst.cleanup()
+
     def test_timezone_catalogue_uses_container_zones_and_current_offsets(self):
         from zoneinfo import available_timezones
         inst = Instance().start()

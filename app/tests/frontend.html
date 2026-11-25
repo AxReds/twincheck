@@ -160,7 +160,7 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/logs' || path === '/api/admin/audit') data = { items: [{
     ts: '2026-11-24T20:00:00Z', level: 'INFO', event: 'REVIEW_DECIDED',
     message: 'Review decision saved for synthetic.jpg', actor: 'synthetic', job_id: 1,
-  }], total: 1 };
+  }], total: 1, event_counts: { REVIEW_DECIDED: 1, REVIEW_SKIPPED: 0, FILE_UNREADABLE: 0 } };
   else if (path === '/api/admin/db') data = {
     current: { type: 'sqlite', path: '/state/synthetic.sqlite3' }, status: { connected: true, schema_version: 6 },
     info: { last_update: '2026-11-24T20:00:00Z', db_id: 'synthetic', files: 2, open_jobs: 0 }, previous: [],
@@ -755,6 +755,17 @@ await test('U21: checkbox and label share a left-aligned line, with help below',
     'checkbox and label are not aligned');
   assert(field.querySelector('.hint').getBoundingClientRect().top >= label.getBoundingClientRect().bottom,
     'checkbox help is not underneath');
+  await go('#/home');
+});
+await test('U22: event dropdown includes zero-count codes and filters can be cleared', async () => {
+  await go('#/logs?event=REVIEW_DECIDED&level=WARNING&job_id=1');
+  const select = document.querySelector('.log-event-filter');
+  assert([...select.options].some((o) => o.textContent === 'REVIEW_SKIPPED (0)'), 'zero-count event missing');
+  assert(select.value === 'REVIEW_DECIDED', 'event filter URL selection lost');
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('logs.clear')).click();
+  await sleep();
+  assert(select.value === '' && location.hash === '#/logs', 'clear did not reset event/URL');
+  assert(getComputedStyle(document.querySelector('.event-code')).whiteSpace === 'nowrap', 'event codes can wrap');
   await go('#/home');
 });
 await test('B19: login version ON/OFF uses public bootstrap only and fits both themes', async () => {
