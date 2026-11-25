@@ -821,6 +821,8 @@
     "logs.clear": "Filter zurücksetzen",
     "logs.csv_scope": "CSV-Zeilen",
     "logs.csv_filtered": "Aktuell gefilterte Ereignisse",
-    "logs.csv_all": "Alle sichtbaren Ereignisse"
+    "logs.csv_all": "Alle sichtbaren Ereignisse",
+    "logs.all_users": "Alle Benutzer",
+    "logs.system": "System"
   }
 }

@@ -14,6 +14,40 @@ from twincheck.db.schema import CURRENT_VERSION, create_structure, migrate, set_
 
 
 class MigrationEvents(unittest.TestCase):
+    def test_log_visibility_by_role_and_owner_filter_also_applies_to_csv(self):
+        inst = Instance().start()
+        try:
+            inst.setup()
+            admin = inst.admin()
+            (inst.data / "lib").mkdir()
+            (inst.data / "other").mkdir()
+            uid, user = make_user(admin, "synthetic", [{"path": "lib"}])
+            other_id, _ = make_user(admin, "other", [{"path": "other"}])
+            db = inst.core.db
+            own_path = str(inst.data / "lib" / "synthetic.jpg")
+            other_path = str(inst.data / "other" / "other.jpg")
+            dbm.log(db, "REVIEW_SKIPPED", owner_id=uid, path=own_path)
+            dbm.log(db, "REVIEW_DECIDED", owner_id=other_id, path=other_path, decision="saved")
+            dbm.log(db, "REVIEW_DECIDED", owner_id=uid, path=other_path, decision="saved")
+            dbm.log(db, "LOGIN_OK", owner_id=uid, username=uid, ip="127.0.0.1")
+            dbm.log(db, "APP_STARTED", version="synthetic")
+            job = db.insert("INSERT INTO jobs (owner_id,kind,status,params) VALUES (?,?,?,?)",
+                            (other_id, "scan", "completed", "{}"))
+            dbm.log(db, "JOB_COMPLETED", owner_id=uid, job_id=job, kind="scan")
+            response = user.get("/api/logs?owner=" + other_id).json()
+            self.assertEqual([row["event"] for row in response["items"]], ["REVIEW_SKIPPED"])
+            self.assertNotIn("users", response)
+            csv_rows = list(csv.DictReader(io.StringIO(user.get("/api/logs.csv?scope=all&owner=" + other_id).text)))
+            self.assertEqual([row["event"] for row in csv_rows], ["REVIEW_SKIPPED"])
+            all_admin = admin.get("/api/logs").json()
+            self.assertIn("LOGIN_OK", {row["event"] for row in all_admin["items"]})
+            self.assertIn("APP_STARTED", {row["event"] for row in all_admin["items"]})
+            selected = admin.get("/api/logs?owner=" + other_id).json()
+            self.assertEqual({row["owner_id"] for row in selected["items"]}, {other_id})
+            self.assertTrue(any(row["username"] == "other" for row in all_admin["users"]))
+        finally:
+            inst.cleanup()
+
     def test_log_csv_exports_filtered_or_all_accessible_rows_with_iso_times(self):
         inst = Instance().start()
         try:

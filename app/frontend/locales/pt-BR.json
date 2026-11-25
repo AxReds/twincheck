@@ -834,6 +834,8 @@
     "logs.clear": "Limpar filtros",
     "logs.csv_scope": "Linhas CSV",
     "logs.csv_filtered": "Eventos filtrados atualmente",
-    "logs.csv_all": "Todos os eventos visíveis"
+    "logs.csv_all": "Todos os eventos visíveis",
+    "logs.all_users": "Todos os usuários",
+    "logs.system": "Sistema"
   }
 }

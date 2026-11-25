@@ -337,13 +337,15 @@ export async function jobs(main) {
 }
 
 // --- logs (entries stay in English; only the surrounding UI is translated) -------------------------
-export async function logs(main) {
+export async function logs(main, state) {
   let offset = 0;
   const ev = h('select', { class: 'log-event-filter' }, h('option', { value: '' }, t('logs.all_events')));
   const lv = h('select', {}, ['', 'INFO', 'WARNING', 'ERROR'].map((l) => h('option', { value: l }, l || t('logs.all_levels'))));
   const job = h('input', { type: 'number', min: '1', size: '6' });
   const params = new URLSearchParams(location.hash.split('?')[1] || '');
   let selectedEvent = params.get('event') || '';
+  let selectedOwner = params.get('owner') || '';
+  const owner = ['admin', 'administrator'].includes(state.user.role) ? h('select', { class: 'log-user-filter' }) : null;
   lv.value = params.get('level') || '';
   job.value = params.get('job_id') || '';
   const box = h('div', {});
@@ -362,20 +364,27 @@ export async function logs(main) {
     if (selectedEvent) q.set('event', selectedEvent);
     if (lv.value) q.set('level', lv.value);
     if (job.value) q.set('job_id', job.value);
+    if (owner && selectedOwner) q.set('owner', selectedOwner);
     const d = await get('/api/logs?' + q);
     appliedFilters = q; updateExport();
     mount(ev, h('option', { value: '' }, t('logs.all_events')),
       Object.entries(d.event_counts).map(([code, count]) => h('option', { value: code, selected: code === selectedEvent },
         `${code} (${fmt.number(count)})`)));
-    mount(box, table(['logs.col_time', 'logs.col_level', 'logs.col_event', 'logs.col_message', 'logs.col_job'],
+    if (owner) mount(owner, h('option', { value: '' }, t('logs.all_users')),
+      h('option', { value: '__system__', selected: selectedOwner === '__system__' }, t('logs.system')),
+      d.users.map((user) => h('option', { value: user.id, selected: selectedOwner === user.id }, user.username)));
+    mount(box, table(['logs.col_time', 'logs.col_level', 'logs.col_event', 'logs.col_message', 'logs.col_job', ...(owner ? ['admin.col_user'] : [])],
       d.items.map((r) => h('tr', {}, h('td', {}, instant(r.ts)), h('td', {}, r.level), h('td', { class: 'event-code' }, h('code', {}, r.event)),
-        h('td', { lang: 'en', dir: 'ltr' }, r.message), h('td', {}, r.job_id ? '#' + r.job_id : '')))),
+        h('td', { lang: 'en', dir: 'ltr' }, r.message), h('td', {}, r.job_id ? '#' + r.job_id : ''),
+        owner ? h('td', {}, r.user || t('logs.system')) : null))),
     pager(d.total, offset, 100, (o) => { offset = o; load(); }));
   };
   page(main, 'logs.title', 'logs.intro', stepGuide(0, await analysisState()), h('div', { class: 'filters' }, field('logs.event', ev), field('logs.level', lv), field('logs.job', job),
-    button('logs.apply', () => { selectedEvent = ev.value; offset = 0; load(); }),
+    owner ? field('admin.col_user', owner) : null,
+    button('logs.apply', () => { selectedEvent = ev.value; if (owner) selectedOwner = owner.value; offset = 0; load(); }),
     button('logs.clear', () => {
       selectedEvent = ''; ev.value = ''; lv.value = ''; job.value = ''; offset = 0;
+      selectedOwner = ''; if (owner) owner.value = '';
       history.replaceState(null, '', '#/logs'); load();
     })), h('div', { class: 'actions' }, field('logs.csv_scope', csvScope), exportCSV), box);
   await load();

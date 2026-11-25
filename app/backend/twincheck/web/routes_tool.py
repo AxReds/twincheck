@@ -893,7 +893,11 @@ def logs(req: Request):
     selected = req.query.get("event")
     if selected:
         rows = [row for row in rows if row["event"] == selected]
-    return JSONResponse({"items": rows[off:off + lim], "total": len(rows), "event_counts": counts})
+    out = {"items": rows[off:off + lim], "total": len(rows), "event_counts": counts}
+    if is_admin(req):
+        out["users"] = [{"id": user["id"], "username": user["username"]}
+                        for user in common.app().vault.snapshot()["users"].values()]
+    return JSONResponse(out)
 
 
 def _log_rows(req: Request, include_event: bool = True, filtered: bool = True) -> list[dict]:
@@ -901,8 +905,14 @@ def _log_rows(req: Request, include_event: bool = True, filtered: bool = True) -
     where, args = ["1=1"], []
     owner = owner_filter(req) if filtered else None if is_admin(req) else req.user["id"]
     if owner:
-        where.append("owner_id=?")
-        args.append(owner)
+        if is_admin(req) and owner == "__system__":
+            where.append("owner_id IS NULL AND actor IS NULL")
+        elif is_admin(req):
+            where.append("(owner_id=? OR actor=?)")
+            args.extend([owner, owner])
+        else:
+            where.append("owner_id=?")
+            args.append(owner)
     for k in ("job_id", "event", "level"):
         if not filtered:
             continue
@@ -922,8 +932,22 @@ def _log_rows(req: Request, include_event: bool = True, filtered: bool = True) -
     if not is_admin(req):
         filtered = []
         for r in rows:
+            if not r["event"].startswith(("JOB_", "ANALYSIS_", "FILE_", "DUP_", "MOVE_", "META_", "REVIEW_",
+                                          "UNDO_", "VERIFY_", "RECONCILE_", "PREVIEW_", "SCAN_", "SYMLINK_")):
+                continue
             p = json.loads(r["params"] or "{}")
             paths = [v for v in p.values() if isinstance(v, str) and v.startswith("/")]
+            if r["job_id"]:
+                job = db.query_one("SELECT owner_id, params FROM jobs WHERE id=?", (r["job_id"],))
+                if not job or job["owner_id"] != req.user["id"]:
+                    continue
+                job_params = json.loads(job["params"] or "{}")
+                paths += [v for v in job_params.values() if isinstance(v, str) and v.startswith("/")]
+                paths += [v for v in job_params.get("roots", []) if isinstance(v, str)]
+            if p.get("file_id"):
+                file = db.query_one("SELECT * FROM files WHERE id=? AND owner_id=?", (p["file_id"], req.user["id"]))
+                if not access.file_in_scope(common.app().settings.data_dir.as_posix(), req.user, file):
+                    continue
             if any(not access.path_in_scope(common.app().settings.data_dir.as_posix(), req.user, path) for path in paths):
                 continue
             for k, v in p.items():
@@ -932,6 +956,10 @@ def _log_rows(req: Request, include_event: bool = True, filtered: bool = True) -
             r["params"] = None
             filtered.append(r)
         rows = filtered
+    for row in rows:
+        user_id = row["owner_id"] or row["actor"]
+        user = common.app().user(user_id) if user_id else None
+        row["user"] = user["username"] if user else user_id
     return rows
 
 
@@ -945,13 +973,13 @@ def logs_csv(req: Request):
     def factory():
         buf = io.StringIO()
         writer = csv.writer(buf)
-        writer.writerow(["time", "level", "event", "message", "job_id"])
+        writer.writerow(["time", "level", "event", "message", "job_id", "user"])
         for index, row in enumerate(rows):
             instant = datetime.fromisoformat(row["ts"].replace("Z", "+00:00"))
             if instant.tzinfo is None:
                 instant = instant.replace(tzinfo=timezone.utc)
             writer.writerow([instant.isoformat().replace("+00:00", "Z"), row["level"], row["event"],
-                             row["message"], row["job_id"] or ""])
+                             row["message"], row["job_id"] or "", row["user"] or ""])
             if index % 500 == 499:
                 yield buf.getvalue().encode("utf-8")
                 buf.seek(0)

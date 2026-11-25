@@ -873,6 +873,8 @@
     "logs.clear": "مسح المرشحات",
     "logs.csv_scope": "صفوف CSV",
     "logs.csv_filtered": "الأحداث المصفاة حاليا",
-    "logs.csv_all": "جميع الأحداث التي يمكنك رؤيتها"
+    "logs.csv_all": "جميع الأحداث التي يمكنك رؤيتها",
+    "logs.all_users": "جميع المستخدمين",
+    "logs.system": "النظام"
   }
 }

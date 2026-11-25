@@ -808,6 +808,8 @@
     "logs.clear": "フィルターをクリア",
     "logs.csv_scope": "CSV の行",
     "logs.csv_filtered": "現在フィルター済みのイベント",
-    "logs.csv_all": "表示可能なすべてのイベント"
+    "logs.csv_all": "表示可能なすべてのイベント",
+    "logs.all_users": "すべてのユーザー",
+    "logs.system": "システム"
   }
 }

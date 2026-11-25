@@ -160,7 +160,8 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/logs' || path === '/api/admin/audit') data = { items: [{
     ts: '2026-11-24T20:00:00Z', level: 'INFO', event: 'REVIEW_DECIDED',
     message: 'Review decision saved for synthetic.jpg', actor: 'synthetic', job_id: 1,
-  }], total: 1, event_counts: { REVIEW_DECIDED: 1, REVIEW_SKIPPED: 0, FILE_UNREADABLE: 0 } };
+  }], total: 1, event_counts: { REVIEW_DECIDED: 1, REVIEW_SKIPPED: 0, FILE_UNREADABLE: 0 },
+    users: [{ id: 'synthetic', username: 'synthetic' }] };
   else if (path === '/api/admin/db') data = {
     current: { type: 'sqlite', path: '/state/synthetic.sqlite3' }, status: { connected: true, schema_version: 6 },
     info: { last_update: '2026-11-24T20:00:00Z', db_id: 'synthetic', files: 2, open_jobs: 0 }, previous: [],
@@ -779,6 +780,16 @@ await test('U23: CSV choice exports applied filters or all accessible events', a
   q = new URL(link.href).searchParams;
   assert(q.get('scope') === 'all' && !q.has('event') && !q.has('job_id'), 'all CSV keeps filters');
   await go('#/home');
+});
+await test('U24: only administrative roles get the User log filter', async () => {
+  const old = app.state.user.role;
+  try {
+    for (const role of ['admin', 'administrator', 'user']) {
+      app.state.user.role = role;
+      await go('#/logs');
+      assert(Boolean(document.querySelector('.log-user-filter')) === (role !== 'user'), 'User filter role mismatch');
+    }
+  } finally { app.state.user.role = old; await go('#/home'); }
 });
 await test('B19: login version ON/OFF uses public bootstrap only and fits both themes', async () => {
   const { renderLogin } = await import('../frontend/static/js/views/login.js');

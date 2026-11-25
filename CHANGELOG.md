@@ -8,6 +8,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Base users see only their own scoped job/file/review events, never system/authentication
+  events or mismatched job/file references. Administrators see all users/system events and
+  can filter by User; the same policy protects counts and CSV
+  ([#72](https://github.com/AxReds/twincheck/issues/72)).
 - Logs CSV export offers the applied filters or all accessible rows, reusing server-side
   visibility checks, English messages and ISO 8601 times with offset/Z
   ([#71](https://github.com/AxReds/twincheck/issues/71)).
