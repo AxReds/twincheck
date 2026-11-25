@@ -4,6 +4,59 @@ All notable changes are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.1-rc.8] - Unreleased
+
+This candidate is implemented on `fix/v1.0.1`. Publication is blocked: the release workflow
+would update the existing `rc` image alias, conflicting with the owner's explicit tag
+immutability requirement. No rc.8 release, Git tag or image is claimed here.
+
+### Added
+
+- Admin-only vault settings **Library timezone** (IANA; `TZ` or UTC default) and
+  **Show version on login page** (ON by default; OFF omits version from public bootstrap);
+  both changes are audited ([#52](https://github.com/AxReds/twincheck/issues/52),
+  [#48](https://github.com/AxReds/twincheck/issues/48)).
+- Numbered SQLite/MariaDB migrations add per-decision/per-field provenance and technical
+  file-change tracking. Ambiguous unapplied historical dates return to needs re-check,
+  without changing stored values; Organize skips them at preview and confirmation
+  ([#52](https://github.com/AxReds/twincheck/issues/52),
+  [#54](https://github.com/AxReds/twincheck/issues/54)).
+
+### Fixed
+
+- Mtime proposals convert UTC instants to the library wall clock. Offset EXIF converts only
+  for organizing; original metadata, timezone-free EXIF and manual entries remain unchanged.
+  Saved decisions survive capture-date refresh, including duplicate compatibility analysis
+  ([#52](https://github.com/AxReds/twincheck/issues/52)).
+- Stale results reflect scoped disk changes or a genuinely newer incomplete analysis,
+  not review saves, unreadable-file warnings or superseded paused runs
+  ([#54](https://github.com/AxReds/twincheck/issues/54)).
+- Duplicates/Metadata show the latest accessible library run and exactly one status notice,
+  without per-step history cards or contradictory stale/results notices
+  ([#50](https://github.com/AxReds/twincheck/issues/50),
+  [#49](https://github.com/AxReds/twincheck/issues/49)).
+- Each analysis phase emits one start/completion pair across resume, with real counts;
+  job cards summarize them and link unreadable counts to filtered warnings
+  ([#51](https://github.com/AxReds/twincheck/issues/51),
+  [#18](https://github.com/AxReds/twincheck/issues/18)).
+- Shared live review counts and readable metadata summaries explain zero fills and link
+  directly to the pending queue ([#53](https://github.com/AxReds/twincheck/issues/53),
+  [#43](https://github.com/AxReds/twincheck/issues/43)).
+
+### Changed
+
+- Analyze replaces Scan; guide-first layouts retain accessible hidden headings. Review lives
+  inside Metadata, with legacy redirects, status filters and actual-fill-only write previews
+  ([#55](https://github.com/AxReds/twincheck/issues/55),
+  [#56](https://github.com/AxReds/twincheck/issues/56)).
+- Sub-pages have contextual back links and explained empty states. Review actions remain
+  visible while scrolling, dates use 24-hour text inputs, examples are removed and EXIF
+  modification dates are explicitly labelled
+  ([#57](https://github.com/AxReds/twincheck/issues/57),
+  [#58](https://github.com/AxReds/twincheck/issues/58)).
+- All locale keys are complete; documentation explains the new flow, settings, migrations
+  and why compatible-original previews need no files in `/state/cache`.
+
 ## [1.0.1-rc.7] - 2026-11-25
 
 ### Changed

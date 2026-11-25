@@ -67,6 +67,23 @@ application inside the container.
 Fixed values (not configurable on purpose): internal port **80**, published port **7777**,
 volumes `/data` and `/state`, `/tmp` on tmpfs.
 
+### Library timezone
+
+The image includes IANA timezone data. Optional `TZ` (example: `Europe/Rome`) is passed by
+both Compose and the Portainer stack and supplies the default **Library timezone**.
+If unset, the default is `UTC` and Administration → Settings recommends configuring it.
+The fixed admin can override it in that page; the override is stored in `/state/vault.enc`,
+not `.env`, and audited as `SETTING_CHANGED`.
+
+Organizing dates are local wall-clock values in the library timezone: file-system mtime
+proposals convert from UTC; offset EXIF converts only for organizing while its original
+metadata is preserved; timezone-free EXIF and manual values are not shifted. Upgrading old
+databases flags ambiguous unapplied decisions for re-check without changing saved dates.
+Organize skips flagged files until the owner explicitly confirms or changes them.
+
+**Show version on login page** is another admin-only vault setting (default ON), not a
+container environment parameter. When OFF, public bootstrap contains no application version.
+
 Parameters that exist only inside the image and are set by the Dockerfile (`DATA_DIR=/data`,
 `STATE_DIR=/state`, `APP_PORT=80`, `EXIFTOOL_PATH`, `FFMPEG_PATH`) are documented in
 [`app/backend/README.md`](../app/backend/README.md); do not change them in a container deployment.

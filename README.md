@@ -80,16 +80,18 @@ On a server with **Portainer** you do not need the source code: use the publishe
    change their temporary password at first sign-in.
    The fixed admin can assign his own source using *Administration → Users → admin →
    Edit → Sources*. Administration is available only in the administrative user menu,
-   above Change password; empty Scan and Organize pages link to source assignment
+   above Change password; empty Analyze and Organize pages link to source assignment
    for admin roles. Base users get an instruction to ask an administrator instead.
-4. **Analyze library** - on *Scan*, pick a source and start *Analyze library*. This is the single
+4. **Analyze** - on *Analyze*, pick a source and start *Analyze library*. This is the single
    entry point for reading the library: one resumable,
    read-only job performs scan, SHA-256 hashing, capture-date reading, duplicate grouping and
    metadata proposals in order. Unchanged files reuse their stored hash and capture date. Separate
    analysis buttons are intentionally absent from the review pages; compatibility APIs remain for
    automation and older clients.
-5. **Review duplicates and metadata** - these are review-and-action pages. They show the last analysis
-   time and a link back to Scan to update it; they do not start separate analyses. Review duplicate
+5. **Check: Duplicates and Metadata** - these are review-and-action pages. They show only the latest
+   accessible library analysis, with one status notice and *History in Jobs*.
+   *Update analysis* leads back to Analyze; a stale notice explains file changes or an incomplete
+   analysis, never a database-only review edit. Review duplicate
    results, including EXIF and file-system dates (change the
    keeper if needed), *Preview move*, confirm.
    Duplicates go to `<destination>/Duplicates/<original relative path>`.
@@ -98,16 +100,22 @@ On a server with **Portainer** you do not need the source code: use the publishe
    Without an internal capture date the oldest mtime wins, then the tidiest path
    (fewest components, shortest length, lexicographic order). The group shows the
    effective date and rule. Metadata is not written by duplicate analysis.
-6. **Metadata** - review the last readable summary, open the items requiring review, or
-   *Re-analyze* if needed. Preview the automatic completions and confirm to write (original values
-   are saved first). Doubtful files go to review.
-7. **Review** - for each file: media on one side, every field on the other; save, skip, leave as it
+6. **Metadata** - one tab contains automatic completions and the review queue. Live counts show
+   total, decided, pending and, when present, needs re-check; filter pending/decided/needs re-check/all.
+   Preview automatic completions only when fills exist, then confirm to write (original values
+   are saved first). Zero fills is explained and does not mean there are no files to review.
+7. **Review within Metadata** - for each file: media on one side, every field on the other; save, skip, leave as it
    is, or apply to the whole folder/group. Decisions are stored immediately; *Preview writing*
    writes the values you entered (only into missing fields).
    Choosing a date for organizing clears unsaved capture/creation date edits; that choice
    is stored only in the database and does not itself write date tags.
-8. **Organise** - preview the `Year/Month/Day` structure, confirm the move.
-9. **Undo** - *Report & undo*: preview and execute the reversal of moves and/or metadata, read from
+   Date inputs and proposals use `yyyy-mm-dd hh:mm:ss` in 24-hour format. Save controls stay visible
+   while scrolling; previews and review items have contextual back links.
+8. **Organize** - preview the `Year/Month/Day` structure, confirm the move. Dates use the configured
+   library timezone. Ambiguous historical decisions stay unchanged in the needs re-check queue:
+   accept the converted proposal, keep the stored date or choose another. Organize skips them until
+   explicit confirmation, including when executing a previously prepared plan.
+9. **Report & undo** - preview and execute the reversal of moves and/or metadata, read from
    the manifest; *Verify* checks files and hashes against index and manifest; download the manifest CSV.
 10. **Change database** - *Administration → Database*: test, switch (jobs paused, old database
     untouched, reconciliation with the disk, rollback on failure), or go back to a previous one.
@@ -116,6 +124,22 @@ On a server with **Portainer** you do not need the source code: use the publishe
     then optionally switch to the new database.
 12. **Admin password reset** - `docker compose exec app reset-admin-password` (or `--generate`,
     `--user <name>`). Works with the app running; all sessions of that user are closed.
+
+The step guide is **1 Analyze → 2 Check (Duplicates · Metadata) → 3 Organize → 4 Report & undo**.
+There is no separate Review menu tab; existing Scan and Review links redirect to their new locations.
+
+### Instance settings
+
+The fixed admin sets these in **Administration → Settings**; other roles cannot edit them:
+
+| Setting | Description | Default | Required | Example |
+|---------|-------------|---------|----------|---------|
+| Library timezone | IANA timezone for organizing wall-clock dates; mtime proposals convert from UTC, offset EXIF converts only for organizing, timezone-free EXIF/manual dates stay unchanged. | container `TZ`, otherwise `UTC` with a visible recommendation | no | `Europe/Rome` |
+| Show version on login page | Small `TwinCheck <version>` footer, using the same version as the authenticated header. When disabled no version is sent to unauthenticated clients. | ON | no | OFF |
+
+Both settings are stored in the encrypted vault and audited as `SETTING_CHANGED`.
+The login-version option is not an environment variable. Each new review decision records its
+source and applied timezone; historical dates are never silently corrected during migration.
 
 ## Safety rules
 

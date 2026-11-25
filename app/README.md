@@ -19,11 +19,19 @@ and [`backend/README.md`](backend/README.md) (all environment variables read by 
 |------|-------|-----------|
 | accounts, roles, groups, sources, password hashes (scrypt), per-user language/theme, settings, MariaDB credentials, admin audit log | `/state/vault.enc` | AES-256-GCM, key from `APP_MASTER_KEY` (HKDF; scrypt for passphrases), decrypted only in memory |
 | index, hashes, duplicates, jobs, checkpoints, execution log, move journal, manifest, metadata before/after, review decisions | operational database (SQLite in `/state` or MariaDB) | no credentials, no user names (only stable user ids); encrypt the disk/volume for encryption at rest |
-| previews | `/state/cache/previews/<user id>/` | deletable at any time |
+| generated/transcoded previews | `/state/cache/previews/<user id>/` | deletable at any time; scope-checked before use |
+
+Browser-compatible originals are served directly, without creating a disk-cache entry.
+Only generated JPEG/H.264 previews use the directory above, bounded by `PREVIEW_CACHE_MAX_MB`
+and invalidated by source identity/size/mtime. The browser also keeps preview promises and
+blob ObjectURLs in memory and prefetches the next item; these are not files in `/state`.
+Codec probing is cached in process memory. ExifTool/ffmpeg working files use `/tmp`.
+Therefore `/state/cache` can intentionally stay empty after viewing many compatible originals;
+this is not evidence that preview caching failed.
 
 ## Library analysis pipeline
 
-`analyze_library` is a read-only, auto-resuming job started from the Scan page. It runs the
+`analyze_library` is a read-only, auto-resuming job started from the Analyze page. It runs the
 existing components in this order:
 
 1. scan the selected source;
@@ -64,10 +72,24 @@ choices and already organized/applied decisions remain untouched. Organize skips
 files (including at confirmation) until the owner explicitly confirms or changes the date.
 One `DECISIONS_FLAGGED_FOR_RECHECK` event summarizes the migration.
 
+| Vault setting | Description | Default | Required | Example |
+|---------------|-------------|---------|----------|---------|
+| `library_timezone` / Library timezone | IANA timezone for organizing dates; admin-only, recorded as `SETTING_CHANGED`. | `TZ`, otherwise `UTC` with an admin notice | no | `Europe/Rome` |
+| `show_version_on_login` / Show version on login page | Admin-only ON/OFF footer; OFF omits the version from public bootstrap. Same `VERSION` source as the authenticated header. | `true` (ON) | no | `false` (OFF) |
+
+These values live in the encrypted vault, not the operational database. Only `TZ` is an
+environment parameter; the login-version switch is intentionally not one.
+
 Schema migration 5 separates `files.file_changed_at`, inode and device from ordinary
 record updates. The stale-analysis check compares current scoped paths, sizes, mtimes
 and inode/device against the index, including new and removed files. Saving a review
 decision or logging a per-file read warning does not invalidate a completed analysis.
+Only a newer paused/interrupted analysis in the exact accessible scope makes it incomplete;
+an older paused job cannot invalidate a later completed run. Duplicates and Metadata display
+the latest accessible library run, not later standalone compatibility jobs. Review totals are
+computed live across status filters: total = pending + decided, and needs re-check is a subset
+of pending. Automatic-fill and manually saved-field write previews are offered only when
+there are actual values to write.
 
 Operational instants are stored and serialized as ISO 8601 UTC values ending in `Z`. The browser
 renders job, log, file-system, report and manifest instants in its local timezone. EXIF capture
@@ -87,7 +109,7 @@ per-submission advisory lock. A matching active job returns its existing id and 
 again. Completed/cancelled/failed jobs do not block a new run, and a different source or user remains
 independent.
 
-## Operational database schema (version 3)
+## Operational database schema (version 5)
 
 Column types are portable: `key` = indexable text (VARCHAR(191) utf8mb4_bin on MariaDB), `hash` =
 lower-case hex (ASCII binary collation), `ts` = UTC ISO 8601 text (`2024-03-15T10:00:00.000000Z`),
@@ -101,13 +123,13 @@ that differ only in case work identically on SQLite and MariaDB.
 | `instance_lock` | who is using the database (informative; the real lock is `flock`/`GET_LOCK`) | `instance_id`, `hostname`, `heartbeat_at` |
 | `jobs` | every long operation | `kind`, `owner_id`, `status` (queued, running, paused, interrupted, completed, failed, cancelled), `params`, `progress_done/total`, `phase`, `checkpoint` (JSON), `result`, `error`, `parent_job_id`, `auto_resume` |
 | `run_log` | execution log, English only | `ts`, `level`, `event` (stable code, e.g. `FILE_MOVED`), `message` (English), `params` (JSON), `job_id`, `owner_id`, `actor` (user id) |
-| `files` | global index, one row per file | `owner_id`, `source_id`, `orig_path`, `cur_path` (+ hashes), `size`, `mtime_ns`, `sha256`, `media_kind`, `status` (indexed, unique, duplicate, dup_moved, review, normalized, moved), `dup_group_id`, `dup_of`, `chosen_date` (+ source, flags), `meta_before`, `meta_after`, `meta_read`, per-phase state `phase_scan/hash/meta/org`, `present`, `duration_s` |
+| `files` | global index, one row per file | `owner_id`, `source_id`, `orig_path`, `cur_path` (+ hashes), `size`, `mtime_ns`, `inode`, `device`, `file_changed_at`, `sha256`, `media_kind`, `status` (indexed, unique, duplicate, dup_moved, review, normalized, moved), `dup_group_id`, `dup_of`, `chosen_date` (+ source, flags), `meta_before`, `meta_after`, `meta_read`, per-phase state `phase_scan/hash/meta/org`, `present`, `duration_s` |
 | `dup_groups` | groups of identical files | `scope` (`user:<id>` or `global`), `sha256`, `size`, `keeper_file_id`, `members`, `verified` (byte comparison), `status` |
 | `plan_items` | dry-run plans (moves, metadata writes, undo), executed only after confirmation | `plan_job_id`, `kind`, `seq`, `file_id`, `src`, `dst`, `payload` (companions, fills), `status`, `note` |
 | `move_journal` | intent/completion of every move | `op` (move, dup_move, copy_verify_delete), `src`, `dst`, `sha256`, `size`, `state` (intent, done, failed, rolled_back) |
 | `manifest` | what was changed, written **before** each change; source of undo and of the CSV export | `action` (move, dup_move, metadata, restore), `orig_path`, `new_path`, `sha256_before/after`, `meta_before/after`, `undone_at` |
 | `meta_changes` | original and new value of each written tag | `tag`, `before_value`, `after_value`, `source`, `undone_at` |
-| `review_items` | review queue and decisions | `kind` (meta_conflict, no_date, date_utc, move_conflict, verify_mismatch, reconcile_*), `details`, `proposals`, `status` (pending, saved, skipped, kept), `decision`, `group_key` |
+| `review_items` | review queue and decisions | `kind` (meta_conflict, no_date, date_utc, move_conflict, verify_mismatch, reconcile_*), `details`, `proposals`, `status` (pending, needs_recheck, saved, skipped, kept), `decision`, `decision_source`, `decision_timezone`, `decision_provenance` (per-field JSON), `recheck_reason`, `group_key`, `applied` |
 
 Every record carries `owner_id` (stable user id from the vault): index, manifest, logs, previews and
 review queues are separated per user, and every API checks it server-side.
@@ -116,7 +138,9 @@ review queues are separated per user, and every API checks it server-side.
 
 `backend/twincheck/db/schema.py` defines the schema as an ordered list of migrations (`MIGRATIONS`):
 version 1 creates the baseline, version 2 adds `files.duration_s`, `review_items.group_key` and an
-index, version 3 adds `jobs.auto_resume` and an index on `run_log.event`. Every operation is
+index, version 3 adds `jobs.auto_resume` and an index on `run_log.event`;
+version 4 adds decision provenance and flags unapplied ambiguous historical dates without
+changing stored values; version 5 adds technical file-change tracking. Every structural operation is
 idempotent (a table, column or index is created only if missing).
 
 On **every** connection (first start, restart, database switch) the application:
