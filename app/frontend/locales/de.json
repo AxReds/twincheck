@@ -9,6 +9,8 @@
     ]
   },
   "messages": {
+    "review.live_counts": "{total} zu prüfen · {decided} entschieden · {pending} ausstehend",
+    "review.recheck_count": "{count} erneut zu prüfen",
     "job.library_result": "{found} Dateien gefunden · {changed} neu oder geändert · {unchanged} unverändert (übersprungen) · {hashed} gehasht",
     "job.unreadable": "{count} unlesbar",
     "analysis.history": "Verlauf unter Aufträge",

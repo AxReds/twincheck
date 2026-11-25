@@ -9,6 +9,8 @@
     ]
   },
   "messages": {
+    "review.live_counts": "{total}项需审核 · {decided}项已决定 · {pending}项待处理",
+    "review.recheck_count": "{count}项需复查",
     "job.library_result": "发现{found}个文件 · {changed}个新增或修改 · {unchanged}个未变（跳过） · {hashed}个已计算哈希",
     "job.unreadable": "{count}个不可读",
     "analysis.history": "任务历史",

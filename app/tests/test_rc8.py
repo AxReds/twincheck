@@ -207,3 +207,13 @@ class ReviewDates(unittest.TestCase):
             self.assertEqual(len(warnings), 1)
         finally:
             unreadable.chmod(0o600)
+
+    def test_review_counts_are_live_and_independent_of_status_filter(self):
+        item = self.user.get("/api/review").json()["items"][0]
+        self.user.post("/api/review/" + str(item["id"]), {"action": "save", "date": "2000-01-02T03:04:05"})
+        expected = {"total": 2, "decided": 1, "pending": 1, "needs_recheck": 0}
+        for status in ("pending", "saved", "decided", "all"):
+            self.assertEqual(self.user.get("/api/review?status=" + status).json()["review_counts"], expected)
+        self.assertEqual(self.user.get("/api/metadata/results").json()["review_counts"], expected)
+        self.user.post("/api/review/" + str(item["id"]) + "/reopen")
+        self.assertEqual(self.user.get("/api/metadata/results").json()["review_counts"]["pending"], 2)

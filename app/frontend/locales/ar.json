@@ -9,6 +9,8 @@
     ]
   },
   "messages": {
+    "review.live_counts": "{total} للمراجعة · {decided} مقررة · {pending} معلقة",
+    "review.recheck_count": "{count} تحتاج إعادة فحص",
     "job.library_result": "{found} ملفات موجودة · {changed} جديدة أو معدلة · {unchanged} دون تغيير (متجاوزة) · {hashed} محسوبة التجزئة",
     "job.unreadable": "{count} غير قابلة للقراءة",
     "analysis.history": "السجل في المهام",

@@ -435,11 +435,15 @@ def meta_results(req: Request):
         summary = {"analysed": int(result.get("analysed") or 0),
                    "fills": int(result.get("fills") or 0),
                    "review": int(result.get("review") or 0)}
+        fills = db.query("SELECT p.*, f.cur_path FROM plan_items p JOIN files f ON f.id=p.file_id "
+                         "WHERE p.plan_job_id=? AND p.kind='meta_fill' AND p.status='planned' AND p.owner_id=?", (latest["id"], req.user["id"]))
+        summary["fills"] = sum(1 for row in fills if access.file_in_scope(common.app().settings.data_dir.as_posix(), req.user, row))
+    counts, totals = _review_counts(_visible_reviews(req))
+    if summary:
+        summary["review"] = totals["total"]
     return JSONResponse({"analyzed_at": latest["finished_at"] if latest else None, "summary": summary,
                          "plan_job_id": latest["id"] if latest else None,
-                         "review_pending": int(db.scalar(
-                             "SELECT COUNT(*) AS n FROM review_items WHERE owner_id=? AND status='pending'",
-                             (req.user["id"],)) or 0)})
+                         "review_pending": totals["pending"], "review_counts": totals})
 
 
 @router.post("/api/organize/plan")
@@ -574,29 +578,31 @@ def _review_row(req: Request, r: dict, full: bool = False) -> dict:
 def review_list(req: Request):
     db = need_db()
     off, lim = paging(req)
-    where, args = ["r.owner_id=?"], [req.user["id"]]
-    if is_admin(req) and req.query.get("owner"):
-        args[0] = req.query["owner"]
     st = req.query.get("status", "pending")
-    if st == "pending":
-        where.append("r.status IN ('pending','needs_recheck')")
-    else:
-        where.append("r.status=?")
-        args.append(st)
-    if req.query.get("kind"):
-        where.append("r.kind=?")
-        args.append(req.query["kind"])
-    w = " AND ".join(where)
-    rows = db.query(f"SELECT r.* FROM review_items r JOIN files f ON f.id=r.file_id WHERE {w} ORDER BY r.id", args)
-    rows = [r for r in rows if is_admin(req) or access.file_in_scope(
-        common.app().settings.data_dir.as_posix(), req.user,
-        db.query_one("SELECT * FROM files WHERE id=?", (r["file_id"],)))]
+    rows = _visible_reviews(req)
+    counts, totals = _review_counts(rows)
+    statuses = {"pending", "needs_recheck"} if st == "pending" else {"saved", "skipped", "kept"} if st == "decided" else {st}
+    rows = [row for row in rows if (st == "all" or row["status"] in statuses)
+            and (not req.query.get("kind") or row["kind"] == req.query["kind"])]
+    page = rows[off:off + lim]
+    return JSONResponse({"items": [_review_row(req, r) for r in page], "total": len(rows),
+                         "counts": counts, "review_counts": totals, "fields": FIELDS, "writable": sorted(WRITABLE)})
+
+
+def _visible_reviews(req: Request) -> list[dict]:
+    owner = req.query.get("owner") if is_admin(req) and req.query.get("owner") else req.user["id"]
+    rows = need_db().query("SELECT r.*, f.cur_path FROM review_items r JOIN files f ON f.id=r.file_id "
+                          "AND f.owner_id=r.owner_id WHERE r.owner_id=? ORDER BY r.id", (owner,))
+    return [row for row in rows if is_admin(req) or access.file_in_scope(common.app().settings.data_dir.as_posix(), req.user, row)]
+
+
+def _review_counts(rows: list[dict]) -> tuple[dict, dict]:
     counts = {}
     for row in rows:
         counts[row["status"]] = counts.get(row["status"], 0) + 1
-    page = rows[off:off + lim]
-    return JSONResponse({"items": [_review_row(req, r) for r in page], "total": len(rows),
-                         "counts": counts, "fields": FIELDS, "writable": sorted(WRITABLE)})
+    return counts, {"total": len(rows), "decided": sum(counts.get(s, 0) for s in ("saved", "kept", "skipped")),
+                    "pending": counts.get("pending", 0) + counts.get("needs_recheck", 0),
+                    "needs_recheck": counts.get("needs_recheck", 0)}
 
 
 @router.get("/api/review/{id:int}")

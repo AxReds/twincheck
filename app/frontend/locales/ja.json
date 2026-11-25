@@ -9,6 +9,8 @@
     ]
   },
   "messages": {
+    "review.live_counts": "{total}件確認対象 · {decided}件決定済み · {pending}件保留",
+    "review.recheck_count": "{count}件再確認",
     "job.library_result": "{found}ファイル検出 · {changed}新規または変更 · {unchanged}未変更（省略） · {hashed}ハッシュ計算",
     "job.unreadable": "{count}読み取り不可",
     "analysis.history": "ジョブの履歴",

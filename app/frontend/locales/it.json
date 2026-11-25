@@ -9,6 +9,8 @@
     ]
   },
   "messages": {
+    "review.live_counts": "{total} da verificare · {decided} decisi · {pending} in attesa",
+    "review.recheck_count": "{count} da ricontrollare",
     "job.library_result": "{found} file trovati · {changed} nuovi o modificati · {unchanged} invariati (saltati) · {hashed} hash calcolati",
     "job.unreadable": "{count} illeggibili",
     "analysis.history": "Cronologia in Attività",

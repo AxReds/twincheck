@@ -3,6 +3,7 @@ import { h, mount, button, field, table, modal, toast, badge } from '../dom.js';
 import { t, fmt } from '../i18n.js';
 import { get, post } from '../api.js';
 import { jobList, sourceSelect, folderBrowser, kv, pager, poll, jobBadge, stepGuide, waitForJob } from '../components.js';
+import { reviewCounts } from './review.js';
 
 function page(main, titleKey, introKey, ...body) {
   mount(main, h('h1', {}, t(titleKey)), introKey ? h('p', { class: 'intro' }, t(introKey)) : null, ...body);
@@ -66,7 +67,7 @@ export async function home(main, state) {
     const r = await get('/api/report');
     const total = r.files.reduce((a, x) => a + x.n, 0);
     const bytes = r.files.reduce((a, x) => a + x.bytes, 0);
-    const pending = (r.review.find((x) => x.status === 'pending') || {}).n || 0;
+    const pending = r.review.filter((x) => ['pending', 'needs_recheck'].includes(x.status)).reduce((n, x) => n + x.n, 0);
     mount(summary, card('home.files', t('home.files_value', { count: total, size: fmt.bytes(bytes) })),
       card('home.duplicates', t('home.duplicates_value', { count: r.duplicates.groups, size: fmt.bytes(r.duplicates.recoverable) })),
       card('home.review_pending', fmt.number(pending)), card('home.missing', fmt.number(r.missing)));
@@ -188,6 +189,7 @@ function metadataResult(data) {
   }
   return h('div', {},
     h('p', { class: 'summary' }, t('meta.summary', data.summary)),
+    h('p', { class: 'summary review-counts' }, reviewCounts(data.review_counts)),
     data.review_pending > 0
       ? h('a', { class: 'btn', href: '#/review' }, t('meta.review_items', { count: data.review_pending }))
       : null);

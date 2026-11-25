@@ -10,6 +10,8 @@
     "source": true
   },
   "messages": {
+    "review.live_counts": "{total} to review · {decided} decided · {pending} pending",
+    "review.recheck_count": "{count} need re-check",
     "job.library_result": "{found} files found · {changed} new or changed · {unchanged} unchanged (skipped) · {hashed} hashed",
     "job.unreadable": "{count} unreadable",
     "analysis.history": "History in Jobs",

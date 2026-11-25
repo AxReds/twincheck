@@ -35,7 +35,7 @@ export async function list(main) {
     const q = new URLSearchParams({ status: status.value, offset, limit: 50 });
     if (kind.value) q.set('kind', kind.value);
     const d = await get('/api/review?' + q);
-    counts.textContent = t('review.counts', { pending: d.counts.pending || 0, saved: d.counts.saved || 0, skipped: d.counts.skipped || 0, kept: d.counts.kept || 0 });
+    counts.textContent = reviewCounts(d.review_counts);
     mount(box, d.items.length ? table(['review.col_kind', 'review.col_file', 'review.col_folder', 'review.col_date', ''],
       d.items.map((r) => h('tr', {}, h('td', {}, badge(t('review.kind.' + r.kind), 'warn')),
         h('td', {}, r.file ? h('code', {}, r.file.name) : h('code', {}, r.details.path || '')),
@@ -56,6 +56,11 @@ export async function list(main) {
       finally { if (event.currentTarget?.isConnected) event.currentTarget.disabled = false; }
     }, 'primary')));
   await load();
+}
+
+export function reviewCounts(counts = {}) {
+  return t('review.live_counts', { total: counts.total || 0, decided: counts.decided || 0, pending: counts.pending || 0 }) +
+    (counts.needs_recheck ? ' · ' + t('review.recheck_count', { count: counts.needs_recheck }) : '');
 }
 
 function mediaView(reviewId, f) {

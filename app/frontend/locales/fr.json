@@ -9,6 +9,8 @@
     ]
   },
   "messages": {
+    "review.live_counts": "{total} à vérifier · {decided} décidés · {pending} en attente",
+    "review.recheck_count": "{count} à revérifier",
     "job.library_result": "{found} fichiers trouvés · {changed} nouveaux ou modifiés · {unchanged} inchangés (ignorés) · {hashed} hachés",
     "job.unreadable": "{count} illisibles",
     "analysis.history": "Historique dans Tâches",
