@@ -4,11 +4,11 @@ All notable changes are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/).
 
-## [1.0.1-rc.8] - Unreleased
+## [1.0.1-rc.8] - 2026-11-25
 
-This candidate is implemented on `fix/v1.0.1`. Publication is blocked: the release workflow
-would update the existing `rc` image alias, conflicting with the owner's explicit tag
-immutability requirement. No rc.8 release, Git tag or image is claimed here.
+Published as a GitHub pre-release. The exact-version `1.0.1-rc.8` image and the moving `rc`
+alias contain the changes below; stable aliases and earlier exact-version images remain
+unchanged.
 
 ### Added
 
