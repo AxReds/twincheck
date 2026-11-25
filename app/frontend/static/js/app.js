@@ -16,7 +16,7 @@ export const state = { boot: null, user: null, locales: [], perms: {}, stopMetri
 const root = document.getElementById('app');
 
 const ROUTES = [
-  [/^#\/?$/, () => tool.home], [/^#\/home$/, () => tool.home], [/^#\/scan$/, () => tool.scan],
+  [/^#\/?$/, () => tool.home], [/^#\/home$/, () => tool.home], [/^#\/analyze$/, () => tool.scan],
   [/^#\/duplicates$/, () => tool.duplicates], [/^#\/metadata$/, () => tool.metadata], [/^#\/review$/, () => review.list],
   [/^#\/review\/(\d+)$/, () => review.item], [/^#\/organize$/, () => tool.organize], [/^#\/plans\/(\d+)$/, () => tool.plan],
   [/^#\/report$/, () => tool.report], [/^#\/jobs$/, () => tool.jobs], [/^#\/logs(?:\?.*)?$/, () => tool.logs], [/^#\/me$/, () => tool.me],
@@ -26,7 +26,7 @@ const ROUTES = [
 ];
 
 const NAV = [
-  ['#/home', 'nav.home', 'house'], ['#/scan', 'nav.scan', 'folder-search'], ['#/duplicates', 'nav.duplicates', 'copy'], ['#/metadata', 'nav.metadata', 'file-text'],
+  ['#/home', 'nav.home', 'house'], ['#/analyze', 'nav.scan', 'folder-search'], ['#/duplicates', 'nav.duplicates', 'copy'], ['#/metadata', 'nav.metadata', 'file-text'],
   ['#/review', 'nav.review', 'list-checks'], ['#/organize', 'nav.organize', 'folder-tree'], ['#/report', 'nav.report', 'undo-2'], ['#/jobs', 'nav.jobs', 'activity'], ['#/logs', 'nav.logs', 'scroll-text'],
 ];
 
@@ -217,6 +217,10 @@ export async function route() {
   if (state.view && state.view.destroy) state.view.destroy();
   state.view = null;
   const hash = location.hash || '#/home';
+  if (hash === '#/scan') {
+    history.replaceState(null, '', '#/analyze');
+    return route();
+  }
   if ((hash === '#/admin' || hash.startsWith('#/admin/')) && !state.perms.manage_users) {
     location.hash = '#/home';
     return;

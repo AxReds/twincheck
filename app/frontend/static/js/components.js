@@ -19,7 +19,7 @@ export function jobBadge(status) { return badge(t('job.status.' + status), STATU
 
 export function stepGuide(current, status) {
   const steps = [
-    [1, 'analysis.step_analyze', '#/scan'],
+    [1, 'analysis.step_analyze', '#/analyze'],
     [2, 'analysis.step_review', '#/duplicates'],
     [3, 'analysis.step_organize', '#/organize'],
     [4, 'analysis.step_report', '#/report'],

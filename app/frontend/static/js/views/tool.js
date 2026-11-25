@@ -6,7 +6,10 @@ import { jobList, sourceSelect, folderBrowser, kv, pager, poll, jobBadge, stepGu
 import { reviewCounts } from './review.js';
 
 function page(main, titleKey, introKey, ...body) {
-  mount(main, h('h1', {}, t(titleKey)), introKey ? h('p', { class: 'intro' }, t(introKey)) : null, ...body);
+  const guide = body[0]?.classList?.contains('step-guide') ? body.shift() : null;
+  const hidden = ['scan.title', 'dup.title', 'meta.title', 'org.title', 'report.title', 'jobs.title', 'logs.title'].includes(titleKey);
+  mount(main, h('h1', { class: hidden ? 'sr-only' : '' }, t(titleKey)), guide,
+    introKey ? h('p', { class: 'intro' }, t(introKey)) : null, ...body);
 }
 
 async function startJob(url, body, then, control = null) {
@@ -39,14 +42,14 @@ async function analysisState(sourceId = '') {
   return status;
 }
 
-function analysisNotice(status) {
+function analysisNotice(status, current = false) {
   if (status.empty) return h('div', { class: 'notice warn' }, t('analysis.empty'), ' ',
-    h('a', { class: 'btn', href: '#/scan' }, t('scan.analyze_library')));
+    h('a', { class: 'btn', href: '#/analyze' }, t('scan.analyze_library')));
   if (status.stale) return h('div', { class: 'notice warn' }, t('analysis.stale'), ' ',
-    h('a', { href: '#/scan' }, t('analysis.update')));
+    current ? null : h('a', { href: '#/analyze' }, t('analysis.update')));
   if (status.analyzed_at) return h('p', { class: 'notice' },
     t('analysis.results_from', { date: fmt.date(status.analyzed_at) }), ' ',
-    h('a', { href: '#/scan' }, t('analysis.update')), ' · ', t('analysis.recheck_before_action'));
+    current ? null : h('a', { href: '#/analyze' }, t('analysis.update')), ' · ', t('analysis.recheck_before_action'));
   return null;
 }
 
@@ -56,7 +59,7 @@ function openPlanWhenReady(id) {
 
 // --- home -------------------------------------------------------------------------------------
 export async function home(main, state) {
-  const steps = [['#/scan', 'nav.scan', 'home.step_scan'], ['#/duplicates', 'nav.duplicates', 'home.step_duplicates'],
+  const steps = [['#/analyze', 'nav.scan', 'home.step_scan'], ['#/duplicates', 'nav.duplicates', 'home.step_duplicates'],
     ['#/metadata', 'nav.metadata', 'home.step_metadata'], ['#/review', 'nav.review', 'home.step_review'],
     ['#/organize', 'nav.organize', 'home.step_organize'], ['#/report', 'nav.report', 'home.step_report']];
   const summary = h('div', { class: 'cards' });
@@ -104,7 +107,7 @@ export async function scan(main, state) {
     select.value = selectedSource()?.id || '';
     browser?.querySelector('.browser')?.dispatchEvent(new Event('po:folder-selected'));
   };
-  const browser = canBrowse ? h('details', { class: 'panel' }, h('summary', {}, t(adminBrowse ? 'scan.browse_data' : 'scan.source')),
+  const browser = canBrowse ? h('details', { class: 'panel' }, h('summary', {}, t(adminBrowse ? 'scan.browse_data' : 'scan.choose_folder')),
     folderBrowser((p) => { state.scanPath = p; updateSelection(); }, state.scanPath ?? (adminBrowse ? '' : null), () => state.scanPath)) : null;
   select.addEventListener('change', () => {
     state.scanPath = sources.find((s) => s.id === select.value)?.path_rel ?? null;
@@ -115,7 +118,7 @@ export async function scan(main, state) {
   const flowStatus = await analysisState(selectedSource()?.id || '');
   let analyzeButton = null;
   page(main, 'scan.title', 'scan.intro',
-    stepGuide(1, flowStatus), analysisNotice(flowStatus),
+    stepGuide(1, flowStatus), flowStatus.exists ? analysisNotice(flowStatus, true) : null,
     sources.length ? field('scan.source', select) : noSources(state),
     browser, h('p', {}, t('scan.adhoc_selected'), ' ', adhocLabel), noSelection,
     h('div', { class: 'actions' },
@@ -312,7 +315,7 @@ export async function report(main) {
 export async function jobs(main) {
   const sel = h('select', {}, ['open', '', 'completed', 'failed', 'cancelled'].map((s) => h('option', { value: s }, s ? t('job.filter.' + s) : t('job.filter.all'))));
   const box = h('div', {});
-  page(main, 'jobs.title', 'jobs.intro', field('jobs.filter', sel), box);
+  page(main, 'jobs.title', 'jobs.intro', stepGuide(0, await analysisState()), field('jobs.filter', sel), box);
   let jl = jobList(box, 'status=open&limit=50');
   sel.addEventListener('change', () => { jl.stop(); mount(box); jl = jobList(box, (sel.value ? 'status=' + sel.value + '&' : '') + 'limit=50'); });
   return { destroy: () => jl.stop() };
@@ -340,7 +343,7 @@ export async function logs(main) {
         h('td', { lang: 'en', dir: 'ltr' }, r.message), h('td', {}, r.job_id ? '#' + r.job_id : '')))),
     pager(d.total, offset, 100, (o) => { offset = o; load(); }));
   };
-  page(main, 'logs.title', 'logs.intro', h('div', { class: 'filters' }, field('logs.event', ev), field('logs.level', lv), field('logs.job', job),
+  page(main, 'logs.title', 'logs.intro', stepGuide(0, await analysisState()), h('div', { class: 'filters' }, field('logs.event', ev), field('logs.level', lv), field('logs.job', job),
     button('logs.apply', () => { offset = 0; load(); })), box);
   await load();
 }

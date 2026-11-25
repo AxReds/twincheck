@@ -27,9 +27,9 @@ export async function list(main) {
   const flowStatus = await get('/api/library/status');
   const notice = flowStatus.exists
     ? (flowStatus.stale ? h('p', { class: 'notice warn' }, t('analysis.stale'), ' ',
-      h('a', { href: '#/scan' }, t('analysis.update'))) : null)
+      h('a', { href: '#/analyze' }, t('analysis.update'))) : null)
     : h('p', { class: 'notice warn' }, t('analysis.empty'), ' ',
-      h('a', { class: 'btn', href: '#/scan' }, t('scan.analyze_library')));
+      h('a', { class: 'btn', href: '#/analyze' }, t('scan.analyze_library')));
   const counts = h('p', { class: 'summary' });
   const load = async () => {
     const q = new URLSearchParams({ status: status.value, offset, limit: 50 });

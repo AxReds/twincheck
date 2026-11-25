@@ -71,7 +71,7 @@ def _scan_selection(req: Request) -> dict | None:
     core = common.app()
     data_dir = core.settings.data_dir.as_posix()
     assigned = access.areas(data_dir, req.user)
-    latest = core.db.query_one("SELECT params FROM jobs WHERE owner_id=? AND kind='scan' ORDER BY id DESC LIMIT 1",
+    latest = core.db.query_one("SELECT params FROM jobs WHERE owner_id=? AND kind IN ('scan','analyze_library') ORDER BY id DESC LIMIT 1",
                               (req.user["id"],)) if core.db_ready and core.db else None
     candidates = []
     if latest:
