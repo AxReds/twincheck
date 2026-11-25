@@ -1,6 +1,7 @@
 """Synthetic regressions for library timezone, provenance and rc.8 review safety."""
 import json
 import os
+from pathlib import Path
 import tempfile
 import unittest
 from datetime import datetime
@@ -118,22 +119,87 @@ class ReviewDates(unittest.TestCase):
     def test_recheck_skipped_at_preview_and_confirmation(self):
         item = self.user.get("/api/review").json()["items"][0]
         db = self.inst.core.db
+        original_plan = self.run_job("/api/organize/plan", {"source_id": self.sid})
+        file = db.query_one("SELECT * FROM files WHERE id=?", (item["file_id"],))
+        mtime = int(datetime.fromisoformat("2007-08-29T19:51:02+00:00").timestamp()) * 10**9
+        os.utime(file["cur_path"], ns=(mtime, mtime))
+        db.execute("UPDATE files SET mtime_ns=?, chosen_date=? WHERE id=?", (mtime, "2007-08-29T19:51:02", item["file_id"]))
         db.execute("UPDATE review_items SET status='needs_recheck', recheck_reason='mtime_utc_match', decision=? WHERE id=?",
-                   (json.dumps({"date": "2007-08-29T23:51:02"}), item["id"]))
+                   (json.dumps({"date": "2007-08-29T19:51:02"}), item["id"]))
         plan = self.run_job("/api/organize/plan", {"source_id": self.sid})
         rows = db.query("SELECT * FROM plan_items WHERE plan_job_id=? AND file_id=?", (plan, item["file_id"]))
         self.assertEqual((rows[0]["status"], rows[0]["note"]), ("skipped", "needs_recheck"))
         self.assertEqual(self.user.post("/api/review/" + str(item["id"]), {"action": "keep"}).json()["updated"], 0)
         self.assertEqual(db.scalar("SELECT status FROM review_items WHERE id=?", (item["id"],)), "needs_recheck")
         full = self.user.get("/api/review/" + str(item["id"])).json()
-        self.assertEqual(full["decision"]["date"], "2007-08-29T23:51:02")
-        self.assertEqual(full["recheck_proposal"]["value"], "2007-08-30T01:51:02")
+        self.assertEqual(full["decision"]["date"], "2007-08-29T19:51:02")
+        self.assertEqual(full["recheck_proposal"]["value"], "2007-08-29T21:51:02")
+        self.run_job("/api/plans/" + str(original_plan) + "/confirm", {"confirm": True})
+        stale_item = db.query_one("SELECT * FROM plan_items WHERE plan_job_id=? AND file_id=?", (original_plan, item["file_id"]))
+        self.assertEqual((stale_item["status"], stale_item["note"]), ("skipped", "needs_recheck"))
+        self.assertTrue(os.path.isfile(file["cur_path"]))
+
+    def test_use_proposal_and_manual_field_entry_store_provenance(self):
+        item = self.user.get("/api/review").json()["items"][0]
+        proposal = self.user.get("/api/review/" + str(item["id"])).json()["proposals"][0]
+        self.assertEqual(self.user.post("/api/review/" + str(item["id"]), {
+            "action": "save", "fields": {"datetime_original": proposal["value"]},
+            "proposal": {"source": "filesystem_mtime"}}).status, 200)
+        row = self.inst.core.db.query_one("SELECT * FROM review_items WHERE id=?", (item["id"],))
+        self.assertEqual(json.loads(row["decision_provenance"])["datetime_original"],
+                         {"source": "filesystem_mtime", "timezone": "Europe/Rome"})
+        self.user.post("/api/review/" + str(item["id"]), {"action": "save", "fields": {"create_date": "2001-02-03T04:05:06"}})
+        row = self.inst.core.db.query_one("SELECT * FROM review_items WHERE id=?", (item["id"],))
+        self.assertEqual(json.loads(row["decision_provenance"])["create_date"], {"source": "manual", "timezone": None})
+        db = self.inst.core.db
+        stored = json.loads(db.query_one("SELECT meta_read FROM files WHERE id=?", (item["file_id"],))["meta_read"])
+        candidate = {"tag": "EXIF:DateTimeOriginal", "source": "file", "semantic": "tz",
+                     "value": "2007-08-29T20:51:02", "offset": "+01:00"}
+        stored["fields"]["datetime_original"].update(candidates=[candidate], present=True, canonical_present=True)
+        db.execute("UPDATE files SET meta_read=? WHERE id=?", (json.dumps(stored), item["file_id"]))
+        full = self.user.get("/api/review/" + str(item["id"])).json()
+        exif = next(c for c in full["date_candidates"] if c["tag"] == candidate["tag"])
+        self.assertEqual(exif["value"], "2007-08-29T21:51:02")
+        self.assertEqual(self.user.post("/api/review/" + str(item["id"]), {
+            "action": "save", "date": exif["value"],
+            "proposal": {"source": "exif", "tag": candidate["tag"]}}).status, 200)
+        row = db.query_one("SELECT * FROM review_items WHERE id=?", (item["id"],))
+        self.assertEqual((row["decision_source"], row["decision_timezone"]), ("exif", "Europe/Rome"))
+        self.assertEqual(json.loads(db.query_one("SELECT meta_read FROM files WHERE id=?", (item["file_id"],))["meta_read"])
+                         ["fields"]["datetime_original"]["candidates"][0], candidate)
 
     def test_timezone_permissions_validation_and_audit(self):
         self.assertEqual(self.user.patch("/api/admin/settings", {"library_timezone": "UTC"}).status, 403)
         self.assertEqual(self.admin.patch("/api/admin/settings", {"library_timezone": "../etc/passwd"}).status, 400)
         self.assertEqual(self.inst.core.library_timezone, "Europe/Rome")
         self.assertTrue(any(e["event"] == "SETTING_CHANGED" for e in self.inst.core.vault.snapshot()["audit"]))
+
+    def test_duplicate_capture_refresh_preserves_saved_decision(self):
+        item = self.user.get("/api/review").json()["items"][0]
+        self.user.post("/api/review/" + str(item["id"]), {"action": "save", "date": "2000-01-02T03:04:05"})
+        db = self.inst.core.db
+        file = db.query_one("SELECT * FROM files WHERE id=?", (item["file_id"],))
+        other = db.query_one("SELECT * FROM files WHERE owner_id=? AND id<>?", (self.uid, item["file_id"]))
+        Path(other["cur_path"]).write_bytes(Path(file["cur_path"]).read_bytes())
+        self.run_job("/api/scan", {"source_id": self.sid})
+        db.execute("UPDATE files SET phase_meta='pending' WHERE owner_id=?", (self.uid,))
+        self.run_job("/api/duplicates/analyze", {})
+        self.assertEqual(db.query_one("SELECT chosen_date FROM files WHERE id=?", (item["file_id"],))["chosen_date"],
+                         "2000-01-02T03:04:05")
+
+    def test_older_paused_analysis_does_not_invalidate_newer_completed_run(self):
+        db = self.inst.core.db
+        db.execute("INSERT INTO jobs (kind,owner_id,status,params,created_at) VALUES (?,?,?,?,?)",
+                   ("analyze_library", self.uid, "paused", json.dumps({"source_id": self.sid, "root": str(self.inst.data / "lib")}),
+                    "2024-01-01T00:00:00Z"))
+        self.assertFalse(self.user.get("/api/library/status").json()["stale"])
+
+    def test_organize_path_changes_mark_results_stale(self):
+        plan = self.run_job("/api/organize/plan", {"source_id": self.sid})
+        self.run_job("/api/plans/" + str(plan) + "/confirm", {"confirm": True})
+        status = self.user.get("/api/library/status").json()
+        self.assertEqual(status["changes"]["changed"], 2)
+        self.assertTrue(status["stale"])
 
     def test_stale_only_for_disk_changes_not_decisions_or_unreadable_warning(self):
         status = lambda: self.user.get("/api/library/status").json()
@@ -207,6 +273,29 @@ class ReviewDates(unittest.TestCase):
             self.assertEqual(len(warnings), 1)
         finally:
             unreadable.chmod(0o600)
+
+    def test_phase_events_resume_after_interruption_during_hash(self):
+        from unittest.mock import patch
+        from twincheck.jobs import JobContext, JobPaused
+        from twincheck.services.scan import analyze_library
+        write(self.inst.data / "lib" / "new.jpg", jpeg_bytes(330))
+        db = self.inst.core.db
+        params = json.loads(db.query_one("SELECT params FROM jobs WHERE owner_id=? AND kind='analyze_library'", (self.uid,))["params"])
+        self.inst.core.jobs.blocked = True
+        jid = self.inst.core.jobs.submit("analyze_library", self.uid, params, force=True)
+        ctx = JobContext(self.inst.core.jobs, db.query_one("SELECT * FROM jobs WHERE id=?", (jid,)))
+        with patch("twincheck.services.scan.sha256_file", side_effect=JobPaused):
+            with self.assertRaises(JobPaused):
+                analyze_library(ctx)
+        self.assertEqual(db.scalar("SELECT COUNT(*) FROM run_log WHERE job_id=? AND event LIKE 'ANALYSIS_PHASE_%'", (jid,)), 3)
+        db.execute("UPDATE jobs SET status='paused' WHERE id=?", (jid,))
+        resumed = JobContext(self.inst.core.jobs, db.query_one("SELECT * FROM jobs WHERE id=?", (jid,)))
+        result = analyze_library(resumed)
+        self.assertEqual((result["scan"]["candidates"], result["scan"]["hashed"]), (1, 1))
+        events = db.query("SELECT event, params FROM run_log WHERE job_id=? AND event LIKE 'ANALYSIS_PHASE_%' ORDER BY id", (jid,))
+        self.assertEqual([(r["event"], json.loads(r["params"])["phase"]) for r in events],
+                         [(event, phase) for phase in ["scan", "hash", "capture_dates", "duplicates", "metadata"]
+                          for event in ["ANALYSIS_PHASE_STARTED", "ANALYSIS_PHASE_COMPLETED"]])
 
     def test_review_counts_are_live_and_independent_of_status_filter(self):
         item = self.user.get("/api/review").json()["items"][0]

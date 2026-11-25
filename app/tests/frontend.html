@@ -12,12 +12,13 @@
 <script type="module">
 const realFetch = window.fetch.bind(window);
 const interactive = location.search.includes('interactive');
+const fixtureTheme = new URLSearchParams(location.search).get('theme');
 const fixtureUsers = {
   'dark-user': { id: 'synthetic-dark', username: 'dark-user', role: 'user', theme: 'dark' },
   'light-user': { id: 'synthetic-light', username: 'light-user', role: 'admin', theme: 'light' },
 };
 const user = { id: 'test-admin', username: 'admin', role: 'admin', lang: 'en', sources: [], groups: [], fixed: true, active: true,
-  theme: interactive ? (localStorage.getItem('fixture_theme') || 'auto') : 'auto',
+  theme: interactive ? (localStorage.getItem('fixture_theme') || 'auto') : (fixtureTheme || 'auto'),
   ...(interactive ? fixtureUsers[localStorage.getItem('fixture_user')] : {}) };
 const permissions = { manage_users: true, see_all_sources: true };
 const requests = [];
@@ -27,6 +28,7 @@ let sourceData = { sources: [], can_browse: true, scan_selection: null };
 let duplicateGroups = [];
 let analysisStatus = { exists: true, empty: false, stale: false, analyzed_at: '2026-11-24T20:00:00Z', active_job: null };
 let planKind = 'review_plan';
+let recheckFixture = false;
 let authenticated = interactive ? localStorage.getItem('fixture_signed_out') !== '1' : true;
 let rejectLogin = !interactive;
 let expiring = false;
@@ -122,8 +124,12 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/review/1' && opts.method === 'POST') data = { updated: 1, next_id: null };
   else if (/^\/api\/review\/\d+$/.test(path) && opts.method !== 'POST') data = {
     file: null, fields: ['datetime_original', 'create_date', 'title'].map((field) => ({ field, candidates: [], writable: true, present: false })),
-    proposals: [{ field: 'datetime_original', value: '2020-01-02T03:04:05', origin: 'mtime_utc' }],
+    proposals: [{ field: 'datetime_original', value: '2020-01-02T03:04:05', origin: 'mtime_utc',
+      source: 'filesystem_mtime', timezone: 'Europe/Rome' }],
     status: 'pending', kind: 'no_date', details: {}, next_id: Number(path.split('/').at(-1)) + 1,
+    ...(recheckFixture ? { status: 'needs_recheck', decision: { date: '2007-08-29T19:51:02' },
+      recheck_reason: 'mtime_utc_match', library_timezone: 'Europe/Rome',
+      recheck_proposal: { value: '2007-08-29T21:51:02', source: 'filesystem_mtime', timezone: 'Europe/Rome' } } : {}),
   };
   else if (path === '/api/review') data = { items: [], total: 0, counts: {} };
   else if (path === '/api/admin/users' && opts.method !== 'PATCH') data = { users: [user], groups: [] };
@@ -485,11 +491,13 @@ await test('B20/B21/B25: one results notice, no stale job cards or contradictory
   try {
     for (const section of ['duplicates', 'metadata']) {
       for (const stale of [false, true]) {
-        analysisStatus = { ...saved, stale };
+        analysisStatus = { ...saved, stale, changes: { new: stale ? 2 : 0, changed: 0, removed: 0 }, incomplete: false };
         await go('#/' + section);
         const notices = [...document.querySelectorAll('main .notice')];
         const results = notices.filter((el) => el.textContent.includes(t('analysis.results_from', { date: fmt.date(saved.analyzed_at) })));
         assert(results.length === (stale ? 0 : 1), 'results notice is duplicated or contradicts stale status');
+        assert(!stale || notices.some((el) => el.textContent.includes(t('analysis.changes', { new: 2, changed: 0, removed: 0 }))),
+          'stale notice does not explain actual file counts');
         assert(document.querySelectorAll('main .job-card').length === 0, 'per-step history card is still visible');
         assert(document.querySelector('main a.history-link[href="#/jobs"]'), 'Jobs history link is missing');
       }
@@ -546,33 +554,63 @@ await test('U16: 24-hour inputs, Use copies proposal, sticky controls precede fi
   assert(document.querySelector('.organizing-date').placeholder === t('review.date_format'), 'date format hint missing');
   [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.use_proposal')).click();
   assert(document.querySelector('input.date-input').value === '2020-01-02 03:04:05', 'Use does not copy 24-hour proposal');
+  const proposal = document.querySelector('.proposal').textContent;
+  assert(proposal.includes('Europe/Rome') && !proposal.includes('(UTC)'), 'converted proposal source is mislabeled UTC');
   assert(getComputedStyle(innerWidth <= 1000 ? document.querySelector('.review-actions') : controls).position ===
     (innerWidth <= 1000 ? 'fixed' : 'sticky'), 'review actions are not sticky/fixed');
+  for (let i = 0; i < 30; i++) table.querySelector('tbody').appendChild(table.querySelector('tbody tr').cloneNode(true));
+  window.scrollTo(0, 300); await sleep();
+  const rect = (innerWidth <= 1000 ? document.querySelector('.review-actions') : controls).getBoundingClientRect();
+  assert(document.documentElement.scrollWidth <= innerWidth, 'review controls introduce horizontal page overflow');
+  assert(innerWidth <= 1000 ? Math.abs(rect.bottom - innerHeight) < 2 :
+    Math.abs(rect.top - 5 * parseFloat(getComputedStyle(document.documentElement).fontSize)) < 2,
+    'actions leave their required viewport edge while scrolling');
+  window.scrollTo(0, 0);
   assert(![...document.querySelectorAll('main input')].some((el) => ['+01:00', '45.464200, 9.190000'].includes(el.placeholder)),
     'example values look like real data');
   await go('#/home');
 });
+await test('B23: re-check notice preserves UTC date and exposes both confirmation paths', async () => {
+  recheckFixture = true;
+  try {
+    for (const converted of [true, false]) {
+      await go('#/metadata/review/1');
+      const notice = document.querySelector('.recheck-notice');
+      assert(notice?.textContent.includes('2007-08-29 19:51:02') && notice.textContent.includes('2007-08-29 21:51:02'),
+        'stored and converted dates are not explained');
+      [...notice.querySelectorAll('button')].find((el) => el.textContent === t(converted ? 'review.accept_converted' : 'review.keep_stored')).click();
+      await sleep();
+      const saved = requests.filter((r) => r.url === '/api/review/1' && r.body).at(-1).body;
+      assert(saved.date === (converted ? '2007-08-29T21:51:02' : '2007-08-29T19:51:02'), 'confirmation changed the wrong date');
+      assert(converted ? saved.proposal.source === 'filesystem_mtime' : !saved.proposal, 'confirmation provenance is incorrect');
+    }
+  } finally { recheckFixture = false; await go('#/home'); }
+});
 await test('B19: login version ON/OFF uses public bootstrap only and fits both themes', async () => {
   const { renderLogin } = await import('../frontend/static/js/views/login.js');
-  const { stopPolling } = await import('../frontend/static/js/components.js');
-  stopPolling();
-  for (const theme of ['light', 'dark']) {
-    document.documentElement.dataset.theme = theme;
-    for (const show of [true, false]) {
-      renderLogin(document.querySelector('#app'), { ...app.state, boot: show ? { login_version: 'synthetic-rc8' } : {} }, async () => {});
-      const footer = document.querySelector('.login-version');
-      assert(Boolean(footer) === show, 'version visibility does not respect bootstrap');
-      if (footer) {
-        const rect = footer.getBoundingClientRect();
-        assert(footer.textContent === 'TwinCheck synthetic-rc8' && rect.x >= 0 && rect.right <= innerWidth, 'version footer is unreadable or outside viewport');
-        assert(contrast(footer) >= 4.5, 'login version contrast is below 4.5:1');
+  const root = document.createElement('div');
+  root.style.cssText = 'position:fixed;inset:0;overflow:auto;z-index:100';
+  document.body.appendChild(root);
+  const previousTheme = document.documentElement.dataset.theme;
+  try {
+    for (const theme of ['light', 'dark']) {
+      document.documentElement.dataset.theme = theme;
+      for (const show of [true, false]) {
+        renderLogin(root, { ...app.state, boot: show ? { login_version: 'synthetic-rc8' } : {} }, async () => {});
+        const footer = root.querySelector('.login-version');
+        assert(Boolean(footer) === show, 'version visibility does not respect bootstrap');
+        if (footer) {
+          const rect = footer.getBoundingClientRect();
+          assert(footer.textContent === 'TwinCheck synthetic-rc8' && rect.x >= 0 && rect.right <= innerWidth &&
+            rect.bottom <= innerHeight, 'version footer is unreadable or outside viewport');
+          assert(contrast(footer) >= 4.5, 'login version contrast is below 4.5:1');
+        }
       }
     }
+  } finally {
+    root.remove();
+    document.documentElement.dataset.theme = previousTheme;
   }
-  const { setLanguage } = await import('../frontend/static/js/i18n.js');
-  await setLanguage('it'); await sleep();
-  await setLanguage('en'); await sleep();
-  await go('#/home');
 });
 await test('U12: pipeline button and five-phase progress are available', async () => {
   await go('#/analyze');
