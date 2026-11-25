@@ -4,6 +4,14 @@ All notable changes are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.1-rc.9] - Unreleased
+
+### Fixed
+
+- Confirmed schema upgrades emit one `DB_MIGRATED` event with real numeric versions;
+  the re-check count is logged once at INFO and retained in the encrypted audit log
+  ([#61](https://github.com/AxReds/twincheck/issues/61)).
+
 ## [1.0.1-rc.8] - 2026-11-25
 
 Published as a GitHub pre-release. The exact-version `1.0.1-rc.8` image and the moving `rc`

@@ -254,7 +254,7 @@ def _flag_historical_decisions(db: Database) -> None:
             db.execute("UPDATE review_items SET status='needs_recheck', recheck_reason=? WHERE id=?", (reason, r["id"]))
             count += 1
     if count:
-        log(db, "DECISIONS_FLAGGED_FOR_RECHECK", count=count)
+        log(db, "DECISIONS_FLAGGED_FOR_RECHECK", echo=True, count=count)
 
 
 def utcnow() -> str:

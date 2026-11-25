@@ -483,13 +483,20 @@ def db_migrate_schema(req: Request):
         fail(400, "confirmation_required")
     if core.db_ready:
         fail(409, "not_needed")
+    from_version = (core.db_error or {}).get("version")
+    last_log = int(core.db.scalar("SELECT MAX(id) FROM run_log") or 0) if core.db is not None else 0
     if core.db is not None:
         core.db.close()
     core.db = None
     core.connect_configured(allow_migrate=True)
     if not core.db_ready:
         fail(400, (core.db_error or {}).get("code", "unreachable"))
-    core.audit(req.user["username"], "DB_MIGRATED", from_version="old", to_version=CURRENT_VERSION)
+    if from_version is not None and from_version < CURRENT_VERSION:
+        with core.vault.transaction() as data:
+            audit(data, req.user["username"], "DB_MIGRATED", from_version=from_version, to_version=CURRENT_VERSION)
+            for entry in core.db.query("SELECT event, params FROM run_log WHERE id>? "
+                                       "AND event='DECISIONS_FLAGGED_FOR_RECHECK'", (last_log,)):
+                audit(data, req.user["username"], entry["event"], **json.loads(entry["params"]))
     core.jobs.start()
     return JSONResponse({"ok": True})
 
