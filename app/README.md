@@ -37,9 +37,33 @@ The job stores a separate checkpoint for every completed phase/batch. After inte
 from the last checkpoint; it never moves, writes metadata or organizes files. Those actions remain
 separate plan-and-confirm jobs and revalidate the file immediately before execution.
 
+The log records `ANALYSIS_PHASE_STARTED`, `ANALYSIS_PHASE_COMPLETED` (phase and count) and
+`ANALYSIS_RESUMED` (phase and checkpoint position). These are English-only operational event codes.
+The UI displays the phase name, `n/5`, and one overall progress value.
+
 Base-user pipeline results and all stored historical results are filtered through the current
 assigned source/destination paths, not only `owner_id`. The same check is applied while reading
 duplicates, metadata, reviews, plans, logs, exports, previews, report data and cache entries.
+
+## Times and CSV
+
+Operational instants are stored and serialized as ISO 8601 UTC values ending in `Z`. The browser
+renders job, log, file-system, report and manifest instants in its local timezone. EXIF capture
+dates without a timezone are local wall-clock values and are rendered without conversion. A capture
+offset, when present, is returned and displayed with the date.
+
+`duplicates.csv` columns are `group_id, sha256, size, role, file_id, path, exif_date,
+filesystem_date`. `filesystem_date` is UTC ISO 8601 with `Z`; `exif_date` remains as stored and
+contains an explicit offset only when the file supplied one. Other CSV exports use the same rule
+for instant columns.
+
+## Concurrent job submission
+
+Job submission first checks the active (`queued`/`running`) rows for the same owner, kind and exact
+scope parameters. SQLite serialises the check/insert with `BEGIN IMMEDIATE`; MariaDB uses a
+per-submission advisory lock. A matching active job returns its existing id and is not inserted
+again. Completed/cancelled/failed jobs do not block a new run, and a different source or user remains
+independent.
 
 ## Operational database schema (version 3)
 

@@ -60,6 +60,9 @@ The rc.6 regressions cover stale per-user records outside current source scope,
 capture-date reading before keeper selection, the resumable five-stage library
 analysis, duplicate date columns, readable metadata summaries, persistent
 ExifTool process recovery and preview cache hit/invalidation/scope checks.
+rc.7 also interrupts the library job in hash and capture-date batches, restarts
+the job runner and verifies checkpoint resume plus `ANALYSIS_RESUMED`; concurrent
+same-scope submissions are tested atomically on SQLite and MariaDB.
 
 Theme checks exercise Auto/Light/Dark, the sun/moon button, whole-header palette
 and active-section contrast (at least 4.5:1). An embedded synthetic app checks

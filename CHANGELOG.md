@@ -4,6 +4,17 @@ All notable changes are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.1-rc.7] - 2026-11-25
+
+### Changed
+
+- **Analyze library** is now the single read/analyze entry point on Scan. Duplicates, Metadata, Review and Organize become review-and-action pages with empty/stale notices, update links and a compact four-step guide. Analyze-library progress and logs expose all five phases and resume position ([#44](https://github.com/AxReds/twincheck/issues/44)).
+
+### Fixed
+
+- File-system instants and all other operational timestamps are serialized with an explicit UTC `Z` and displayed in the browser's local timezone. CSV instant columns include the timezone; timezone-free EXIF dates are not shifted ([#46](https://github.com/AxReds/twincheck/issues/46)).
+- Identical queued/running jobs for the same user, kind and scope are atomically coalesced to the existing job id. Trigger buttons stay disabled while requests/jobs are active ([#47](https://github.com/AxReds/twincheck/issues/47)).
+
 ## [1.0.1-rc.6] - 2026-11-25
 
 ### Security
@@ -161,6 +172,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Duplicates folder preview/restore and a design discussion on guarded deletion;
   the current "never delete" rule is unchanged ([#25](https://github.com/AxReds/twincheck/issues/25)).
 
+[1.0.1-rc.7]: https://github.com/AxReds/twincheck/compare/v1.0.1-rc.6...v1.0.1-rc.7
 [1.0.1-rc.6]: https://github.com/AxReds/twincheck/compare/v1.0.1-rc.5...v1.0.1-rc.6
 [1.0.1-rc.5]: https://github.com/AxReds/twincheck/compare/v1.0.1-rc.4...v1.0.1-rc.5
 [1.0.1-rc.4]: https://github.com/AxReds/twincheck/compare/v1.0.1-rc.3...v1.0.1-rc.4

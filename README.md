@@ -82,11 +82,15 @@ On a server with **Portainer** you do not need the source code: use the publishe
    Edit → Sources*. Administration is available only in the administrative user menu,
    above Change password; empty Scan and Organize pages link to source assignment
    for admin roles. Base users get an instruction to ask an administrator instead.
-4. **Analyze library** - on *Scan*, pick a source and start *Analyze library*. One resumable,
+4. **Analyze library** - on *Scan*, pick a source and start *Analyze library*. This is the single
+   entry point for reading the library: one resumable,
    read-only job performs scan, SHA-256 hashing, capture-date reading, duplicate grouping and
-   metadata proposals in order. Unchanged files reuse their stored hash and capture date. Advanced
-   users can still run the individual analyses from the review pages.
-5. **Duplicates** - review the last results, including EXIF and file-system dates (change the
+   metadata proposals in order. Unchanged files reuse their stored hash and capture date. Separate
+   analysis buttons are intentionally absent from the review pages; compatibility APIs remain for
+   automation and older clients.
+5. **Review duplicates and metadata** - these are review-and-action pages. They show the last analysis
+   time and a link back to Scan to update it; they do not start separate analyses. Review duplicate
+   results, including EXIF and file-system dates (change the
    keeper if needed), *Preview move*, confirm.
    Duplicates go to `<destination>/Duplicates/<original relative path>`.
    A capture date read from any copy's internal metadata applies to all byte-identical
@@ -133,6 +137,8 @@ On a server with **Portainer** you do not need the source code: use the publishe
   preview and file action is re-checked against the user's current assigned source/destination
   paths immediately before use. Stale rows, cached preview files and files that leave the scope
   between preview and confirmation are hidden or skipped, never exposed or moved.
+* **Concurrent jobs**: identical queued/running jobs for the same user and scope return the existing
+  job instead of queueing a second copy.
 * **Backups**: back up your photos before the first run; back up `/state` (and MariaDB) regularly;
   keep the key separately.
 

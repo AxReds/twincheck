@@ -81,6 +81,16 @@ login form once. Late responses cannot replace that form or sign out a newly
 authenticated session. Typed values and focus stay intact; a failed login does
 not restart polling. Polling resumes only after a successful login and bootstrap.
 
+The tool flow is guided by one compact four-step bar:
+Analyze → Review (Duplicates, Metadata, Review) → Organize → Report & undo.
+Only Scan exposes an analysis action. The other pages show the last analysis time,
+an empty/stale notice linking to Scan, and their read/action controls.
+Job-trigger buttons are disabled while a request or the resulting job is active.
+
+Operational timestamps use the browser timezone. EXIF wall-clock dates use a
+timezone-free formatter, with a supplied EXIF offset appended rather than
+converted silently.
+
 The Review screen starts the item request and its preview request in parallel,
 without a separate probe request. A completed preview of the next review item is
 prefetched. The request is still scope-checked through the review item and file
