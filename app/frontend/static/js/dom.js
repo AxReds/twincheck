@@ -53,7 +53,7 @@ export function progress(done, total) {
 }
 
 export function table(headKeys, rows) {
-  return h('div', { class: 'table-wrap' }, h('table', {},
+  return h('div', { class: 'table-wrap', tabindex: '0' }, h('table', {},
     h('thead', {}, h('tr', {}, headKeys.map((k) => h('th', { scope: 'col' }, k ? t(k) : '')))),
     h('tbody', {}, rows)));
 }

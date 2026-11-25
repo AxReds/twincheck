@@ -726,6 +726,22 @@ await test('U19: Save and Accept stay on the item; next controls are explicit', 
     assert(location.hash === '#/metadata/review/2', 'Save and next does not advance');
   } finally { reviewStateFixture = null; await go('#/home'); }
 });
+await test('U20: table body scrolls while its header remains visible', async () => {
+  const { h, table } = await import('../frontend/static/js/dom.js');
+  await go('#/home');
+  const wrap = table(['logs.col_event', 'logs.col_message'], Array.from({ length: 100 }, (_, n) =>
+    h('tr', {}, h('td', {}, 'REVIEW_SKIPPED'), h('td', {}, 'Synthetic row ' + n))));
+  document.querySelector('main').appendChild(wrap);
+  try {
+    assert(wrap.scrollHeight > wrap.clientHeight, 'table body is not bounded');
+    const header = wrap.querySelector('thead th');
+    const before = header.getBoundingClientRect().top;
+    wrap.scrollTop = 200; await sleep();
+    assert(Math.abs(header.getBoundingClientRect().top - before) < 2, 'header scrolls away with body');
+    assert(getComputedStyle(header).backgroundColor !== 'rgba(0, 0, 0, 0)', 'sticky header is transparent');
+    assert(document.documentElement.scrollWidth <= innerWidth, 'table creates horizontal page overflow');
+  } finally { wrap.remove(); await go('#/home'); }
+});
 await test('B19: login version ON/OFF uses public bootstrap only and fits both themes', async () => {
   const { renderLogin } = await import('../frontend/static/js/views/login.js');
   const root = document.createElement('div');

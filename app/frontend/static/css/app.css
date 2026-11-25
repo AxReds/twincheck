@@ -102,10 +102,10 @@ input, select, textarea { font: inherit; color: var(--fg); background: var(--car
 .panel > summary { cursor: pointer; font-weight: 600; }
 
 /* --- tables --- */
-.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.table-wrap { overflow: auto; max-block-size: min(65vh, 40rem); max-inline-size: 100%; min-inline-size: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
 table { border-collapse: collapse; inline-size: 100%; }
 th, td { text-align: start; padding-block: 0.4rem; padding-inline: 0.6rem; border-block-end: 1px solid var(--line); vertical-align: top; }
-thead th { background: var(--bg); font-size: 0.85em; color: var(--muted); }
+thead th { position: sticky; inset-block-start: 0; z-index: 2; background: var(--bg); font-size: 0.85em; color: var(--muted); box-shadow: 0 1px var(--line); }
 tr.is-missing th, tr.is-missing td { background: color-mix(in srgb, var(--warn) 12%, transparent); }
 .missing { color: var(--warn); font-weight: 600; }
 .pager { display: flex; gap: 0.5rem; align-items: center; margin-block: 0.5rem; flex-wrap: wrap; }

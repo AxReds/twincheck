@@ -8,6 +8,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Shared data tables use bounded keyboard-scrollable containers with sticky, opaque headers
+  in both themes and narrow layouts ([#68](https://github.com/AxReds/twincheck/issues/68)).
 - Review offers explicit stay/next actions: Save / Save and next, Accept / Accept and next,
   Keep stored date / Keep and next, and Leave as it is / Keep and next. Plain actions show
   their result on the same item ([#67](https://github.com/AxReds/twincheck/issues/67)).
