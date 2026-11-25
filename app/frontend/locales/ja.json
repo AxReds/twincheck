@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "analysis.history": "ジョブの履歴",
     "settings.library_timezone": "ライブラリのタイムゾーン",
     "settings.library_timezone_hint": "IANA名（例：Asia/Tokyo）。元のEXIFを変更せず整理に使用します。",
     "settings.library_timezone_notice": "既定はUTCです。日付を選ぶ前にタイムゾーンを設定してください。",

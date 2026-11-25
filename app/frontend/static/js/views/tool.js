@@ -181,8 +181,7 @@ export async function duplicates(main, state) {
       h('a', { class: 'btn', href: '/api/duplicates.csv?scope=' + scope(), download: 'duplicates.csv' }, t('dup.export_csv'))),
     h('p', { class: 'hint' }, t('dup.rule')), summary, list);
   await load();
-  const jl = jobList(main, 'kind=dedupe_analyze&limit=3');
-  return { destroy: jl.stop };
+  main.appendChild(h('a', { class: 'small history-link', href: '#/jobs' }, t('analysis.history')));
 }
 
 // --- metadata --------------------------------------------------------------------------------
@@ -216,10 +215,8 @@ export async function metadata(main) {
     flowStatus.exists && !flowStatus.empty ? h('div', { class: 'actions' },
       h('a', { class: 'btn primary', href: '#/review' }, t('meta.open_review'))) : null,
     results,
-    h('h2', {}, t('meta.jobs')));
-  const jl = jobList(main, 'kind=metadata_analyze&limit=5');
+    h('a', { class: 'small history-link', href: '#/jobs' }, t('analysis.history')));
   await loadResults();
-  return { destroy: jl.stop };
 }
 
 // --- organise ---------------------------------------------------------------------------------

@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "analysis.history": "История в Заданиях",
     "settings.library_timezone": "Часовой пояс библиотеки",
     "settings.library_timezone_hint": "Имя IANA, например Europe/Moscow. Для организации, без изменения исходных EXIF.",
     "settings.library_timezone_notice": "По умолчанию UTC. Настройте пояс перед выбором дат.",

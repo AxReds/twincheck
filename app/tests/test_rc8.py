@@ -163,3 +163,11 @@ class ReviewDates(unittest.TestCase):
             self.assertEqual(status()["changes"]["removed"], 1)
         finally:
             unreadable.chmod(0o600)
+
+    def test_latest_pipeline_results_ignore_newer_per_step_jobs(self):
+        pipeline = self.inst.core.db.query_one("SELECT * FROM jobs WHERE kind='analyze_library' AND owner_id=?", (self.uid,))
+        self.run_job("/api/metadata/analyze", {})
+        data = self.user.get("/api/metadata/results").json()
+        self.assertEqual(data["analyzed_at"], pipeline["finished_at"])
+        self.assertEqual(data["plan_job_id"], pipeline["id"])
+        self.assertEqual(self.user.get("/api/duplicates").json()["analyzed_at"], pipeline["finished_at"])

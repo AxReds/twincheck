@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "analysis.history": "Verlauf unter Aufträge",
     "settings.library_timezone": "Zeitzone der Bibliothek",
     "settings.library_timezone_hint": "IANA-Name, z. B. Europe/Berlin. Zum Organisieren, ohne originale EXIF zu ändern.",
     "settings.library_timezone_notice": "Standard ist UTC. Stellen Sie die Zeitzone vor der Datumsauswahl ein.",

@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "analysis.history": "Historial en Tareas",
     "settings.library_timezone": "Zona horaria de la biblioteca",
     "settings.library_timezone_hint": "Nombre IANA, p. ej. Europe/Madrid. Para organizar, sin modificar los EXIF originales.",
     "settings.library_timezone_notice": "La zona usa UTC por defecto. Configúrela antes de elegir fechas.",

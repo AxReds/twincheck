@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "analysis.history": "Histórico em Tarefas",
     "settings.library_timezone": "Fuso horário da biblioteca",
     "settings.library_timezone_hint": "Nome IANA, p. ex. America/Sao_Paulo. Para organizar, sem alterar os EXIF originais.",
     "settings.library_timezone_notice": "O padrão é UTC. Configure o fuso antes de escolher datas.",

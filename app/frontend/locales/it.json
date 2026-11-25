@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "analysis.history": "Cronologia in Attività",
     "settings.library_timezone": "Fuso orario della libreria",
     "settings.library_timezone_hint": "Nome IANA, ad es. Europe/Rome. Usato per organizzare, senza modificare gli EXIF originali.",
     "settings.library_timezone_notice": "Il fuso della libreria usa UTC. Imposta il tuo fuso prima di scegliere le date.",

@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "analysis.history": "任务历史",
     "settings.library_timezone": "图库时区",
     "settings.library_timezone_hint": "IANA名称，例如Asia/Shanghai。用于整理，不修改原始EXIF。",
     "settings.library_timezone_notice": "默认使用UTC。选择日期前请设置图库时区。",

@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "analysis.history": "السجل في المهام",
     "settings.library_timezone": "المنطقة الزمنية للمكتبة",
     "settings.library_timezone_hint": "اسم IANA، مثل Asia/Riyadh. للتنظيم دون تغيير EXIF الأصلي.",
     "settings.library_timezone_notice": "الافتراضي UTC. اضبط المنطقة قبل اختيار التواريخ.",

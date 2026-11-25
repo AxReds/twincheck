@@ -20,6 +20,7 @@ from .common import disp, fail, is_admin, need_db, own_row, owner_filter, paging
 from .framework import JSONResponse, Request, StreamResponse, file_response
 
 APPLY_KIND = {"organize_plan": "organize_apply", "dedupe_plan": "dedupe_apply", "metadata_analyze": "metadata_apply",
+              "analyze_library": "metadata_apply",
               "review_plan": "metadata_apply", "undo_moves_plan": "undo_moves_apply", "undo_meta_plan": "undo_meta_apply"}
 
 
@@ -246,7 +247,7 @@ def library_status(req: Request):
     if source_id:
         where += " AND params LIKE ?"
         args.append('%\"source_id\": \"' + source_id + '\"%')
-    latest = db.query_one(f"SELECT * FROM jobs WHERE {where} AND status='completed' ORDER BY id DESC LIMIT 1", args)
+    latest = _latest_analysis(req, source_id)
     active = db.query_one(f"SELECT id, status, phase, progress_done, progress_total, checkpoint FROM jobs "
                           f"WHERE {where} AND status IN ('queued','running','paused','interrupted') ORDER BY id DESC LIMIT 1", args)
     changes = {"new": 0, "changed": 0, "removed": 0}
@@ -294,6 +295,19 @@ def library_status(req: Request):
                                         if active else None)})
 
 
+def _latest_analysis(req: Request, source_id: str | None = None) -> dict | None:
+    core = common.app()
+    for row in need_db().query("SELECT * FROM jobs WHERE owner_id=? AND kind='analyze_library' AND status='completed' "
+                              "ORDER BY id DESC", (req.user["id"],)):
+        params = json.loads(row["params"] or "{}")
+        if source_id and params.get("source_id") != source_id:
+            continue
+        root = params.get("root")
+        if root and access.path_in_scope(core.settings.data_dir.as_posix(), req.user, root):
+            return row
+    return None
+
+
 @router.post("/api/duplicates/analyze")
 def dup_analyze(req: Request):
     return _submit(req, "dedupe_analyze", {})
@@ -314,7 +328,10 @@ def duplicates(req: Request):
         sc = "global"
     else:
         sc = f"user:{req.user['id']}"
-    candidates = db.query("SELECT * FROM dup_groups WHERE scope=? AND status='pending' ORDER BY size DESC, id", (sc,))
+    latest = _latest_analysis(req, req.query.get("source_id"))
+    candidates = db.query("SELECT * FROM dup_groups WHERE scope=? AND status='pending'" +
+                          (" AND job_id=?" if latest and sc != "global" else "") + " ORDER BY size DESC, id",
+                          (sc, latest["id"]) if latest and sc != "global" else (sc,))
     visible = []
     data_dir = common.app().settings.data_dir.as_posix()
     for g in candidates:
@@ -336,9 +353,6 @@ def duplicates(req: Request):
         visible.append({"id": g["id"], "size": g["size"], "sha256": g["sha256"], "keeper_file_id": g["keeper_file_id"],
                         **decision, "recoverable": g["size"] * (len(members) - 1),
                         "members": member_rows})
-    latest = db.query_one("SELECT finished_at, result FROM jobs WHERE owner_id=? AND kind IN "
-                          "('dedupe_analyze','analyze_library') AND status='completed' ORDER BY id DESC LIMIT 1",
-                          (req.user["id"],))
     groups = visible[off:off + lim]
     recoverable = sum(group["recoverable"] for group in visible)
     return JSONResponse({"groups": groups, "total": len(visible), "recoverable": recoverable,
@@ -412,9 +426,7 @@ def meta_analyze(req: Request):
 @router.get("/api/metadata/results")
 def meta_results(req: Request):
     db = need_db()
-    latest = db.query_one("SELECT id, finished_at, result FROM jobs WHERE owner_id=? AND kind IN "
-                          "('metadata_analyze','analyze_library') AND status='completed' ORDER BY id DESC LIMIT 1",
-                          (req.user["id"],))
+    latest = _latest_analysis(req, req.query.get("source_id"))
     summary = None
     if latest:
         result = json.loads(latest["result"] or "{}")
@@ -424,6 +436,7 @@ def meta_results(req: Request):
                    "fills": int(result.get("fills") or 0),
                    "review": int(result.get("review") or 0)}
     return JSONResponse({"analyzed_at": latest["finished_at"] if latest else None, "summary": summary,
+                         "plan_job_id": latest["id"] if latest else None,
                          "review_pending": int(db.scalar(
                              "SELECT COUNT(*) AS n FROM review_items WHERE owner_id=? AND status='pending'",
                              (req.user["id"],)) or 0)})

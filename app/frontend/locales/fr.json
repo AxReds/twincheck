@@ -9,6 +9,7 @@
     ]
   },
   "messages": {
+    "analysis.history": "Historique dans Tâches",
     "settings.library_timezone": "Fuseau horaire de la bibliothèque",
     "settings.library_timezone_hint": "Nom IANA, p. ex. Europe/Paris. Pour organiser, sans modifier les EXIF d'origine.",
     "settings.library_timezone_notice": "Le fuseau utilise UTC par défaut. Configurez-le avant de choisir les dates.",

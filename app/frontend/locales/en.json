@@ -10,6 +10,7 @@
     "source": true
   },
   "messages": {
+    "analysis.history": "History in Jobs",
     "settings.library_timezone": "Library timezone",
     "settings.library_timezone_hint": "IANA name, e.g. Europe/Rome. Used for organizing dates, not for changing original EXIF.",
     "settings.library_timezone_notice": "Library timezone defaults to UTC. Set your library timezone before choosing dates.",
