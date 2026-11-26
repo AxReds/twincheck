@@ -2,7 +2,7 @@
 import { h, mount, button, field, table, toast, badge } from '../dom.js';
 import { t, fmt } from '../i18n.js';
 import { get, post } from '../api.js';
-import { pager, waitForJob, poll, stepGuide } from '../components.js';
+import { tablePaging, waitForJob, poll, stepGuide, analysisSummary } from '../components.js';
 
 const KINDS = ['', 'meta_conflict', 'no_date', 'date_utc', 'move_conflict', 'verify_mismatch', 'reconcile_missing', 'reconcile_modified', 'reconcile_new', 'reconcile_moved'];
 const previewRequests = new Map();
@@ -31,11 +31,15 @@ export async function list(main, state, options = {}) {
     : h('p', { class: 'notice warn' }, t('analysis.empty'), ' ',
       h('a', { class: 'btn', href: '#/analyze' }, t('scan.analyze_library')));
   const counts = h('p', { class: 'summary' });
+  const population = h('div', {});
+  const pagination = tablePaging(state.user.id, 'review', (o) => { offset = o; load(); });
   const load = async () => {
-    const q = new URLSearchParams({ status: status.value, offset, limit: 50 });
+    const q = new URLSearchParams({ status: status.value, offset, limit: pagination.query() });
     if (kind.value) q.set('kind', kind.value);
     const d = await get('/api/review?' + q);
+    if (!await pagination.check(d.total, d.items.length)) return;
     counts.textContent = reviewCounts(d.review_counts);
+    if (!options.embedded) mount(population, analysisSummary(d.population));
     const showDecision = ['decided', 'all'].includes(status.value);
     mount(box, d.items.length ? table(['review.col_kind', 'review.col_file', 'review.col_folder', 'review.col_date',
       ...(showDecision ? ['review.col_decision'] : []), ''],
@@ -44,17 +48,18 @@ export async function list(main, state, options = {}) {
           r.status === 'skipped' ? [' ', badge(t('review.status.skipped'), 'warn')] : null),
         h('td', {}, r.file ? h('code', {}, r.file.folder) : ''),
         h('td', {}, r.file ? fmt.localDate(r.file.chosen_date) : ''),
-        showDecision ? h('td', { class: 'review-decision' }, r.decision_kind ? [
+        showDecision ? h('td', { class: 'review-decision',
+          title: r.status === 'skipped' && r.skipped_at ? t('review.postponed_on', { date: fmt.date(r.skipped_at) }) : undefined }, r.decision_kind ? [
           t('review.decision.' + r.decision_kind), r.decision?.date ? ' · ' + fmt.localDate(r.decision.date) : '',
-        ] : t('review.status.' + r.status)) : null,
+        ] : '\u2014') : null,
         h('td', {}, h('a', { class: 'btn small', href: '#/metadata/review/' + r.id }, t('review.open')))))) : h('p', { class: 'muted' }, t('review.empty')),
-    pager(d.total, offset, 50, (o) => { offset = o; load(); }));
+    pagination.render(d.total, offset));
   };
   status.addEventListener('change', () => { offset = 0; load(); });
   kind.addEventListener('change', () => { offset = 0; load(); });
   mount(main, options.embedded ? null : [
     h('h1', { class: 'sr-only' }, t('review.title')), stepGuide(2, flowStatus), h('p', { class: 'intro' }, t('review.intro')), notice, counts],
-    h('div', { class: 'filters' }, field('review.filter_status', status), field('review.filter_kind', kind)), box,
+    population, h('div', { class: 'filters' }, field('review.filter_status', status), field('review.filter_kind', kind)), box,
     options.embedded ? null : [h('h2', {}, t('review.write_title')), h('p', { class: 'hint' }, t('review.write_help'))],
     !options.embedded && flowStatus.exists && h('div', { class: 'actions' }, button('review.write_plan', async (event) => {
       event.currentTarget.disabled = true;

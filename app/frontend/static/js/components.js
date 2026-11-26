@@ -1,5 +1,5 @@
 // Reusable UI pieces: job progress, polling, source picker, folder browser.
-import { h, button, badge, progress, mount, toast, instant } from './dom.js';
+import { h, button, badge, progress, mount, toast, instant, field, modal } from './dom.js';
 import { t, fmt } from './i18n.js';
 import { get, post, ApiError } from './api.js';
 
@@ -14,6 +14,128 @@ export function stopPolling() {
 }
 
 const STATUS_CLASS = { queued: 'muted', running: 'info', paused: 'warn', interrupted: 'warn', completed: 'ok', failed: 'error', cancelled: 'muted' };
+
+export function comboBox({ options, value = '', onChange = () => {} }) {
+  const id = 'combo-' + Math.random().toString(36).slice(2);
+  const input = h('input', { type: 'text', role: 'combobox', autocomplete: 'off',
+    'aria-autocomplete': 'list', 'aria-expanded': 'true', 'aria-controls': id });
+  const list = h('div', { id, role: 'listbox', class: 'combo-list' });
+  const error = h('small', { id: id + '-error', class: 'crit', role: 'status', hidden: true }, t('common.select_option'));
+  input.setAttribute('aria-describedby', error.id);
+  const el = h('div', { class: 'combobox' }, input, list, error);
+  let committed = value;
+  let active = -1;
+  let filtered = [];
+  const match = () => options.find((option) =>
+    [option.value, option.label].some((text) => text.toLowerCase() === input.value.trim().toLowerCase()));
+  const mark = () => {
+    const nodes = [...list.querySelectorAll('[role="option"]')];
+    nodes.forEach((node, i) => node.classList.toggle('active', i === active));
+    if (nodes[active]) {
+      input.setAttribute('aria-activedescendant', nodes[active].id);
+      nodes[active].scrollIntoView({ block: 'nearest' });
+    } else input.removeAttribute('aria-activedescendant');
+  };
+  const validate = () => {
+    const valid = Boolean(match());
+    input.setAttribute('aria-invalid', String(!valid));
+    error.hidden = valid;
+    onChange(valid ? match().value : null, valid);
+  };
+  const choose = (option) => {
+    committed = option.value;
+    input.value = option.label;
+    render(false);
+    validate();
+  };
+  const render = (search = true) => {
+    const term = search ? input.value.trim().toLowerCase() : '';
+    filtered = options.filter((option) => (option.label + ' ' + option.value).toLowerCase().includes(term));
+    active = filtered.findIndex((option) => option.value === committed);
+    mount(list, filtered.length ? filtered.map((option, i) => [
+      option.muted && i > 0 && !filtered[i - 1].muted ? h('div', { role: 'separator', class: 'combo-separator' }) : null,
+      h('div', { id: `${id}-${i}`, role: 'option', 'aria-selected': String(option.value === committed),
+        class: 'combo-option' + (option.muted ? ' muted' : ''),
+        onpointerdown: (event) => event.preventDefault(),
+        onclick: () => { choose(option); input.focus(); } }, option.label),
+    ]) : h('div', { class: 'hint' }, t('common.no_options')));
+    queueMicrotask(mark);
+  };
+  input.addEventListener('focus', () => { input.select(); render(false); });
+  input.addEventListener('input', () => { render(); validate(); });
+  input.addEventListener('keydown', (event) => {
+    if (['ArrowDown', 'ArrowUp'].includes(event.key)) {
+      event.preventDefault();
+      active = filtered.length ? (active + (event.key === 'ArrowDown' ? 1 : -1) + filtered.length) % filtered.length : -1;
+      mark();
+    } else if (event.key === 'Enter' && filtered[active]) {
+      event.preventDefault(); choose(filtered[active]);
+    } else if (event.key === 'Escape') {
+      event.preventDefault(); event.stopPropagation();
+      input.value = options.find((option) => option.value === committed)?.label || '';
+      render(false); validate();
+    }
+  });
+  input.value = options.find((option) => option.value === committed)?.label || value;
+  render(false);
+  return { el, input, value: () => match()?.value, valid: () => Boolean(match()),
+    setOptions(next) { options = next; render(false); },
+    setValue(next) {
+      const option = options.find((option) => option.value === next);
+      if (option) choose(option);
+      else { committed = next; input.value = next; render(false); validate(); }
+    } };
+}
+
+export function analysisSummary(population) {
+  if (!population) return null;
+  return h('div', { class: 'analysis-population' },
+    h('p', { class: 'summary' }, t('meta.latest_population', population)),
+    h('p', { class: 'hint' }, t('meta.current_population', population)));
+}
+
+export function tablePaging(userId, name, go) {
+  const key = `tc-rows:${userId}:${name}`;
+  let choice = '50';
+  try { choice = localStorage.getItem(key) || choice; }
+  catch (error) { toast(t('common.rows_storage_unavailable'), 'warn'); }
+  if (!['10', '50', '100', 'all'].includes(choice)) choice = '50';
+  const select = h('select', { class: 'rows-per-page', 'data-table': name },
+    ['10', '50', '100', 'all'].map((value) => h('option', { value, selected: value === choice },
+      value === 'all' ? t('common.all_rows') : value)));
+  let total = null;
+  let confirmed = false;
+  const approve = async () => {
+    if (choice !== 'all' || total === null || total <= 1000 || confirmed) return true;
+    confirmed = await modal({ titleKey: 'common.all_rows', body: h('p', {}, t('common.confirm_all_rows', { count: total })) });
+    return confirmed;
+  };
+  select.addEventListener('change', async () => {
+    const previous = choice;
+    choice = select.value; confirmed = false;
+    if (!await approve()) { choice = previous; select.value = choice; return; }
+    try { localStorage.setItem(key, choice); }
+    catch (error) { toast(t('common.rows_storage_unavailable'), 'warn'); }
+    go(0);
+  });
+  return {
+    query: () => choice === 'all' ? (total === null ? 50 : 'all') : Number(choice),
+    async check(count, loaded) {
+      total = count;
+      if (await approve()) {
+        if (choice !== 'all' || loaded >= count) return true;
+      } else {
+        choice = '50'; select.value = choice;
+      }
+      go(0); return false;
+    },
+    render(count, offset) {
+      total = count;
+      return h('div', { class: 'pager' }, field('common.rows_per_page', select),
+        pager(count, offset, choice === 'all' ? Math.max(1, count) : Number(choice), go));
+    },
+  };
+}
 
 export function jobBadge(status) { return badge(t('job.status.' + status), STATUS_CLASS[status] || ''); }
 

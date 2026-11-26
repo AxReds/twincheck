@@ -162,7 +162,7 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/logs' || path === '/api/admin/audit') data = { items: [{
     ts: '2026-11-24T20:00:00Z', level: 'INFO', event: 'REVIEW_DECIDED',
     message: 'Review decision saved for synthetic.jpg', actor: 'synthetic', job_id: 1,
-  }].filter(() => !emptyLogs), total: emptyLogs ? 0 : 1, event_counts: { REVIEW_DECIDED: 1, REVIEW_SKIPPED: 0, FILE_UNREADABLE: 0 },
+  }].filter(() => !emptyLogs), total: emptyLogs ? 0 : 1, all_total: 1, event_counts: { REVIEW_DECIDED: 1, REVIEW_SKIPPED: 0, FILE_UNREADABLE: 0 },
     users: [{ id: 'synthetic', username: 'synthetic' }] };
   else if (path === '/api/admin/db') data = {
     current: { type: 'sqlite', path: '/state/synthetic.sqlite3' }, status: { connected: true, schema_version: 6 },
@@ -699,15 +699,24 @@ await test('U17: database-required banner explains the problem to every role', a
       'Home still has a vague database error');
   } finally { app.state.boot.db = old; await go('#/home'); }
 });
-await test('U18: searchable timezone selector preserves the saved zone and shows offsets', async () => {
+await test('U18/U27: timezone combobox preserves the saved zone, filters and supports keyboard selection', async () => {
   await go('#/admin/settings');
-  const select = document.querySelector('.timezone-select');
-  assert(select.value === 'Europe/Rome', 'saved timezone is not selected');
-  assert(select.selectedOptions[0].textContent === 'Europe/Rome (UTC+01:00)', 'timezone offset not shown');
-  const search = document.querySelector('.timezone-search');
+  const search = document.querySelector('.timezone-input');
+  const combo = search.closest('.combobox');
+  assert(search.value === 'Europe/Rome (UTC+01:00)', 'saved timezone and offset not shown');
+  assert(combo.querySelector('[aria-selected="true"]').textContent === search.value, 'saved zone is not highlighted');
+  assert(search.getAttribute('aria-expanded') === 'true' && search.getAttribute('aria-controls') === combo.querySelector('[role="listbox"]').id,
+    'combobox ARIA relationship is missing');
   search.value = 'Kathmandu'; search.dispatchEvent(new Event('input'));
-  assert(select.options.length === 2 && select.value === 'Europe/Rome', 'filter loses saved selection');
-  select.value = 'Asia/Kathmandu';
+  const save = [...document.querySelectorAll('main button')].find((el) => el.textContent === t('common.save'));
+  assert(combo.querySelectorAll('[role="option"]').length === 1 && save.disabled, 'filter or invalid-text protection failed');
+  search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert(search.value === 'Europe/Rome (UTC+01:00)' && !save.disabled, 'Escape does not restore the previous value');
+  search.value = 'KATHMANDU'; search.dispatchEvent(new Event('input'));
+  search.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+  assert(search.getAttribute('aria-activedescendant'), 'keyboard active option is not announced');
+  search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  assert(search.value === 'Asia/Kathmandu (UTC+05:45)' && !save.disabled, 'keyboard selection did not choose the IANA zone');
   [...document.querySelectorAll('main button')].find((el) => el.textContent === t('common.save')).click();
   await sleep();
   assert(requests.filter((r) => r.url === '/api/admin/settings' && r.body).at(-1).body.library_timezone === 'Asia/Kathmandu',
@@ -762,27 +771,35 @@ await test('U21: checkbox and label share a left-aligned line, with help below',
     'checkbox help is not underneath');
   await go('#/home');
 });
-await test('U22: event dropdown includes zero-count codes and filters can be cleared', async () => {
+await test('U22/U22b: event combobox groups zero-count codes and filters can be cleared', async () => {
   await go('#/logs?event=REVIEW_DECIDED&level=WARNING&job_id=1');
   const select = document.querySelector('.log-event-filter');
-  assert([...select.options].some((o) => o.textContent === 'REVIEW_SKIPPED (0)'), 'zero-count event missing');
-  assert(select.value === 'REVIEW_DECIDED', 'event filter URL selection lost');
+  const combo = select.closest('.combobox');
+  assert(![...combo.querySelectorAll('[role="option"]')].some((o) => o.textContent === 'REVIEW_SKIPPED (0)'), 'zero events shown by default');
+  const present = document.querySelector('.log-only-present');
+  present.checked = false; present.dispatchEvent(new Event('change'));
+  assert([...combo.querySelectorAll('[role="option"]')].some((o) => o.textContent === 'REVIEW_SKIPPED (0)' && o.classList.contains('muted')),
+    'zero-count event missing or not greyed');
+  assert(combo.querySelector('[role="separator"]'), 'zero-count separator missing');
+  assert(select.value === 'REVIEW_DECIDED (1)', 'event filter URL selection lost');
   [...document.querySelectorAll('main button')].find((el) => el.textContent === t('logs.clear')).click();
   await sleep();
-  assert(select.value === '' && location.hash === '#/logs', 'clear did not reset event/URL');
+  assert(select.value === t('logs.all_events') && location.hash === '#/logs', 'clear did not reset event/URL');
   assert(getComputedStyle(document.querySelector('.event-code')).whiteSpace === 'nowrap', 'event codes can wrap');
   await go('#/home');
 });
-await test('U23: CSV choice exports applied filters or all accessible events', async () => {
+await test('U23/U33: separate CSV controls export applied filters or all accessible events', async () => {
   await go('#/logs?event=REVIEW_DECIDED&job_id=1');
   const link = document.querySelector('.log-export');
   let q = new URL(link.href).searchParams;
   assert(q.get('event') === 'REVIEW_DECIDED' && q.get('job_id') === '1' && q.get('scope') === 'filtered',
     'filtered CSV loses current filters');
-  const select = document.querySelector('.log-csv-scope');
-  select.value = 'all'; select.dispatchEvent(new Event('change'));
-  q = new URL(link.href).searchParams;
+  assert(link.textContent === t('logs.export_filtered', { count: 1 }), 'filtered export count missing');
+  const all = document.querySelector('.log-export-all');
+  q = new URL(all.href).searchParams;
   assert(q.get('scope') === 'all' && !q.has('event') && !q.has('job_id'), 'all CSV keeps filters');
+  assert(all.textContent === t('logs.export_all', { count: 1 }), 'all export count missing');
+  assert(!document.querySelector('.log-csv-scope'), 'obsolete CSV scope selector remains');
   await go('#/home');
 });
 await test('U24: only administrative roles get the User log filter', async () => {

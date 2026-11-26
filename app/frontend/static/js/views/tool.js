@@ -2,7 +2,7 @@
 import { h, mount, button, field, table, modal, toast, badge, instant } from '../dom.js';
 import { t, fmt } from '../i18n.js';
 import { get, post } from '../api.js';
-import { jobList, sourceSelect, folderBrowser, kv, pager, poll, jobBadge, stepGuide, waitForJob, databaseNotice } from '../components.js';
+import { jobList, jobCard, sourceSelect, folderBrowser, kv, pager, poll, jobBadge, stepGuide, waitForJob, databaseNotice, comboBox, tablePaging, analysisSummary } from '../components.js';
 import { reviewCounts, list as reviewQueue } from './review.js';
 
 function page(main, titleKey, introKey, ...body) {
@@ -157,11 +157,13 @@ export async function duplicates(main, state) {
   const scopeSel = state.perms.global_dedupe ? h('select', {}, h('option', { value: 'user' }, t('dup.scope_user')), h('option', { value: 'global' }, t('dup.scope_global'))) : null;
   const scope = () => (scopeSel ? scopeSel.value : 'user');
   const flowStatus = await analysisState();
+  const pagination = tablePaging(state.user.id, 'duplicates', (o) => { offset = o; load(); });
   const load = async () => {
-    const d = await get(`/api/duplicates?scope=${scope()}&offset=${offset}&limit=20`);
+    const d = await get(`/api/duplicates?scope=${scope()}&offset=${offset}&limit=${pagination.query()}`);
+    if (!await pagination.check(d.total, d.groups.length)) return;
     summary.textContent = t('dup.summary', { count: d.total, size: fmt.bytes(d.recoverable) });
     mount(list, d.groups.length && !flowStatus.empty ? d.groups.map((g) => group(g)) : h('p', { class: 'muted' }, t('dup.none')),
-      pager(d.total, offset, 20, (o) => { offset = o; load(); }));
+      pagination.render(d.total, offset));
   };
   const group = (g) => h('fieldset', { class: 'dup-group' },
     h('legend', {}, t('dup.group_title', { size: fmt.bytes(g.size), count: g.members.length, recoverable: fmt.bytes(g.recoverable) })),
@@ -203,6 +205,7 @@ function metadataResult(data) {
   }
   return h('div', {},
     h('p', { class: 'summary' }, t('meta.analysis_summary', data.summary)),
+    analysisSummary(data.population),
     h('p', { class: 'summary review-counts' }, reviewCounts(data.review_counts)),
     h('p', { class: 'hint review-population' }, t('meta.review_population', {
       items: data.review_counts?.total || 0, files: data.review_file_count || 0 })),
@@ -332,59 +335,85 @@ export async function report(main) {
 }
 
 // --- jobs -----------------------------------------------------------------------------------------
-export async function jobs(main) {
+export async function jobs(main, state) {
   const query = new URLSearchParams(location.hash.split('?')[1] || '');
   const kind = query.get('kind') || '';
   const sel = h('select', {}, ['open', '', 'completed', 'failed', 'cancelled'].map((s) => h('option', { value: s }, s ? t('job.filter.' + s) : t('job.filter.all'))));
   const box = h('div', {});
   sel.value = kind ? '' : 'open';
   page(main, 'jobs.title', 'jobs.intro', stepGuide(0, await analysisState()), field('jobs.filter', sel), box);
-  const jobQuery = () => (kind ? 'kind=' + encodeURIComponent(kind) + '&' : '') +
-    (sel.value ? 'status=' + sel.value + '&' : '') + 'limit=50';
-  let jl = jobList(box, jobQuery());
-  sel.addEventListener('change', () => { jl.stop(); mount(box); jl = jobList(box, jobQuery()); });
-  return { destroy: () => jl.stop() };
+  let offset = 0;
+  const pagination = tablePaging(state.user.id, 'jobs', (o) => { offset = o; load(); });
+  const load = async () => {
+    const q = new URLSearchParams({ offset, limit: pagination.query() });
+    if (kind) q.set('kind', kind);
+    if (sel.value) q.set('status', sel.value);
+    const d = await get('/api/jobs?' + q);
+    if (!box.isConnected || !await pagination.check(d.total, d.items.length)) return;
+    mount(box, d.items.length ? d.items.map((j) => jobCard(j, load)) : h('p', { class: 'muted' }, t('job.none')),
+      pagination.render(d.total, offset));
+  };
+  sel.addEventListener('change', () => { offset = 0; load(); });
+  await load();
+  return { destroy: poll(load, 1500) };
 }
 
 // --- logs (entries stay in English; only the surrounding UI is translated) -------------------------
 export async function logs(main, state) {
   let offset = 0;
-  const ev = h('select', { class: 'log-event-filter' }, h('option', { value: '' }, t('logs.all_events')));
   const lv = h('select', {}, ['', 'INFO', 'WARNING', 'ERROR'].map((l) => h('option', { value: l }, l || t('logs.all_levels'))));
   const job = h('input', { type: 'number', min: '1', size: '6' });
   const params = new URLSearchParams(location.hash.split('?')[1] || '');
   let selectedEvent = params.get('event') || '';
   let selectedOwner = params.get('owner') || '';
+  const ev = comboBox({ options: [{ value: '', label: t('logs.all_events') },
+    ...(selectedEvent ? [{ value: selectedEvent, label: selectedEvent }] : [])], value: selectedEvent });
+  ev.input.classList.add('log-event-filter');
+  const onlyPresent = h('input', { type: 'checkbox', checked: true, class: 'log-only-present' });
   const owner = ['admin', 'administrator'].includes(state.user.role) ? h('select', { class: 'log-user-filter' }) : null;
   lv.value = params.get('level') || '';
   job.value = params.get('job_id') || '';
   const box = h('div', {});
-  const csvScope = h('select', { class: 'log-csv-scope' }, ['filtered', 'all'].map((scope) =>
-    h('option', { value: scope }, t('logs.csv_' + scope))));
-  const exportCSV = h('a', { class: 'btn log-export', download: 'logs.csv' }, t('dup.export_csv'));
+  const exportFiltered = h('a', { class: 'btn log-export', download: 'logs.csv' });
+  const exportAll = h('a', { class: 'btn log-export-all', href: '/api/logs.csv?scope=all', download: 'logs.csv' });
+  const exportNote = h('p', { class: 'hint log-export-note' });
   let appliedFilters = new URLSearchParams();
-  const updateExport = () => {
-    const q = csvScope.value === 'filtered' ? new URLSearchParams(appliedFilters) : new URLSearchParams();
-    q.delete('offset'); q.delete('limit'); q.set('scope', csvScope.value);
-    exportCSV.href = '/api/logs.csv?' + q;
+  let eventCounts = {};
+  const updateEvents = () => {
+    ev.setOptions([{ value: '', label: t('logs.all_events') },
+      ...Object.entries(eventCounts).filter(([code, count]) => !onlyPresent.checked || count > 0 || code === selectedEvent)
+        .sort(([a, x], [b, y]) => Number(y > 0) - Number(x > 0) || a.localeCompare(b))
+        .map(([code, count]) => ({ value: code, label: `${code} (${fmt.number(count)})`, muted: count === 0 }))]);
+    ev.setValue(selectedEvent);
   };
-  csvScope.addEventListener('change', updateExport);
+  onlyPresent.addEventListener('change', updateEvents);
+  const updateExport = (d) => {
+    const q = new URLSearchParams(appliedFilters);
+    q.delete('offset'); q.delete('limit'); q.set('scope', 'filtered');
+    exportFiltered.href = '/api/logs.csv?' + q;
+    exportFiltered.textContent = t('logs.export_filtered', { count: d.total });
+    exportAll.textContent = t('logs.export_all', { count: d.all_total });
+    const username = selectedOwner === '__system__' ? t('logs.system') : d.users?.find((u) => u.id === selectedOwner)?.username;
+    exportNote.textContent = owner
+      ? (selectedOwner ? t('logs.export_user_note', { user: username || selectedOwner }) + ' ' + t('logs.export_all_note') : t('logs.export_all_note'))
+      : t('logs.export_own_note');
+  };
   const clearFilters = () => {
-    selectedEvent = ''; ev.value = ''; lv.value = ''; job.value = ''; offset = 0;
+    selectedEvent = ''; ev.setValue(''); lv.value = ''; job.value = ''; offset = 0;
     selectedOwner = ''; if (owner) owner.value = '';
     history.replaceState(null, '', '#/logs'); load();
   };
+  const pagination = tablePaging(state.user.id, 'logs', (o) => { offset = o; load(); });
   const load = async () => {
-    const q = new URLSearchParams({ offset, limit: 100 });
+    const q = new URLSearchParams({ offset, limit: pagination.query() });
     if (selectedEvent) q.set('event', selectedEvent);
     if (lv.value) q.set('level', lv.value);
     if (job.value) q.set('job_id', job.value);
     if (owner && selectedOwner) q.set('owner', selectedOwner);
     const d = await get('/api/logs?' + q);
-    appliedFilters = q; updateExport();
-    mount(ev, h('option', { value: '' }, t('logs.all_events')),
-      Object.entries(d.event_counts).map(([code, count]) => h('option', { value: code, selected: code === selectedEvent },
-        `${code} (${fmt.number(count)})`)));
+    if (!await pagination.check(d.total, d.items.length)) return;
+    appliedFilters = q; updateExport(d);
+    eventCounts = d.event_counts; updateEvents();
     if (owner) mount(owner, h('option', { value: '' }, t('logs.all_users')),
       h('option', { value: '__system__', selected: selectedOwner === '__system__' }, t('logs.system')),
       d.users.map((user) => h('option', { value: user.id, selected: selectedOwner === user.id }, user.username)));
@@ -393,12 +422,17 @@ export async function logs(main, state) {
         h('td', { lang: 'en', dir: 'ltr' }, r.message), h('td', {}, r.job_id ? '#' + r.job_id : ''),
         owner ? h('td', {}, r.user || t('logs.system')) : null))) :
       h('div', { class: 'empty-state notice' }, h('p', {}, t('logs.empty')), button('logs.clear', clearFilters)),
-    pager(d.total, offset, 100, (o) => { offset = o; load(); }));
+    pagination.render(d.total, offset));
   };
-  page(main, 'logs.title', 'logs.intro', stepGuide(0, await analysisState()), h('div', { class: 'filters' }, field('logs.event', ev), field('logs.level', lv), field('logs.job', job),
+  const eventField = field('logs.event', ev.el);
+  eventField.classList.add('log-event-field');
+  page(main, 'logs.title', 'logs.intro', stepGuide(0, await analysisState()), h('div', { class: 'filters' }, eventField,
+    field('logs.only_present', onlyPresent), field('logs.level', lv), field('logs.job', job),
     owner ? field('admin.col_user', owner) : null,
-    button('logs.apply', () => { selectedEvent = ev.value; if (owner) selectedOwner = owner.value; offset = 0; load(); }),
-    button('logs.clear', clearFilters)), h('div', { class: 'actions' }, field('logs.csv_scope', csvScope), exportCSV), box);
+    button('logs.apply', () => {
+      if (!ev.valid()) { ev.input.focus(); return; }
+      selectedEvent = ev.value(); if (owner) selectedOwner = owner.value; offset = 0; load();
+    }), button('logs.clear', clearFilters), exportFiltered, exportAll), exportNote, box);
   await load();
 }
 
