@@ -122,7 +122,7 @@ On a server with **Portainer** you do not need the source code: use the publishe
    library timezone. Ambiguous historical decisions stay unchanged in the needs re-check queue:
    accept the converted proposal, keep the stored date or choose another. Organize skips them until
    explicit confirmation, including when executing a previously prepared plan.
-9. **Report & undo** - preview and execute the reversal of moves and/or metadata, read from
+9. **Report & Undo** - preview and execute the reversal of moves and/or metadata, read from
    the manifest; *Verify* checks files and hashes against index and manifest; download the manifest CSV.
 10. **Change database** - *Administration → Database*: test, switch (jobs paused, old database
     untouched, reconciliation with the disk, rollback on failure), or go back to a previous one.
@@ -138,12 +138,14 @@ unchanged. Tables scroll inside bounded containers with sticky headers in both t
 Analyze shows the last three analysis jobs and links to their full history. Phase-completion
 logs distinguish newly hashed/extracted values from reused values and unreadable files.
 
-**Logs** offers all defined event codes (including zero counts), Clear filters and Export CSV
-with a filtered/all-visible choice. CSV times stay ISO 8601 with offset/Z and messages stay English.
+**Logs** offers an accessible Event code combo box, present events by default, optional
+muted zero-count events, Clear filters and counted **Export filtered / Export all** controls.
+CSV includes UTC `time_utc` and 24-hour `time_local` in the library timezone with offset;
+messages stay English.
 Base users see only their own scoped job/file/review events, never system/login events.
 Administrators see all events and can filter by User. Empty lists explain why nothing is shown.
 
-The step guide is **1 Analyze → 2 Check (Duplicates · Metadata) → 3 Organize → 4 Report & undo**.
+The step guide is **1 Analyze → 2 Check (Duplicates · Metadata) → 3 Organize → 4 Report & Undo**.
 There is no separate Review menu tab; existing Scan and Review links redirect to their new locations.
 
 ### Instance settings
@@ -159,9 +161,17 @@ Both settings are stored in the encrypted vault and audited as `SETTING_CHANGED`
 The login-version option is not an environment variable. Each new review decision records its
 source and applied timezone; historical dates are never silently corrected during migration.
 
-### Upgrade to 1.0.1-rc.9
+Review items, Logs, Duplicates and Jobs default to 50 rows per page and offer
+10 / 50 / 100 / All. The browser remembers each user's choice separately for each table.
+Loading All above 1,000 rows requires confirmation, including after returning to the page.
 
-Stop the container and back up `/state` (and the operational MariaDB database, if used).
+### Upgrade to 1.0.1-rc.10
+
+From rc.9, no schema migration is required: schema remains 6 and an already-current
+database emits no `DB_MIGRATED`. User decisions are not changed.
+Deploy `ghcr.io/axreds/twincheck:1.0.1-rc.10` (or the moving `rc` alias).
+
+From an older version, stop the container and back up `/state` (and the operational MariaDB database, if used).
 After upgrading, an administrator must open **Administration → Database → Migrate schema**
 and confirm the backup. Until the database is ready, every signed-in user sees
 **Database update required. Contact an administrator.** Administrators can follow the banner.

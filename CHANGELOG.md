@@ -4,6 +4,56 @@ All notable changes are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.1-rc.10] - 2026-11-26
+
+GitHub pre-release only, never latest. Publish only the exact `1.0.1-rc.10` image
+and authorized `rc` alias for `linux/amd64` and `linux/arm64` after green CI.
+Stable aliases and earlier exact Git/image tags remain unchanged; tag `1` stays absent.
+
+### Upgrade
+
+No schema migration from rc.9: schema remains 6, with no `DB_MIGRATED` event on
+an already-current database. Older databases still require an administrator-confirmed,
+backed-up upgrade; one `DB_MIGRATED` reports the real versions. User decisions are unchanged.
+
+### Owner verification
+
+- Owner-verified on rc.9 and closed with `verified`: #61, #62, #63, #65, #66,
+  #68, #69, #70, #71, #73 and #74. New issues remain open for owner verification.
+- Review date input and stay/next clarity (#58, #67), empty-state/back navigation (#57),
+  and administrative User-filter exports (#72) still need owner checks. Large-library
+  Pause/Resume remains deferred (#60); known CI flake #59 is not changed.
+
+### Added and fixed
+
+- One dependency-free, always-visible ARIA combobox for Library timezone and Logs Event code:
+  substring search, current offsets, keyboard/pointer/touch support, highlighted selection,
+  Escape restore and invalid-input save protection (#75).
+- Logs defaults to present events; optional zero-count codes are muted after a separator,
+  with role- and User-scoped counts (#76).
+- Consistent localized Report & Undo labels (#77). Shared filter/action rows align controls
+  at the input bottom, including narrow layouts (#80).
+- Review items, Logs, Duplicates and Jobs offer 10/50/100/All rows, default 50, remembered
+  per browser, user id and table. All above 1,000 requires confirmation before loading (#78).
+- Pending skipped items keep the filename badge but show a dash, not a decision, with a
+  24-hour postponement tooltip (#79).
+- Singular/plural log and UI count wording; readable capture dates in started/completed
+  phase messages, proposed metadata completions instead of "fills", and reused instead of
+  skipped on analysis cards. Stable event codes and stored decisions are unchanged (#81).
+- Logs has counted Export filtered / Export all controls and role-aware scope notes.
+  CSV uses `time_utc` and `time_local` (library timezone, 24-hour with offset) (#82).
+- Metadata and Review items share current population identities, separating latest-folder
+  analysis from all-assigned-folders review items and distinct files. Unreadable diagnostics
+  may overlap review; no files or history are removed (#64).
+
+### Local validation
+
+- Full SQLite suite: 121 tests passed; the full suite with isolated MariaDB also passed (121).
+- All ten locales complete; translation, documentation consistency and Python compilation passed.
+- Light/Dark at 1600/1280/900/375 px: 48 fixture scenarios plus eight native Playwright
+  keyboard/pointer/touch/reload/geometry checks per combination, 448 passing checks.
+- No application dependencies, environment parameters or database migrations added.
+
 ## [1.0.1-rc.9] - 2026-11-25
 
 Published as a GitHub pre-release, never latest. Image `1.0.1-rc.9` and authorized alias `rc`:
