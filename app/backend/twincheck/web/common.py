@@ -78,6 +78,15 @@ def paging(req: Request, default: int = 50, maximum: int = 500) -> tuple[int, in
     return off, lim
 
 
+def table_paging(req: Request) -> tuple[int, int | None]:
+    if req.query.get("limit") == "all":
+        try:
+            return max(0, int(req.query.get("offset", 0))), None
+        except ValueError:
+            fail(400, "bad_paging")
+    return paging(req)
+
+
 def path_error(exc: PathError):
     fail(400, exc.code)
 

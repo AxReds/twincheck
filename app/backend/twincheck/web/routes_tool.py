@@ -7,6 +7,7 @@ import json
 import os
 import time
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from ..events import EVENTS
 from ..db.schema import utcnow
@@ -18,7 +19,7 @@ from ..services.metadata import FIELDS, WRITABLE, date_candidate, field_table, m
 from ..services.scan import iter_dirs
 from . import common
 from .app import router
-from .common import disp, fail, is_admin, need_db, own_row, owner_filter, paging, require, scoped_file, scoped_rows
+from .common import disp, fail, is_admin, need_db, own_row, owner_filter, paging, table_paging, require, scoped_file, scoped_rows
 from .framework import JSONResponse, Request, StreamResponse, file_response
 
 APPLY_KIND = {"organize_plan": "organize_apply", "dedupe_plan": "dedupe_apply", "metadata_analyze": "metadata_apply",
@@ -144,7 +145,7 @@ def _job_public(req: Request, j: dict) -> dict:
 @router.get("/api/jobs")
 def jobs(req: Request):
     db = need_db()
-    off, lim = paging(req)
+    off, lim = table_paging(req)
     where, args = ["1=1"], []
     owner = owner_filter(req)
     if owner:
@@ -160,7 +161,10 @@ def jobs(req: Request):
         where.append("kind=?")
         args.append(req.query["kind"])
     w = " AND ".join(where)
-    rows = db.query(f"SELECT * FROM jobs WHERE {w} ORDER BY id DESC LIMIT {lim} OFFSET {off}", args)
+    suffix = f" LIMIT {lim} OFFSET {off}" if lim is not None else ""
+    rows = db.query(f"SELECT * FROM jobs WHERE {w} ORDER BY id DESC{suffix}", args)
+    if lim is None:
+        rows = rows[off:]
     total = db.scalar(f"SELECT COUNT(*) AS n FROM jobs WHERE {w}", args)
     return JSONResponse({"items": [_job_public(req, j) for j in rows], "total": int(total or 0)})
 
@@ -330,7 +334,7 @@ def dup_plan(req: Request):
 @router.get("/api/duplicates")
 def duplicates(req: Request):
     db = need_db()
-    off, lim = paging(req, 20, 200)
+    off, lim = table_paging(req)
     scope = req.query.get("scope", "user")
     if scope == "global":
         require(req, "global_dedupe")
@@ -362,7 +366,7 @@ def duplicates(req: Request):
         visible.append({"id": g["id"], "size": g["size"], "sha256": g["sha256"], "keeper_file_id": g["keeper_file_id"],
                         **decision, "recoverable": g["size"] * (len(members) - 1),
                         "members": member_rows})
-    groups = visible[off:off + lim]
+    groups = visible[off:None if lim is None else off + lim]
     recoverable = sum(group["recoverable"] for group in visible)
     return JSONResponse({"groups": groups, "total": len(visible), "recoverable": recoverable,
                          "analyzed_at": latest["finished_at"] if latest else None})
@@ -454,6 +458,7 @@ def meta_results(req: Request):
     if summary:
         summary["review"] = totals["total"]
     return JSONResponse({"analyzed_at": latest["finished_at"] if latest else None, "summary": summary,
+                         "population": _analysis_population(req, latest, review_rows, totals),
                          "plan_job_id": latest["id"] if latest else None,
                          "review_file_count": len({row["file_id"] for row in review_rows}),
                          "review_pending": totals["pending"], "review_counts": totals, "review_write_pending": write_pending})
@@ -598,16 +603,18 @@ def _review_row(req: Request, r: dict, full: bool = False) -> dict:
 @router.get("/api/review")
 def review_list(req: Request):
     db = need_db()
-    off, lim = paging(req)
+    off, lim = table_paging(req)
     st = req.query.get("status", "pending")
     rows = _visible_reviews(req)
     counts, totals = _review_counts(rows)
+    population = _analysis_population(req, _latest_analysis(req), rows, totals)
     statuses = {"pending", "skipped", "needs_recheck"} if st == "pending" else {st}
     rows = [row for row in rows if (st == "all" or review_state.status(row) in statuses)
             and (not req.query.get("kind") or row["kind"] == req.query["kind"])]
-    page = rows[off:off + lim]
+    page = rows[off:None if lim is None else off + lim]
     return JSONResponse({"items": [_review_row(req, r) for r in page], "total": len(rows),
-                         "counts": counts, "review_counts": totals, "fields": FIELDS, "writable": sorted(WRITABLE)})
+                         "counts": counts, "review_counts": totals, "population": population,
+                         "fields": FIELDS, "writable": sorted(WRITABLE)})
 
 
 def _visible_reviews(req: Request) -> list[dict]:
@@ -626,6 +633,24 @@ def _review_counts(rows: list[dict]) -> tuple[dict, dict]:
     return counts, {"total": len(rows), "decided": counts.get("decided", 0),
                     "pending": sum(counts.get(s, 0) for s in ("pending", "skipped", "needs_recheck")),
                     "needs_recheck": counts.get("needs_recheck", 0)}
+
+
+def _analysis_population(req: Request, latest: dict | None, reviews: list[dict], totals: dict) -> dict | None:
+    if not latest:
+        return None
+    owner = req.query.get("owner") if is_admin(req) and req.query.get("owner") else req.user["id"]
+    files = need_db().query("SELECT * FROM files WHERE owner_id=? AND present=1 "
+                            "AND media_kind IN ('image','video') AND status<>'dup_moved'", (owner,))
+    if not is_admin(req):
+        files = scoped_rows(req, files)
+    review_ids = {row["file_id"] for row in reviews}
+    reliable = sum(1 for row in files if row["id"] not in review_ids and row["chosen_date"]
+                   and not row["date_flags"] and row["chosen_date_source"] not in ("mtime_utc", "filesystem_mtime", "unknown"))
+    result = json.loads(latest["result"] or "{}")
+    return {"analysed": int(result.get("metadata", {}).get("analysed", 0)),
+            "unreadable": int(result.get("scan", {}).get("unreadable", 0)),
+            "current": len(files), "reliable": reliable, "review_files": len(review_ids),
+            "other": len(files) - reliable - len(review_ids), **totals}
 
 
 @router.get("/api/review/{id:int}")
@@ -899,7 +924,7 @@ def report(req: Request):
 
 @router.get("/api/logs")
 def logs(req: Request):
-    off, lim = paging(req, 100, 1000)
+    off, lim = table_paging(req)
     rows = _log_rows(req, include_event=False)
     counts = dict.fromkeys(sorted(EVENTS), 0)
     for row in rows:
@@ -907,7 +932,8 @@ def logs(req: Request):
     selected = req.query.get("event")
     if selected:
         rows = [row for row in rows if row["event"] == selected]
-    out = {"items": rows[off:off + lim], "total": len(rows), "event_counts": counts}
+    out = {"items": rows[off:None if lim is None else off + lim], "total": len(rows),
+           "all_total": len(_log_rows(req, filtered=False)), "event_counts": counts}
     if is_admin(req):
         out["users"] = [{"id": user["id"], "username": user["username"]}
                         for user in common.app().vault.snapshot()["users"].values()]
@@ -983,16 +1009,19 @@ def logs_csv(req: Request):
     if scope not in ("filtered", "all"):
         fail(400, "invalid_value", field="scope")
     rows = _log_rows(req, filtered=scope == "filtered")
+    library_zone = ZoneInfo(common.app().library_timezone)
 
     def factory():
         buf = io.StringIO()
         writer = csv.writer(buf)
-        writer.writerow(["time", "level", "event", "message", "job_id", "user"])
+        writer.writerow(["time_utc", "time_local", "level", "event", "message", "job_id", "user"])
         for index, row in enumerate(rows):
             instant = datetime.fromisoformat(row["ts"].replace("Z", "+00:00"))
             if instant.tzinfo is None:
                 instant = instant.replace(tzinfo=timezone.utc)
-            writer.writerow([instant.isoformat().replace("+00:00", "Z"), row["level"], row["event"],
+            writer.writerow([instant.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+                             instant.astimezone(library_zone).isoformat(sep=" ", timespec="seconds"),
+                             row["level"], row["event"],
                              row["message"], row["job_id"] or "", row["user"] or ""])
             if index % 500 == 499:
                 yield buf.getvalue().encode("utf-8")

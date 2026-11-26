@@ -102,6 +102,29 @@ filesystem_date`. `filesystem_date` is UTC ISO 8601 with `Z`; `exif_date` remain
 contains an explicit offset only when the file supplied one. Other CSV exports use the same rule
 for instant columns.
 
+`logs.csv` columns are `time_utc, time_local, level, event, message, job_id, user`.
+`time_utc` is ISO 8601 UTC ending in `Z`. `time_local` is numeric
+`YYYY-MM-DD hh:mm:ss±hh:mm` (24-hour) in the configured library timezone, with the
+offset for that instant, including daylight saving. Messages remain English.
+`scope=filtered` applies the current Event code, Level, Job and administrative User filters;
+`scope=all` ignores those filters, but never bypasses role or source visibility.
+The list returns both filtered `total` and accessible `all_total`, using the same scope as CSV.
+
+Review items, Logs, Duplicates and Jobs accept `limit=10|50|100|all` and `offset`.
+The UI defaults to 50 and remembers a separate choice for each user id and table in
+browser local storage (there is no generic server-side preferences table).
+Choosing All for more than 1,000 rows requires confirmation before the full request,
+including on a later visit. Other paginated endpoints retain their existing bounds.
+
+Metadata and Review items share a live population summary from the same canonical review
+rows as their lists. Queue items satisfy `total = pending + decided`; several reasons can
+refer to one file. Current files satisfy `current = reliable + review_files + other`:
+`reliable` counts dated files outside the review queue, `review_files` counts distinct files
+with review items, and `other` is the remainder. Latest-analysis counts describe the selected
+folder at analysis time; current counts cover all assigned folders and exclude missing or
+moved-duplicate files. Unreadable analysis files can also have review items, so that diagnostic
+count is not an additional disjoint category. No stored decisions are changed.
+
 ## Concurrent job submission
 
 Job submission first checks the active (`queued`/`running`) rows for the same owner, kind and exact
