@@ -82,7 +82,7 @@ authenticated session. Typed values and focus stay intact; a failed login does
 not restart polling. Polling resumes only after a successful login and bootstrap.
 
 The tool flow is guided by one compact four-step bar:
-Analyze → Review (Duplicates, Metadata, Review) → Organize → Report & undo.
+Analyze → Review (Duplicates, Metadata, Review) → Organize → Report & Undo.
 Only Scan exposes an analysis action. The other pages show the last analysis time,
 an empty/stale notice linking to Scan, and their read/action controls.
 Job-trigger buttons are disabled while a request or the resulting job is active.
@@ -105,6 +105,21 @@ Completed scan cards show indexed files, newly computed hashes, reused hashes an
 files still without a hash. Older scans show their recorded indexed/hashed counts
 and explain that reused hashes were not counted; a stale phase is not shown as a
 completion result.
+
+## Accessible selectors and long tables
+
+`components.comboBox` uses a text input with `role="combobox"` and an always-visible,
+roughly eight-row `listbox`. It supports case-insensitive substring filtering, a selected
+option, active-descendant keyboard navigation, Enter selection and Escape restore.
+Pointer and touch select the same options. Invalid input is announced inline; Settings
+disables Save. Library timezone and Logs Event code share this implementation.
+Zero-count events are muted and separated after present events; Only events present defaults on.
+
+`components.tablePaging` remembers 10/50/100/All in browser local storage keyed by stable
+user id and table, with a visible warning when storage is unavailable. A remembered All
+choice still confirms before loading more than 1,000 rows. Sticky headers and page ranges
+remain independent of the selected size. Filter/action rows share bottom alignment;
+CSV export buttons stay aligned with the Job input, including at narrow widths.
 
 ## Replacing the logo
 

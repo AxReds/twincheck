@@ -53,6 +53,16 @@ Serve `app/` locally with `python3 -B -m http.server 18767 --bind 127.0.0.1 --di
 and open `http://127.0.0.1:18767/tests/frontend.html` in a browser. The page runs
 automated DOM/CSS regression checks against the real frontend modules with synthetic,
 in-memory API responses only; every result must show `"passed": true`.
+rc.10 extends this fixture with combobox ARIA and keyboard selection/restore, invalid free-text
+protection, zero-event grouping, per-user/per-table pagination persistence, confirmation before
+All above 1,000 (also during Jobs polling), dash/tooltip postponements, translated Report & Undo,
+count wording, role-aware CSV counts/notes and shared population summaries. Export-button and
+Job-input bottom bounding boxes must differ by at most 2 px at every matrix width.
+Playwright checks should additionally use real keyboard, mouse and touch input and a full
+reload to verify persistence; optional browser tooling must stay outside application dependencies.
+`test_rc10.py` covers the matching API pagination/visibility/counts, UTC/local CSV columns
+including daylight saving, current population identities, invalid timezone preservation and
+readable singular/plural analysis events on SQLite and MariaDB.
 The session-expiry regression overlaps system/job 401 responses while typing,
 checks values, focus and caret, waits longer than the system refresh interval to
 check that polling stops, and verifies failed login, successful login and a late

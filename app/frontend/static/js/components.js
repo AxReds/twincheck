@@ -105,9 +105,12 @@ export function tablePaging(userId, name, go) {
       value === 'all' ? t('common.all_rows') : value)));
   let total = null;
   let confirmed = false;
+  let confirming = null;
   const approve = async () => {
     if (choice !== 'all' || total === null || total <= 1000 || confirmed) return true;
-    confirmed = await modal({ titleKey: 'common.all_rows', body: h('p', {}, t('common.confirm_all_rows', { count: total })) });
+    if (!confirming) confirming = modal({ titleKey: 'common.all_rows', body: h('p', {}, t('common.confirm_all_rows', { count: total })) });
+    confirmed = await confirming;
+    confirming = null;
     return confirmed;
   };
   select.addEventListener('change', async () => {
@@ -119,7 +122,7 @@ export function tablePaging(userId, name, go) {
     go(0);
   });
   return {
-    query: () => choice === 'all' ? (total === null ? 50 : 'all') : Number(choice),
+    query: () => choice === 'all' ? (total !== null && (total <= 1000 || confirmed) ? 'all' : 50) : Number(choice),
     async check(count, loaded) {
       total = count;
       if (await approve()) {
@@ -132,7 +135,8 @@ export function tablePaging(userId, name, go) {
     render(count, offset) {
       total = count;
       return h('div', { class: 'pager' }, field('common.rows_per_page', select),
-        pager(count, offset, choice === 'all' ? Math.max(1, count) : Number(choice), go));
+        pager(count, offset, choice === 'all' ? Math.max(1, count) : Number(choice), go) ||
+        h('span', {}, t('common.page_range', { from: count ? offset + 1 : 0, to: count, total: count })));
     },
   };
 }

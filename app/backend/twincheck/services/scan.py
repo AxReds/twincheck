@@ -209,7 +209,7 @@ def analysis_phase_event(ctx: JobContext, phase: str, started: bool, count: int,
         previous = ctx.db.query("SELECT params FROM run_log WHERE job_id=? AND event=?", (ctx.id, event))
         if any(json.loads(row["params"] or "{}").get("phase") == phase for row in previous):
             return
-        summary = f"{count} items"
+        summary = f"{count} item{'s' if count != 1 else ''}"
         if not started:
             if phase == "hash":
                 summary = f"{counts['hashed']} hashed, {counts['reused']} reused, {counts['unreadable']} unreadable"
@@ -218,9 +218,12 @@ def analysis_phase_event(ctx: JobContext, phase: str, started: bool, count: int,
             elif phase == "scan":
                 summary = ", ".join(f"{counts[key]} {key}" for key in ("found", "new", "changed", "unchanged", "removed"))
             elif phase == "duplicates":
-                summary = ", ".join(f"{value} {key}" for key, value in counts.items())
+                summary = ", ".join(f"{value} {key[:-1] if value == 1 and key.endswith('s') else key}"
+                                    for key, value in counts.items())
             elif phase == "metadata":
-                summary = ", ".join(f"{counts[key]} {key}" for key in ("analysed", "fills", "review"))
+                fills = counts["fills"]
+                summary = (f"{counts['analysed']} analysed, {fills} metadata completion{'s' if fills != 1 else ''} proposed, "
+                           f"{counts['review']} to review")
         ctx.log(event, phase=phase, phase_label=phase.replace("_", " "), count=count, summary=summary, **counts)
 
 

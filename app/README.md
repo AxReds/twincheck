@@ -48,7 +48,7 @@ separate plan-and-confirm jobs and revalidate the file immediately before execut
 The log records one `ANALYSIS_PHASE_STARTED` and one `ANALYSIS_PHASE_COMPLETED` per phase,
 including on resume. Completion parameters contain scan found/new/changed/unchanged/removed,
 hash candidates/hashed/unreadable, capture dates read/unknown, duplicate groups/files and
-metadata analysed/fills/review counts. It also records
+metadata analysed/proposed-completion/review counts (`fills` remains the API/checkpoint key). It also records
 `ANALYSIS_RESUMED` (phase and checkpoint position). These are English-only operational event codes.
 The UI displays the phase name, `n/5`, and one overall progress value.
 
@@ -133,7 +133,7 @@ per-submission advisory lock. A matching active job returns its existing id and 
 again. Completed/cancelled/failed jobs do not block a new run, and a different source or user remains
 independent.
 
-## rc.9 review, UI and logging
+## Review, UI and logging
 
 `services/review_state.py` is the shared source for Pending, skipped, Decided and needs re-check
 in item badges, filters, counts, Decision labels and Organize. Re-analysis preserves item ids and
@@ -152,22 +152,26 @@ The full organizing-date help is kept only in the item panel.
 
 Every displayed date uses numeric `yyyy-mm-dd hh:mm:ss`, independent of language. Instants
 are browser-local with offset/timezone on hover; timezone-free capture values remain unchanged.
-Settings exposes every IANA zone available in the container in a searchable selector with
-current UTC offsets and daylight-saving help. Saved selection and server validation remain
-authoritative. Tables use bounded scroll containers with sticky headers and explained empty
-states; checkbox fields place checkbox and label together with help below.
+Settings exposes every IANA zone available in the container in one always-visible, accessible
+combo box with current UTC offsets and daylight-saving help. Invalid free text disables Save;
+keyboard, pointer and touch selections share server validation. Tables use bounded scroll
+containers with sticky headers and explained empty states; checkbox fields place checkbox
+and label together with help below. Per-table rows-per-page preferences live in browser storage.
 
-Logs lists the entire `events.EVENTS` catalogue, with counts under the other filters (including
-zeros), Clear filters and an explained no-matches state. `/api/logs.csv?scope=filtered|all`
-exports English messages and ISO 8601 offset/Z times, sharing visibility with list/counts.
+Logs uses the same combo box for the `events.EVENTS` catalogue. Only events present defaults
+on; when disabled, zero-count events are muted after a separator. Counts respect the other
+applied filters and role/User scope. Clear filters and an explained no-matches state remain.
+`/api/logs.csv?scope=filtered|all` shares visibility with list/counts and includes the time
+columns documented above. Counted export controls explain the applied scope.
 Base users see only their own current-scope job/file/review events; system/authentication
 events, mismatched job/file ownership and out-of-scope paths are excluded. Admin roles see
 all users plus system events and get a User filter. Analyze shows only the latest three
 analysis jobs with a full-history link; completion messages spell out hashed/extracted versus
 reused values and unreadable/unknown counts, rather than describing reuse as zero items.
 
-Before upgrading to rc.9, stop the container and back up `/state` and MariaDB if applicable.
-After upgrading, an administrator must run **Administration → Database → Migrate schema**.
+rc.10 uses schema 6 unchanged: no schema migration or `DB_MIGRATED` is needed from rc.9.
+Before upgrading an older schema, stop the container and back up `/state` and MariaDB if applicable.
+After upgrading an older schema, an administrator must run **Administration → Database → Migrate schema**.
 Every signed-in user sees the database-required banner while unavailable/outdated; admin roles
 can follow it directly to the migration action. Home uses the same explanation.
 

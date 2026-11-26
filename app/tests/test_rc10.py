@@ -6,8 +6,9 @@ import tempfile
 import unittest
 from contextlib import contextmanager
 
-from helpers import Instance, make_user
+from helpers import Instance, make_user, jpeg_bytes, write, wait_job
 from test_database import backends, drop
+from twincheck import events
 from twincheck.db import manager as dbm
 
 
@@ -23,6 +24,34 @@ def instance(params):
 
 
 class Rc10Data(unittest.TestCase):
+    def test_analysis_messages_use_readable_phases_and_correct_singular_plural(self):
+        for count, noun in ((0, "items"), (1, "item"), (2, "items")):
+            self.assertEqual(events.render("ANALYSIS_PHASE_STARTED", {"phase": "capture_dates", "count": count}),
+                             f"Analysis phase capture dates started ({count} {noun})")
+            self.assertEqual(events.render("VERIFY_OK", {"count": count}),
+                             f"Verification passed for {count} {'file' if count == 1 else 'files'}")
+            self.assertEqual(events.render("TRANSFER_TABLE", {"table": "files", "rows": count}),
+                             f"Table files: {count} {'row' if count == 1 else 'rows'} copied")
+        with tempfile.TemporaryDirectory() as tmp:
+            for params in backends(tmp):
+                with self.subTest(backend=params["type"]), instance(params) as inst:
+                    content = jpeg_bytes(971)
+                    for n in range(2):
+                        write(inst.data / "lib" / f"synthetic-{n}.jpg", content)
+                    _, user = make_user(inst.admin(), "synthetic", [{"path": "lib"}])
+                    sid = user.get("/api/sources").json()["sources"][0]["id"]
+                    jid = user.post("/api/library/analyze", {"source_id": sid}).json()["job_id"]
+                    self.assertEqual(wait_job(inst.core, jid)["status"], "completed")
+                    rows = inst.core.db.query("SELECT event,message,params FROM run_log WHERE job_id=? AND event IN (?,?)",
+                                               (jid, "ANALYSIS_PHASE_STARTED", "ANALYSIS_PHASE_COMPLETED"))
+                    self.assertEqual(len(rows), 10)
+                    self.assertTrue(all("capture_dates" not in row["message"] for row in rows))
+                    completed = {json.loads(row["params"])["phase"]: row["message"]
+                                 for row in rows if row["event"] == "ANALYSIS_PHASE_COMPLETED"}
+                    self.assertIn("0 metadata completions proposed", completed["metadata"])
+                    self.assertNotIn("fills", completed["metadata"])
+                    self.assertIn("1 group, 1 duplicate, 2 files", completed["duplicates"])
+
     def test_log_counts_and_csv_columns_share_role_and_filter_scope(self):
         with tempfile.TemporaryDirectory() as tmp:
             for params in backends(tmp):

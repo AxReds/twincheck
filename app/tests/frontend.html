@@ -32,6 +32,12 @@ let recheckFixture = false;
 let reviewStateFixture = null;
 let jobFixture = [];
 let emptyLogs = false;
+let paginationCount = null;
+const populationFixture = () => ({
+  analysed: (paginationCount || 53) + 6, unreadable: 1, total: paginationCount || 53,
+  pending: paginationCount || 53, decided: 0, current: (paginationCount || 53) + 6,
+  reliable: 5, review_files: paginationCount || 53, other: 1,
+});
 let authenticated = interactive ? localStorage.getItem('fixture_signed_out') !== '1' : true;
 let rejectLogin = !interactive;
 let expiring = false;
@@ -129,6 +135,7 @@ window.fetch = async (url, opts = {}) => {
     const row = reviewStateFixture.find((r) => r.id === Number(path.split('/').at(-1)));
     const body = JSON.parse(opts.body);
     row.status = body.action === 'skip' ? 'skipped' : 'decided';
+    row.skipped_at = body.action === 'skip' ? '2026-01-15T20:51:02Z' : null;
     row.decision_kind = body.action === 'skip' ? null : 'date';
     row.decision = body.action === 'skip' ? null : { date: body.date };
     data = { updated: 1, next_id: row.id === 1 ? 2 : null };
@@ -158,6 +165,7 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/review') data = { items: [], total: 0, counts: {} };
   else if (path === '/api/admin/users' && opts.method !== 'PATCH') data = { users: [user], groups: [] };
   else if (path === '/api/admin/users/test-admin' && opts.method === 'PATCH') data = { ok: true };
+  else if (path === '/api/admin/archives') data = { exports: [], imports: [] };
   else if (path === '/api/jobs') data = { items: jobFixture.slice(0, Number(new URL(String(url), location.href).searchParams.get('limit') || 50)), total: jobFixture.length };
   else if (path === '/api/logs' || path === '/api/admin/audit') data = { items: [{
     ts: '2026-11-24T20:00:00Z', level: 'INFO', event: 'REVIEW_DECIDED',
@@ -179,6 +187,27 @@ window.fetch = async (url, opts = {}) => {
   };
   else if (path === '/api/duplicates') data = { groups: duplicateGroups, total: duplicateGroups.length, recoverable: 12 };
   else throw new Error('Unmocked request: ' + url);
+  if (paginationCount !== null) {
+    const q = new URL(String(url), location.href).searchParams;
+    const offset = Number(q.get('offset') || 0);
+    const limit = q.get('limit') === 'all' ? paginationCount : Number(q.get('limit') || 50);
+    const rows = Array.from({ length: paginationCount }, (_, n) => ({
+      id: n + 1, kind: path === '/api/jobs' ? 'scan' : 'no_date', status: path === '/api/jobs' ? 'completed' : 'pending',
+      details: {}, proposals: [], file: { name: `synthetic-${n}.jpg`, folder: 'lib' },
+      ts: '2026-01-15T20:51:02Z', level: 'INFO', event: 'REVIEW_DECIDED', message: 'Synthetic review event',
+      size: 12, sha256: 'synthetic', keeper_file_id: 1, keeper_rule: 'mtime', keeper_date: '2026-01-15T20:51:02Z', recoverable: 12,
+      members: [{ id: 1, path: 'lib/a.jpg', filesystem_date: '2026-01-15T20:51:02Z' },
+        { id: 2, path: 'lib/b.jpg', filesystem_date: '2026-01-15T20:51:02Z' }],
+    }));
+    if (['/api/jobs', '/api/review', '/api/logs', '/api/duplicates'].includes(path)) {
+      data[path === '/api/duplicates' ? 'groups' : 'items'] = rows.slice(offset, offset + limit);
+      data.total = paginationCount;
+      data.all_total = paginationCount + 3;
+      data.event_counts = { REVIEW_DECIDED: paginationCount, REVIEW_SKIPPED: 0, LOGIN_OK: 0 };
+      data.review_counts = { total: paginationCount, pending: paginationCount, decided: 0, needs_recheck: 0 };
+    }
+    if (['/api/metadata/results', '/api/review'].includes(path)) data.population = populationFixture();
+  }
   requests.push({ url: String(url), body: opts.body && JSON.parse(opts.body), at: performance.now() });
   return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
 };
@@ -664,6 +693,12 @@ await test('B28/B30: re-analysis retains skip and decisions in badge, filters an
     assert(document.querySelector('main .summary').textContent === summary, 'status filter changes counts');
     assert(document.querySelector('.review-decision')?.textContent.includes(t('review.decision.date')),
       'Decided list lacks the Decision column');
+    select.value = 'all'; select.dispatchEvent(new Event('change')); await sleep();
+    const skipped = [...document.querySelectorAll('tbody tr')].find((row) => row.textContent.includes('synthetic-1.jpg'));
+    assert(skipped.querySelector('.badge') && skipped.querySelector('.review-decision').textContent === '\u2014',
+      'skipped pending item appears as a decision');
+    assert(skipped.querySelector('.review-decision').title === t('review.postponed_on', { date: fmt.date('2026-01-15T20:51:02Z') }),
+      'postponement tooltip is missing or not 24-hour');
     assert(document.documentElement.scrollWidth <= innerWidth, 'review status overflows viewport');
   } finally { reviewStateFixture = null; await go('#/home'); }
 });
@@ -811,6 +846,131 @@ await test('U24: only administrative roles get the User log filter', async () =>
       assert(Boolean(document.querySelector('.log-user-filter')) === (role !== 'user'), 'User filter role mismatch');
     }
   } finally { app.state.user.role = old; await go('#/home'); }
+});
+await test('U28/U32: consistent Report & Undo and singular/plural count wording', async () => {
+  const { setLanguage } = await import('../frontend/static/js/i18n.js');
+  for (const lang of ['en', 'it']) {
+    await setLanguage(lang);
+    assert(t('report.title') === t('nav.report') && t('analysis.step_report') === '4 ' + t('nav.report'),
+      'Report capitalization or translation differs between locations');
+  }
+  await setLanguage('en');
+  assert(t('review.detail_values', { count: 1 }) === '1 value' && t('review.detail_values', { count: 2 }) === '2 values', 'value pluralization failed');
+  assert(t('review.postponed', { count: 1 }) === '1 item postponed.' &&
+    t('review.postponed', { count: 2 }) === '2 items postponed.', 'postponement pluralization failed');
+  assert(t('job.progress_items', { count: 1 }) === '1 item' && t('job.progress_items', { count: 2 }) === '2 items', 'job count pluralization failed');
+  const text = t('job.library_result', { found: 1, changed: 0, unchanged: 1, hashed: 0 });
+  assert(text.includes('(reused)') && !text.includes('skipped') && !text.includes('1 files'), 'reuse or singular wording is wrong');
+  await go('#/report');
+  assert(document.querySelector('main h1').textContent === 'Report & Undo', 'report page title is inconsistent');
+  await go('#/home');
+});
+await test('U29: rows per page paginate all four tables and persist per table and user', async () => {
+  paginationCount = 53;
+  const originalId = app.state.user.id;
+  try {
+    for (const [route, name, selector] of [['#/metadata/review', 'review', '.review-queue tbody tr'],
+      ['#/logs', 'logs', 'main tbody tr'], ['#/duplicates', 'duplicates', '.dup-group'], ['#/jobs', 'jobs', '.job-card']]) {
+      localStorage.removeItem(`tc-rows:${originalId}:${name}`);
+      await go(route);
+      let select = document.querySelector(`.rows-per-page[data-table="${name}"]`);
+      assert(select.value === '50' && document.querySelectorAll(selector).length === 50, name + ': default rows are not 50');
+      select.value = '10'; select.dispatchEvent(new Event('change')); await sleep();
+      assert(document.querySelectorAll(selector).length === 10, name + ': page size did not change');
+      const next = [...document.querySelectorAll('.pager button')].find((el) => el.textContent === t('common.next'));
+      next.click(); await sleep();
+      assert(document.querySelector('.pager').textContent.includes('11–20'), name + ': pagination range is wrong');
+      await go('#/home'); await go(route);
+      select = document.querySelector(`.rows-per-page[data-table="${name}"]`);
+      assert(select.value === '10', name + ': choice did not survive navigation');
+      app.state.user.id = 'other-synthetic-user';
+      await go('#/home'); await go(route);
+      assert(document.querySelector(`.rows-per-page[data-table="${name}"]`).value === '50', name + ': preference leaked to another user');
+      app.state.user.id = originalId;
+      localStorage.removeItem(`tc-rows:${originalId}:${name}`);
+      await go('#/home');
+    }
+  } finally { paginationCount = null; app.state.user.id = originalId; await go('#/home'); }
+});
+await test('U29: All confirms above 1000 before requesting rows, including a remembered choice', async () => {
+  paginationCount = 1001;
+  const key = `tc-rows:${app.state.user.id}:logs`;
+  try {
+    localStorage.removeItem(key);
+    await go('#/logs');
+    const before = requests.length;
+    let select = document.querySelector('.rows-per-page');
+    select.value = 'all'; select.dispatchEvent(new Event('change')); await sleep();
+    assert(document.querySelector('[role="dialog"]'), 'large All request does not ask for confirmation');
+    assert(!requests.slice(before).some((r) => r.url.includes('limit=all')), 'all rows requested before consent');
+    [...document.querySelectorAll('.modal button')].find((el) => el.textContent === t('common.cancel')).click(); await sleep();
+    assert(select.value === '50' && localStorage.getItem(key) !== 'all', 'cancel changes the stored preference');
+    select.value = 'all'; select.dispatchEvent(new Event('change')); await sleep();
+    [...document.querySelectorAll('.modal button')].find((el) => el.textContent === t('common.confirm')).click(); await sleep();
+    assert(document.querySelectorAll('main tbody tr').length === 1001, 'All was capped after confirmation');
+    assert(localStorage.getItem(key) === 'all', 'All was not remembered');
+    await go('#/home');
+    location.hash = '#/logs'; await sleep(); await sleep();
+    assert(document.querySelector('[role="dialog"]'), 'remembered All bypasses confirmation');
+    [...document.querySelectorAll('.modal button')].find((el) => el.textContent === t('common.cancel')).click(); await sleep();
+    assert(document.querySelectorAll('main tbody tr').length === 50, 'cancelled restore does not return to a bounded page');
+  } finally { paginationCount = null; localStorage.removeItem(key); document.querySelector('.modal-overlay')?.remove(); await go('#/home'); }
+});
+await test('U31: export controls align with the Job input within two pixels at every width', async () => {
+  await go('#/logs');
+  const bottom = document.querySelector('.log-job-filter').getBoundingClientRect().bottom;
+  for (const button of document.querySelectorAll('.log-export, .log-export-all')) {
+    assert(Math.abs(button.getBoundingClientRect().bottom - bottom) <= 2, 'export control is not bottom aligned with its input');
+  }
+  const perms = app.state.perms;
+  app.state.perms = { ...perms, transfer_database: true, security_settings: true };
+  for (const route of ['#/home', '#/analyze', '#/duplicates', '#/metadata', '#/metadata/review', '#/metadata/review/1', '#/organize',
+    '#/report', '#/jobs', '#/plans/1', '#/admin/users', '#/admin/groups', '#/admin/settings', '#/admin/database',
+    '#/admin/audit', '#/admin/transfer', '#/admin/security', '#/me']) {
+    await go(route);
+    assert(document.documentElement.scrollWidth <= innerWidth, 'filter/action row overflows on ' + route);
+    for (const row of document.querySelectorAll('.filters, .actions, .form.inline')) {
+      assert(getComputedStyle(row).alignItems === 'end', 'shared bottom alignment missing on ' + route);
+    }
+  }
+  app.state.perms = perms;
+  await go('#/home');
+});
+await test('U29: job polling cannot bypass or duplicate the All confirmation', async () => {
+  paginationCount = 1001;
+  const key = `tc-rows:${app.state.user.id}:jobs`;
+  localStorage.removeItem(key);
+  try {
+    await go('#/jobs');
+    const before = requests.length;
+    const select = document.querySelector('.rows-per-page');
+    select.value = 'all'; select.dispatchEvent(new Event('change'));
+    await new Promise((resolve) => setTimeout(resolve, 1700));
+    assert(document.querySelectorAll('[role="dialog"]').length === 1, 'polling duplicates the confirmation');
+    assert(!requests.slice(before).some((r) => r.url.includes('limit=all')), 'polling requested All before confirmation');
+    [...document.querySelectorAll('.modal button')].find((el) => el.textContent === t('common.cancel')).click(); await sleep();
+  } finally { paginationCount = null; localStorage.removeItem(key); document.querySelector('.modal-overlay')?.remove(); await go('#/home'); }
+});
+await test('U33/#64: live export counts, role notes and shared analysis population are visible', async () => {
+  paginationCount = 53;
+  const old = app.state.user.role;
+  try {
+    for (const role of ['admin', 'user']) {
+      app.state.user.role = role; await go('#/logs?owner=synthetic');
+      assert(document.querySelector('.log-export').textContent === t('logs.export_filtered', { count: 53 }), 'filtered count is not live');
+      assert(document.querySelector('.log-export-all').textContent === t('logs.export_all', { count: 56 }), 'accessible count is not live');
+      const note = document.querySelector('.log-export-note').textContent;
+      assert(role === 'admin' ? note.includes(t('logs.export_user_note', { user: 'synthetic' })) : note === t('logs.export_own_note'),
+        'export scope note does not reflect role/User filter');
+    }
+    app.state.user.role = old;
+    await go('#/metadata');
+    const text = document.querySelector('.analysis-population').textContent;
+    assert(text.includes(t('meta.latest_population', populationFixture())) &&
+      text.includes(t('meta.current_population', populationFixture())), 'analysis populations are not explained');
+    await go('#/metadata/review');
+    assert(document.querySelector('.analysis-population').textContent === text, 'metadata/review summaries disagree');
+  } finally { paginationCount = null; app.state.user.role = old; await go('#/home'); }
 });
 await test('U26: Analyze limits history to three jobs, with Change folder and clean notice', async () => {
   const oldPath = app.state.scanPath;

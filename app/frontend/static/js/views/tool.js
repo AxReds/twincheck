@@ -362,7 +362,7 @@ export async function jobs(main, state) {
 export async function logs(main, state) {
   let offset = 0;
   const lv = h('select', {}, ['', 'INFO', 'WARNING', 'ERROR'].map((l) => h('option', { value: l }, l || t('logs.all_levels'))));
-  const job = h('input', { type: 'number', min: '1', size: '6' });
+  const job = h('input', { type: 'number', min: '1', class: 'log-job-filter' });
   const params = new URLSearchParams(location.hash.split('?')[1] || '');
   let selectedEvent = params.get('event') || '';
   let selectedOwner = params.get('owner') || '';
@@ -427,12 +427,13 @@ export async function logs(main, state) {
   const eventField = field('logs.event', ev.el);
   eventField.classList.add('log-event-field');
   page(main, 'logs.title', 'logs.intro', stepGuide(0, await analysisState()), h('div', { class: 'filters' }, eventField,
-    field('logs.only_present', onlyPresent), field('logs.level', lv), field('logs.job', job),
+    field('logs.only_present', onlyPresent), field('logs.level', lv),
     owner ? field('admin.col_user', owner) : null,
     button('logs.apply', () => {
       if (!ev.valid()) { ev.input.focus(); return; }
       selectedEvent = ev.value(); if (owner) selectedOwner = owner.value; offset = 0; load();
-    }), button('logs.clear', clearFilters), exportFiltered, exportAll), exportNote, box);
+    }), button('logs.clear', clearFilters),
+    h('div', { class: 'filters log-export-actions' }, field('logs.job', job), exportFiltered, exportAll)), exportNote, box);
   await load();
 }
 
