@@ -66,7 +66,9 @@ export function comboBox({ options, value = '', onChange = () => {} }) {
   input.addEventListener('keydown', (event) => {
     if (['ArrowDown', 'ArrowUp'].includes(event.key)) {
       event.preventDefault();
-      active = filtered.length ? (active + (event.key === 'ArrowDown' ? 1 : -1) + filtered.length) % filtered.length : -1;
+      active = filtered.length ? (active < 0
+        ? (event.key === 'ArrowDown' ? 0 : filtered.length - 1)
+        : (active + (event.key === 'ArrowDown' ? 1 : -1) + filtered.length) % filtered.length) : -1;
       mark();
     } else if (event.key === 'Enter' && filtered[active]) {
       event.preventDefault(); choose(filtered[active]);

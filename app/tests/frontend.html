@@ -775,6 +775,24 @@ await test('U19: Save and Accept stay on the item; next controls are explicit', 
     assert(location.hash === '#/metadata/review/2', 'Save and next does not advance');
   } finally { reviewStateFixture = null; await go('#/home'); }
 });
+await test('U27: ArrowUp starts at the last match when the committed option is filtered out', async () => {
+  const { comboBox } = await import('../frontend/static/js/components.js');
+  const combo = comboBox({ value: 'UTC', options: [
+    { value: 'UTC', label: 'UTC (UTC+00:00)' },
+    { value: 'Europe/Rome', label: 'Europe/Rome (UTC+01:00)' },
+    { value: 'Europe/London', label: 'Europe/London (UTC+00:00)' },
+  ] });
+  document.querySelector('main').appendChild(combo.el);
+  try {
+    combo.input.value = 'Europe'; combo.input.dispatchEvent(new Event('input'));
+    combo.input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+    combo.input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    assert(combo.value() === 'Europe/London', 'ArrowUp skips the last filtered option');
+    combo.input.value = 'invalid'; combo.input.dispatchEvent(new Event('input'));
+    combo.input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert(combo.value() === 'Europe/London', 'Escape does not preserve the last committed option');
+  } finally { combo.el.remove(); }
+});
 await test('U20: table body scrolls while its header remains visible', async () => {
   const { h, table } = await import('../frontend/static/js/dom.js');
   await go('#/home');

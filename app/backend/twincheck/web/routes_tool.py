@@ -334,7 +334,7 @@ def dup_plan(req: Request):
 @router.get("/api/duplicates")
 def duplicates(req: Request):
     db = need_db()
-    off, lim = table_paging(req)
+    off, lim = table_paging(req, 200)
     scope = req.query.get("scope", "user")
     if scope == "global":
         require(req, "global_dedupe")
@@ -924,7 +924,7 @@ def report(req: Request):
 
 @router.get("/api/logs")
 def logs(req: Request):
-    off, lim = table_paging(req)
+    off, lim = table_paging(req, 1000)
     rows = _log_rows(req, include_event=False)
     counts = dict.fromkeys(sorted(EVENTS), 0)
     for row in rows:

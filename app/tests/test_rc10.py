@@ -115,6 +115,7 @@ class Rc10Data(unittest.TestCase):
                         default = admin.get(path).json()
                         self.assertEqual(len(default[key]), 50)
                         self.assertEqual(admin.get(path + "limit=invalid").status, 400)
+                    self.assertEqual(len(admin.get("/api/logs?event=REVIEW_SKIPPED&limit=1000").json()["items"]), 1000)
                     # Duplicates uses the same paging contract but counts groups, not files.
                     from twincheck.services.dedupe import group_members
                     from unittest.mock import patch
