@@ -97,12 +97,19 @@ renders job, log, file-system, report and manifest instants in its local timezon
 dates without a timezone are local wall-clock values and are rendered without conversion. A capture
 offset, when present, is returned and displayed with the date.
 
-`duplicates.csv` columns are `group_id, sha256, size, role, file_id, path, exif_date,
+Duplicate CSV columns are `group_id, sha256, size, role, file_id, path, exif_date,
 filesystem_date`. `filesystem_date` is UTC ISO 8601 with `Z`; `exif_date` remains as stored and
 contains an explicit offset only when the file supplied one. Other CSV exports use the same rule
 for instant columns.
 
-`logs.csv` columns are `time_utc, time_local, level, event, message, job_id, user`.
+Log CSV columns are `time_utc, time_local, level, event, message, job_id, user`.
+All roles see library-relative paths in the UI and the `path`/message columns, independent
+of source labels. Administrative CSV exports additionally include `path_container`:
+one container path for duplicates, a JSON array of event paths for Logs (empty when absent).
+Base-user CSV never includes container paths. Events without an owner are labelled `system`.
+Exports use descriptive `twincheck-logs-filtered[-<user>][-job<N>]-YYYYMMDD-HHMM.csv`,
+`twincheck-logs-all-YYYYMMDD-HHMM.csv`, `twincheck-duplicates-own|global-YYYYMMDD-HHMM.csv`
+and `twincheck-manifest-YYYYMMDD-HHMM.csv` filenames, in the library timezone (24-hour).
 `time_utc` is ISO 8601 UTC ending in `Z`. `time_local` is numeric
 `YYYY-MM-DD hh:mm:ss±hh:mm` (24-hour) in the configured library timezone, with the
 offset for that instant, including daylight saving. Messages remain English.
@@ -164,7 +171,9 @@ applied filters and role/User scope. Clear filters and an explained no-matches s
 `/api/logs.csv?scope=filtered|all` shares visibility with list/counts and includes the time
 columns documented above. Counted export controls explain the applied scope.
 Base users see only their own current-scope job/file/review events; system/authentication
-events, mismatched job/file ownership and out-of-scope paths are excluded. Admin roles see
+events, mismatched job/file ownership and out-of-scope paths are excluded. The admin User
+filter uses exactly that same visibility rule, including legacy scan jobs whose unused
+destination was the data root and job-owned events without a stored event owner. Admin roles see
 all users plus system events and get a User filter. Analyze shows only the latest three
 analysis jobs with a full-history link; completion messages spell out hashed/extracted versus
 reused values and unreadable/unknown counts, rather than describing reuse as zero items.

@@ -8,6 +8,8 @@ let user = null;
 let saving = false;
 
 function storedTheme() {
+  const cookie = document.cookie.match(/(?:^|; )tc_theme=(auto|light|dark)(?:;|$)/)?.[1];
+  if (cookie) return cookie;
   try {
     const value = localStorage.getItem('tc_theme');
     return choices.includes(value) ? value : 'auto';
@@ -39,6 +41,7 @@ function apply() {
 }
 
 function rememberTheme(value) {
+  document.cookie = `tc_theme=${value}; Path=/; Max-Age=31536000; SameSite=Strict`;
   try { localStorage.setItem('tc_theme', value); }
   catch (error) {
     if (!(error instanceof DOMException)) throw error;

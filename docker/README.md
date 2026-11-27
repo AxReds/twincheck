@@ -192,6 +192,14 @@ restricted Kubernetes/NAS platforms):
 
 ## Volumes
 
+`DATA_PATH` is the host directory mounted as `/data`. For example, with
+`DATA_PATH=/volume1/photo`, the UI path `pippo/source/vacanze.jpg` refers to
+`/volume1/photo/pippo/source/vacanze.jpg` on the host and
+`/data/pippo/source/vacanze.jpg` inside the container. All app roles see the relative
+path, including administrators who do not manage Docker. Administrative CSV exports
+add `path_container` for technical support; user exports do not.
+Additional bind mounts below `/data` follow their own host-to-container mapping.
+
 | Path | Content | Notes |
 |------|---------|-------|
 | `/data` | photo/video libraries | read/write. Each user's source **and** destination should be on the same mount so moves are atomic renames; otherwise files are copied, verified by SHA-256, and only then the original is removed (the header warns). Several host folders can be mounted below `/data` (e.g. `- /mnt/disk2/photos:/data/disk2`). |

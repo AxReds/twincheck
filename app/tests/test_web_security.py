@@ -247,7 +247,7 @@ class Roles(unittest.TestCase):
             response = self.admin.patch(f"/api/admin/users/{admin_id}", {"sources": [{"path": "admin-own"}]})
             self.assertEqual(response.status, 200, response.text)
             source = self.admin.get("/api/sources").json()["sources"][0]
-            self.assertTrue(source["path"].endswith("/admin-own"))
+            self.assertEqual(source["path"], "admin-own")
             self.assertEqual(self.ops.patch(f"/api/admin/users/{admin_id}", {"sources": []}).status, 403)
             self.assertEqual(self.alice.patch(f"/api/admin/users/{admin_id}", {"sources": []}).status, 403)
         finally:

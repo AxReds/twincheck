@@ -19,7 +19,7 @@ from ..services.metadata import FIELDS, WRITABLE, date_candidate, field_table, m
 from ..services.scan import iter_dirs
 from . import common
 from .app import router
-from .common import disp, fail, is_admin, need_db, own_row, owner_filter, paging, table_paging, require, scoped_file, scoped_rows
+from .common import csv_disposition, disp, fail, is_admin, need_db, own_row, owner_filter, paging, table_paging, require, scoped_file, scoped_rows
 from .framework import JSONResponse, Request, StreamResponse, file_response
 
 APPLY_KIND = {"organize_plan": "organize_apply", "dedupe_plan": "dedupe_apply", "metadata_analyze": "metadata_apply",
@@ -396,7 +396,8 @@ def duplicates_csv(req: Request):
         def gen():
             buf = io.StringIO()
             w = csv.writer(buf)
-            w.writerow(["group_id", "sha256", "size", "role", "file_id", "path", "exif_date", "filesystem_date"])
+            w.writerow(["group_id", "sha256", "size", "role", "file_id", "path", "exif_date", "filesystem_date"] +
+                       (["path_container"] if is_admin(req) else []))
             last = 0
             while True:
                 rows = db.query("SELECT * FROM dup_groups WHERE scope=? AND status='pending' AND id>? ORDER BY id LIMIT 200", (sc, last))
@@ -417,14 +418,14 @@ def duplicates_csv(req: Request):
                             exif_date += capture["capture_offset"]
                         w.writerow([g["id"], g["sha256"], g["size"], "keep" if m["id"] == g["keeper_file_id"] else "duplicate",
                                     m["id"], disp(req, m["cur_path"]), exif_date,
-                                    utcnow_from_mtime(m["mtime_ns"])])
+                                    utcnow_from_mtime(m["mtime_ns"])] + ([m["cur_path"]] if is_admin(req) else []))
                 yield buf.getvalue().encode("utf-8")
                 buf.seek(0)
                 buf.truncate()
             db.close_thread()
         return gen()
     return StreamResponse(factory, content_type="text/csv; charset=utf-8",
-                          headers={"content-disposition": 'attachment; filename="duplicates.csv"'})
+                          headers=csv_disposition("duplicates-" + ("global" if sc == "global" else "own")))
 
 
 @router.post("/api/metadata/analyze")
@@ -929,6 +930,8 @@ def logs(req: Request):
     counts = dict.fromkeys(sorted(EVENTS), 0)
     for row in rows:
         counts[row["event"]] = counts.get(row["event"], 0) + 1
+    if not is_admin(req):
+        counts = {code: count for code, count in counts.items() if count}
     selected = req.query.get("event")
     if selected:
         rows = [row for row in rows if row["event"] == selected]
@@ -940,18 +943,15 @@ def logs(req: Request):
     return JSONResponse(out)
 
 
-def _log_rows(req: Request, include_event: bool = True, filtered: bool = True) -> list[dict]:
+def _log_rows(req: Request, include_event: bool = True, filtered: bool = True, export: bool = False) -> list[dict]:
     db = need_db()
     where, args = ["1=1"], []
     owner = owner_filter(req) if filtered else None if is_admin(req) else req.user["id"]
     if owner:
-        if is_admin(req) and owner == "__system__":
-            where.append("owner_id IS NULL AND actor IS NULL")
-        elif is_admin(req):
-            where.append("(owner_id=? OR actor=?)")
-            args.extend([owner, owner])
+        if owner == "__system__":
+            where.append("COALESCE(r.owner_id,j.owner_id,r.actor) IS NULL")
         else:
-            where.append("owner_id=?")
+            where.append("COALESCE(r.owner_id,j.owner_id,r.actor)=?")
             args.append(owner)
     for k in ("job_id", "event", "level"):
         if not filtered:
@@ -959,7 +959,7 @@ def _log_rows(req: Request, include_event: bool = True, filtered: bool = True) -
         if k == "event" and not include_event:
             continue
         if req.query.get(k):
-            where.append(f"{k}=?")
+            where.append(f"r.{k}=?")
             if k == "job_id":
                 try:
                     args.append(int(req.query[k]))
@@ -968,38 +968,61 @@ def _log_rows(req: Request, include_event: bool = True, filtered: bool = True) -
             else:
                 args.append(req.query[k])
     w = " AND ".join(where)
-    rows = db.query(f"SELECT id, ts, level, event, message, params, job_id, owner_id, actor FROM run_log WHERE {w} ORDER BY id DESC", args)
-    if not is_admin(req):
-        filtered = []
+    rows = db.query(f"SELECT r.id,r.ts,r.level,r.event,r.message,r.params,r.job_id,r.owner_id,r.actor,"
+                    f"j.owner_id AS job_owner,j.kind AS job_kind,j.params AS job_params "
+                    f"FROM run_log r LEFT JOIN jobs j ON j.id=r.job_id WHERE {w} ORDER BY r.id DESC", args)
+    subject = common.app().user(owner) if owner and owner != "__system__" else None
+    if owner:
+        visible = []
         for r in rows:
+            event_owner = r["owner_id"] or r["job_owner"] or r["actor"]
+            if event_owner != (None if owner == "__system__" else owner):
+                continue
+            if owner == "__system__":
+                visible.append(r)
+                continue
+            if not subject:
+                continue
+            if access.is_admin_role(subject):
+                visible.append(r)
+                continue
             if not r["event"].startswith(("JOB_", "ANALYSIS_", "FILE_", "DUP_", "MOVE_", "META_", "REVIEW_",
                                           "UNDO_", "VERIFY_", "RECONCILE_", "PREVIEW_", "SCAN_", "SYMLINK_")):
                 continue
             p = json.loads(r["params"] or "{}")
             paths = [v for v in p.values() if isinstance(v, str) and v.startswith("/")]
             if r["job_id"]:
-                job = db.query_one("SELECT owner_id, params FROM jobs WHERE id=?", (r["job_id"],))
-                if not job or job["owner_id"] != req.user["id"]:
+                if r["job_owner"] != owner:
                     continue
-                job_params = json.loads(job["params"] or "{}")
-                paths += [v for v in job_params.values() if isinstance(v, str) and v.startswith("/")]
-                paths += [v for v in job_params.get("roots", []) if isinstance(v, str)]
+                job_params = json.loads(r["job_params"] or "{}")
+                # Legacy scan never uses dest: old jobs may store the library root there.
+                if r["job_kind"] == "scan":
+                    paths += [job_params["root"]] if job_params.get("root") else []
+                else:
+                    paths += [v for v in job_params.values() if isinstance(v, str) and v.startswith("/")]
+                    paths += [v for v in job_params.get("roots", []) if isinstance(v, str)]
             if p.get("file_id"):
-                file = db.query_one("SELECT * FROM files WHERE id=? AND owner_id=?", (p["file_id"], req.user["id"]))
-                if not access.file_in_scope(common.app().settings.data_dir.as_posix(), req.user, file):
+                file = db.query_one("SELECT * FROM files WHERE id=? AND owner_id=?", (p["file_id"], owner))
+                if not access.file_in_scope(common.app().settings.data_dir.as_posix(), subject, file):
                     continue
-            if any(not access.path_in_scope(common.app().settings.data_dir.as_posix(), req.user, path) for path in paths):
+            if any(not access.path_in_scope(common.app().settings.data_dir.as_posix(), subject, path) for path in paths):
                 continue
-            for k, v in p.items():
-                if isinstance(v, str) and v.startswith("/"):
-                    r["message"] = r["message"].replace(v, disp(req, v) or v)
-            r["params"] = None
-            filtered.append(r)
-        rows = filtered
+            visible.append(r)
+        rows = visible
     for row in rows:
-        user_id = row["owner_id"] or row["actor"]
+        user_id = row["owner_id"] or row["job_owner"] or row["actor"]
+        row.pop("job_owner")
+        row.pop("job_kind")
+        row.pop("job_params")
         user = common.app().user(user_id) if user_id else None
-        row["user"] = user["username"] if user else user_id
+        row["user"] = user["username"] if user else user_id or "system"
+        params = json.loads(row["params"] or "{}")
+        paths = [value for value in params.values() if isinstance(value, str) and value.startswith("/")]
+        for value in sorted(paths, key=len, reverse=True):
+            row["message"] = row["message"].replace(value, disp(req, value) or "[path outside library]")
+        if export and is_admin(req):
+            row["path_container"] = json.dumps(paths, ensure_ascii=False) if paths else ""
+        row["params"] = None
     return rows
 
 
@@ -1008,13 +1031,14 @@ def logs_csv(req: Request):
     scope = req.query.get("scope", "filtered")
     if scope not in ("filtered", "all"):
         fail(400, "invalid_value", field="scope")
-    rows = _log_rows(req, filtered=scope == "filtered")
+    rows = _log_rows(req, filtered=scope == "filtered", export=True)
     library_zone = ZoneInfo(common.app().library_timezone)
 
     def factory():
         buf = io.StringIO()
         writer = csv.writer(buf)
-        writer.writerow(["time_utc", "time_local", "level", "event", "message", "job_id", "user"])
+        writer.writerow(["time_utc", "time_local", "level", "event", "message", "job_id", "user"] +
+                        (["path_container"] if is_admin(req) else []))
         for index, row in enumerate(rows):
             instant = datetime.fromisoformat(row["ts"].replace("Z", "+00:00"))
             if instant.tzinfo is None:
@@ -1022,15 +1046,19 @@ def logs_csv(req: Request):
             writer.writerow([instant.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
                              instant.astimezone(library_zone).isoformat(sep=" ", timespec="seconds"),
                              row["level"], row["event"],
-                             row["message"], row["job_id"] or "", row["user"] or ""])
+                             row["message"], row["job_id"] or "", row["user"]] +
+                            ([row["path_container"]] if is_admin(req) else []))
             if index % 500 == 499:
                 yield buf.getvalue().encode("utf-8")
                 buf.seek(0)
                 buf.truncate()
         yield buf.getvalue().encode("utf-8")
 
+    username = None
+    if scope == "filtered" and is_admin(req) and req.query.get("owner"):
+        username = "system" if req.query["owner"] == "__system__" else (common.app().user(req.query["owner"]) or {}).get("username")
     return StreamResponse(factory, content_type="text/csv; charset=utf-8",
-                          headers={"content-disposition": 'attachment; filename="logs.csv"'})
+                          headers=csv_disposition("logs-" + scope, username, req.query.get("job_id") if scope == "filtered" else None))
 
 
 @router.get("/api/manifest.csv")
@@ -1064,4 +1092,4 @@ def manifest_csv(req: Request):
             db.close_thread()
         return gen()
     return StreamResponse(factory, content_type="text/csv; charset=utf-8",
-                          headers={"content-disposition": 'attachment; filename="manifest.csv"'})
+                          headers=csv_disposition("manifest"))

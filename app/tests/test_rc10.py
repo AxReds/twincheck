@@ -78,7 +78,8 @@ class Rc10Data(unittest.TestCase):
                         self.assertEqual(data["event_counts"]["REVIEW_DECIDED"], 1)
                         self.assertEqual(filtered[0]["time_utc"], "2026-01-15T20:51:02Z")
                         self.assertEqual(filtered[0]["time_local"], "2026-01-15 21:51:02+01:00")
-                        self.assertEqual(set(filtered[0]), {"time_utc", "time_local", "level", "event", "message", "job_id", "user"})
+                        self.assertEqual(set(filtered[0]), {"time_utc", "time_local", "level", "event", "message", "job_id", "user"} |
+                                         ({"path_container"} if client is admin else set()))
                         self.assertIn('comma,"file".jpg', filtered[0]["message"])
                         summer = next(row for row in all_rows if row["event"] == "REVIEW_DECIDED")
                         self.assertEqual(summer["time_local"], "2026-07-15 22:51:02+02:00")

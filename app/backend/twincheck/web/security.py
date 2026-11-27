@@ -11,6 +11,7 @@ from ..config import LOOPBACK
 
 SESSION_COOKIE = "tc_session"
 LANG_COOKIE = "tc_lang"
+THEME_COOKIE = "tc_theme"
 
 SECURITY_HEADERS = {
     "content-security-policy": ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; "

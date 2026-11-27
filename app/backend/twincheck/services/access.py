@@ -113,17 +113,12 @@ def source_for_path(data_dir: str, user: dict, path: str, source_id: str | None 
 
 
 def display_path(data_dir: str, user: dict, path: str | None) -> str | None:
-    """Base users see paths relative to their own source label; admins see /data paths."""
+    """Every role sees library-relative paths, after the usual visibility check."""
     if path is None:
         return None
-    if is_admin_role(user):
-        return path
-    for a in areas(data_dir, user):
-        for root in (a["path"], a["dest"]):
-            if is_within(path, root):
-                rel = os.path.relpath(path, root)
-                return a["label"] + ("" if rel == "." else "/" + rel)
-    return None
+    if not is_within(path, data_dir) or not path_in_scope(data_dir, user, path):
+        return None
+    return os.path.relpath(path, data_dir)
 
 
 def validate_sources(vault_data: dict, user_id: str, sources: list[dict], data_dir: str) -> list[dict]:

@@ -54,7 +54,7 @@ class MigrationEvents(unittest.TestCase):
             inst.setup()
             db = inst.core.db
             for event in ("REVIEW_SKIPPED", "REVIEW_DECIDED"):
-                dbm.log(db, event, owner_id="synthetic", path='/synthetic,"fixture".jpg', decision="saved")
+                dbm.log(db, event, owner_id="synthetic", path=str(inst.data / 'synthetic,"fixture".jpg'), decision="saved")
             admin = inst.admin()
             response = admin.get("/api/logs.csv?event=REVIEW_SKIPPED&scope=filtered")
             rows = list(csv.DictReader(io.StringIO(response.text)))
@@ -62,7 +62,7 @@ class MigrationEvents(unittest.TestCase):
             self.assertEqual(rows[0]["event"], "REVIEW_SKIPPED")
             self.assertTrue(rows[0]["time_utc"].endswith("Z"))
             self.assertIn("time_local", rows[0])
-            self.assertIn('/synthetic,"fixture".jpg', rows[0]["message"])
+            self.assertIn('synthetic,"fixture".jpg', rows[0]["message"])
             all_rows = list(csv.DictReader(io.StringIO(admin.get("/api/logs.csv?event=REVIEW_SKIPPED&scope=all").text)))
             self.assertIn("REVIEW_DECIDED", {row["event"] for row in all_rows})
             self.assertEqual(admin.get("/api/logs.csv?scope=invalid").status, 400)

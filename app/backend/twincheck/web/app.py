@@ -7,6 +7,7 @@ import os
 import secrets
 import time
 import traceback
+from pathlib import Path
 
 from .. import VERSION, events, i18n, sysinfo
 from ..db import manager as dbm
@@ -17,7 +18,7 @@ from ..vault import default_vault, utcnow
 from . import common
 from .common import fail, need_db, require
 from .framework import POOL, HTTPError, JSONResponse, Request, Response, Router, file_response, read_body
-from .security import (LANG_COOKIE, SECURITY_HEADERS, SESSION_COOKIE, network_allowed, real_client_ip)
+from .security import (LANG_COOKIE, THEME_COOKIE, SECURITY_HEADERS, SESSION_COOKIE, network_allowed, real_client_ip)
 
 router = Router()
 
@@ -139,6 +140,18 @@ class ASGIApp:
             fail(404, "not_found")
         if not os.path.isfile(target):          # never a directory listing
             fail(404, "not_found")
+        if target == os.path.join(root, "index.html"):
+            loop = asyncio.get_running_loop()
+            public_route = router.resolve("GET", "/api/bootstrap")[0]
+            await loop.run_in_executor(POOL, self.authenticate, req, public_route)
+            theme = (req.user or {}).get("theme") or req.cookies.get(THEME_COOKIE, "auto")
+            if theme not in ("auto", "light", "dark"):
+                theme = "auto"
+            html = await loop.run_in_executor(POOL, Path(target).read_text)
+            resp = Response(html.replace('data-theme="auto"', f'data-theme="{theme}"', 1),
+                            content_type="text/html; charset=utf-8", headers={"cache-control": "no-store"})
+            resp.set_cookie(THEME_COOKIE, theme, max_age=31536000, http_only=False)
+            return resp
         ctype = {"js": "text/javascript; charset=utf-8", "css": "text/css; charset=utf-8", "svg": "image/svg+xml",
                  "html": "text/html; charset=utf-8", "json": "application/json"}.get(target.rsplit(".", 1)[-1])
         resp = file_response(target, req, ctype)
@@ -330,6 +343,7 @@ def login(req: Request):
     events.console("LOGIN_OK", username=user["username"], ip=req.client_ip)
     resp = JSONResponse({"ok": True, "csrf": sess["csrf"], "user": common.user_public(user)})
     resp.set_cookie(SESSION_COOKIE, token, max_age=int(sec.get("session_hours", 8) * 3600))
+    resp.set_cookie(THEME_COOKIE, user.get("theme", "auto"), max_age=31536000, http_only=False)
     return resp
 
 
@@ -341,6 +355,8 @@ def logout(req: Request):
         events.console("LOGOUT", username=req.user["username"])
     resp = JSONResponse({"ok": True})
     resp.set_cookie(SESSION_COOKIE, "", max_age=0)
+    if req.user:
+        resp.set_cookie(THEME_COOKIE, req.user.get("theme", "auto"), max_age=31536000, http_only=False)
     return resp
 
 
@@ -391,7 +407,9 @@ def set_theme(req: Request):
         fail(400, "invalid_theme")
     with common.app().vault.transaction() as data:
         data["users"][req.user["id"]]["theme"] = theme
-    return JSONResponse({"ok": True, "theme": theme})
+    resp = JSONResponse({"ok": True, "theme": theme})
+    resp.set_cookie(THEME_COOKIE, theme, max_age=31536000, http_only=False)
+    return resp
 
 
 # ---------------------------------------------------------------------------------------

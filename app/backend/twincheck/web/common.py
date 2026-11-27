@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 from typing import Any
+import re
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from ..fsutil import PathError
 from ..services import access
@@ -67,6 +70,15 @@ def scoped_rows(req: Request, rows: list[dict]) -> list[dict]:
 
 def disp(req: Request, path: str | None) -> str | None:
     return access.display_path(app().settings.data_dir.as_posix(), req.user, path)
+
+
+def csv_disposition(name: str, user: str | None = None, job: str | None = None) -> dict[str, str]:
+    if user:
+        name += "-" + re.sub(r"[^A-Za-z0-9_-]", "-", user)
+    if job:
+        name += "-job" + str(int(job))
+    stamp = datetime.now(ZoneInfo(app().library_timezone)).strftime("%Y%m%d-%H%M")
+    return {"content-disposition": f'attachment; filename="twincheck-{name}-{stamp}.csv"'}
 
 
 def paging(req: Request, default: int = 50, maximum: int = 500) -> tuple[int, int]:
