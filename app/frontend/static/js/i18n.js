@@ -83,13 +83,13 @@ export const fmt = {
     while (v >= 1024 && i < units.length - 1) { v /= 1024; i += 1; }
     return new Intl.NumberFormat(lang, { style: 'unit', unit: units[i], unitDisplay: 'short', maximumFractionDigits: i ? 1 : 0 }).format(v);
   },
-  date(iso) {
+  date(iso, timeZone) {
     if (!iso) return t('common.na');
     const d = new Date(iso.length <= 19 ? iso + (iso.length === 10 ? 'T00:00:00' : '') : iso);
     if (isNaN(d)) return iso;
     const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
       year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
-      hourCycle: 'h23', numberingSystem: 'latn',
+      hourCycle: 'h23', numberingSystem: 'latn', ...(timeZone ? { timeZone } : {}),
     }).formatToParts(d).map((part) => [part.type, part.value]));
     return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
   },

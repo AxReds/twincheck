@@ -4,6 +4,62 @@ All notable changes are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.1-rc.11] - 2026-11-27
+
+GitHub pre-release only, never latest. Publish only `1.0.1-rc.11` and the authorized
+`rc` image alias for `linux/amd64` and `linux/arm64` after green PR CI.
+Stable aliases, main and earlier exact Git/image tags remain unchanged; tag `1` stays absent.
+
+### Upgrade and owner verification
+
+- Schema remains 6. No migration or `DB_MIGRATED` from rc.10; older schemas still require
+  a backed-up, administrator-confirmed migration with one real-version log line.
+  Existing review decisions and metadata values are unchanged.
+- Owner-verified on rc.10 and closed with `verified`: #75, #76, #77, #79, #80,
+  #81, #82, #58, #64, #67 and #72. Follow-up issues #83–#96 remain open for owner checks.
+- #78 and #57 received the requested follow-up comments. #59 and #60 remain open;
+  large-library Pause/Resume is still deferred.
+
+### Fixed
+
+- B32 (#83): one canonical owner/source rule for a user's Logs and the admin User
+  filter, including screen/counts/CSV, legacy scan jobs with an unused data-root
+  destination, and job-owned duplicate events without an explicit event owner.
+- B33 (#84): Jobs polling refreshes rows/cards without rebuilding pagination controls.
+  Auto-refreshing cards/metrics pause on focused controls and open popups; scroll is preserved.
+- B34 (#85): the authenticated theme or non-secret cookie is rendered in the initial
+  HTML. Head CSS and system-preference defaults prevent white first paint, including
+  login/logout, without inline scripts or relaxing CSP.
+
+### Improved
+
+- U27b (#86): closed searchable selects for timezone and event code, sectioned popups,
+  search/clear, keyboard/mouse/touch, filled selection, Escape/outside dismissal and upward flipping.
+- U36 (#87): normal users see only their present scoped codes, explained no-code/empty
+  states, disabled zero-result export, hidden empty pager and security-activity guidance.
+- U31b (#88): compact filter row, separate natural-width left-aligned export row; narrow screens wrap.
+- U34 (#89): descriptive timestamped CSV filenames for Logs, Duplicates, Manifest and security exports.
+- U37 (#90): library-relative UI paths for every role; admin CSV adds `path_container`.
+- System events (#91): `system` in the User column, CSV and the admin User filter.
+- U35 (#92, trial): private instance-level security activity, previous-sign-in/failed-attempt
+  banner, admin audit User filter and CSV. Unknown-account failures stay admin-only.
+  Security recording does not depend on or write to the operational database.
+- U38 (#93): one Metadata summary, population tooltip, direct filters/list, Start review
+  and collapsed completion rules; population identities and stored decisions are preserved.
+- U30b (#94): muted timestamped Skipped/still-pending text, shorter on narrow screens.
+- U39 (#95): short examples for all editable review fields, full date rules below the
+  organizing-date field, and Reopen only on unapplied decided items.
+- U40 (#96): fields/actions left and sticky preview right, mobile thumbnail/header,
+  native enlargement dialog with Escape, fields-first tab order and retained bottom actions.
+
+### Validation
+
+- Full SQLite suite and full suite with isolated MariaDB: 125 tests passed.
+- Ten locales complete; translation and parameter/document consistency checks passed.
+- Light/Dark × 1600/1280/900/375 px: 52 DOM/CSS fixture scenarios plus eight real
+  keyboard/mouse/touch/refresh/first-paint checks per combination (480 passing checks).
+- No new application dependency, environment parameter or schema migration.
+
 ## [1.0.1-rc.10] - 2026-11-26
 
 GitHub pre-release only, never latest. Publish only the exact `1.0.1-rc.10` image

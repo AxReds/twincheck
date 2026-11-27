@@ -15,55 +15,89 @@ export function stopPolling() {
 
 const STATUS_CLASS = { queued: 'muted', running: 'info', paused: 'warn', interrupted: 'warn', completed: 'ok', failed: 'error', cancelled: 'muted' };
 
-export function comboBox({ options, value = '', onChange = () => {} }) {
+let dismissCombo = null;
+document.addEventListener('pointerdown', (event) => { if (dismissCombo) dismissCombo(event); });
+
+export function comboBox({ options, value = '', onChange = () => {}, searchKey = 'logs.search_events', emptyKey = 'logs.no_matching_event' }) {
   const id = 'combo-' + Math.random().toString(36).slice(2);
-  const input = h('input', { type: 'text', role: 'combobox', autocomplete: 'off',
-    'aria-autocomplete': 'list', 'aria-expanded': 'true', 'aria-controls': id });
+  const label = h('span', { class: 'combo-value' });
+  const input = h('button', { type: 'button', class: 'combo-trigger', role: 'combobox',
+    'aria-haspopup': 'listbox', 'aria-expanded': 'false', 'aria-controls': id }, label, h('span', { 'aria-hidden': 'true' }, '▾'));
+  const search = h('input', { type: 'search', role: 'combobox', autocomplete: 'off', placeholder: t(searchKey),
+    'aria-label': t(searchKey), 'aria-autocomplete': 'list', 'aria-expanded': 'false', 'aria-controls': id });
   const list = h('div', { id, role: 'listbox', class: 'combo-list' });
-  const error = h('small', { id: id + '-error', class: 'crit', role: 'status', hidden: true }, t('common.select_option'));
-  input.setAttribute('aria-describedby', error.id);
-  const el = h('div', { class: 'combobox' }, input, list, error);
+  const clearSearch = h('button', { type: 'button', class: 'link combo-clear', 'aria-label': t('common.clear_search'),
+    onclick: () => { search.value = ''; render(); search.focus(); } }, '✕');
+  const popup = h('div', { class: 'combo-popup', hidden: true },
+    h('div', { class: 'combo-search' }, h('span', { 'aria-hidden': 'true' }, '⌕'), search, clearSearch), list);
+  const el = h('div', { class: 'combobox' }, input, popup);
   let committed = value;
   let active = -1;
   let filtered = [];
-  const match = () => options.find((option) =>
-    [option.value, option.label].some((text) => text.toLowerCase() === input.value.trim().toLowerCase()));
+  const match = () => options.find((option) => option.value === committed);
   const mark = () => {
     const nodes = [...list.querySelectorAll('[role="option"]')];
     nodes.forEach((node, i) => node.classList.toggle('active', i === active));
-    if (nodes[active]) {
-      input.setAttribute('aria-activedescendant', nodes[active].id);
-      nodes[active].scrollIntoView({ block: 'nearest' });
-    } else input.removeAttribute('aria-activedescendant');
+    for (const control of [input, search]) {
+      if (nodes[active] && !popup.hidden) control.setAttribute('aria-activedescendant', nodes[active].id);
+      else control.removeAttribute('aria-activedescendant');
+    }
+    if (nodes[active] && !popup.hidden) nodes[active].scrollIntoView({ block: 'nearest' });
   };
-  const validate = () => {
-    const valid = Boolean(match());
-    input.setAttribute('aria-invalid', String(!valid));
-    error.hidden = valid;
-    onChange(valid ? match().value : null, valid);
+  const close = (restoreFocus = false) => {
+    popup.hidden = true;
+    input.setAttribute('aria-expanded', 'false');
+    search.setAttribute('aria-expanded', 'false');
+    search.value = '';
+    dismissCombo = null;
+    mark();
+    if (restoreFocus) input.focus();
   };
   const choose = (option) => {
     committed = option.value;
     input.value = option.label;
-    render(false);
-    validate();
+    label.textContent = option.label;
+    close(true);
+    render();
+    onChange(committed, true);
   };
-  const render = (search = true) => {
-    const term = search ? input.value.trim().toLowerCase() : '';
+  const render = () => {
+    const term = search.value.trim().toLowerCase();
     filtered = options.filter((option) => (option.label + ' ' + option.value).toLowerCase().includes(term));
     active = filtered.findIndex((option) => option.value === committed);
     mount(list, filtered.length ? filtered.map((option, i) => [
-      option.muted && i > 0 && !filtered[i - 1].muted ? h('div', { role: 'separator', class: 'combo-separator' }) : null,
+      option.section && (i === 0 || option.section !== filtered[i - 1].section)
+        ? h('div', { role: 'presentation', class: 'combo-section' }, t(option.section)) :
+        option.muted && i > 0 && !filtered[i - 1].muted ? h('div', { role: 'separator', class: 'combo-separator' }) : null,
       h('div', { id: `${id}-${i}`, role: 'option', 'aria-selected': String(option.value === committed),
         class: 'combo-option' + (option.muted ? ' muted' : ''),
         onpointerdown: (event) => event.preventDefault(),
-        onclick: () => { choose(option); input.focus(); } }, option.label),
-    ]) : h('div', { class: 'hint' }, t('common.no_options')));
+        onpointermove: () => { active = i; mark(); },
+        onclick: () => choose(option) }, h('span', {}, option.label),
+        option.value === committed ? h('span', { 'aria-hidden': 'true' }, '✓') : null),
+    ]) : h('div', { class: 'hint', role: 'status' }, t(emptyKey)));
     queueMicrotask(mark);
   };
-  input.addEventListener('focus', () => { input.select(); render(false); });
-  input.addEventListener('input', () => { render(); validate(); });
+  const open = () => {
+    if (!popup.hidden) return;
+    if (dismissCombo) dismissCombo();
+    popup.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+    search.setAttribute('aria-expanded', 'true');
+    render();
+    popup.classList.remove('upward');
+    const rect = input.getBoundingClientRect();
+    if (innerHeight - rect.bottom < popup.getBoundingClientRect().height && rect.top > innerHeight - rect.bottom) popup.classList.add('upward');
+    search.focus();
+    dismissCombo = (event) => { if (!event || !el.contains(event.target)) close(); };
+  };
+  input.addEventListener('click', () => popup.hidden ? open() : close());
   input.addEventListener('keydown', (event) => {
+    if (['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); open(); }
+    else if (event.key === 'Escape') { event.preventDefault(); close(true); }
+  });
+  search.addEventListener('input', render);
+  search.addEventListener('keydown', (event) => {
     if (['ArrowDown', 'ArrowUp'].includes(event.key)) {
       event.preventDefault();
       active = filtered.length ? (active < 0
@@ -74,26 +108,30 @@ export function comboBox({ options, value = '', onChange = () => {} }) {
       event.preventDefault(); choose(filtered[active]);
     } else if (event.key === 'Escape') {
       event.preventDefault(); event.stopPropagation();
-      input.value = options.find((option) => option.value === committed)?.label || '';
-      render(false); validate();
+      close(true);
+    } else if (event.key === 'Tab') {
+      close();
     }
   });
-  input.value = options.find((option) => option.value === committed)?.label || value;
-  render(false);
-  return { el, input, value: () => match()?.value, valid: () => Boolean(match()),
-    setOptions(next) { options = next; render(false); },
+  input.value = match()?.label || value;
+  label.textContent = input.value;
+  render();
+  return { el, input, search, close, value: () => match()?.value, valid: () => Boolean(match()),
+    setOptions(next) { options = next; render(); },
     setValue(next) {
       const option = options.find((option) => option.value === next);
-      if (option) choose(option);
-      else { committed = next; input.value = next; render(false); validate(); }
+      committed = next;
+      label.textContent = input.value = option?.label || next;
+      render();
     } };
 }
 
 export function analysisSummary(population) {
   if (!population) return null;
   return h('div', { class: 'analysis-population' },
-    h('p', { class: 'summary' }, t('meta.latest_population', population)),
-    h('p', { class: 'hint' }, t('meta.current_population', population)));
+    h('p', { class: 'summary' }, t('meta.compact_summary', population), ' ',
+      h('span', { tabindex: '0', role: 'note', title: t('meta.latest_population', population) + ' ' + t('meta.current_population', population),
+        'aria-label': t('meta.latest_population', population) + ' ' + t('meta.current_population', population) }, 'ⓘ')));
 }
 
 export function tablePaging(userId, name, go) {
@@ -108,6 +146,8 @@ export function tablePaging(userId, name, go) {
   let total = null;
   let confirmed = false;
   let confirming = null;
+  const range = h('div', { class: 'page-range' });
+  const controls = h('div', { class: 'pager' }, field('common.rows_per_page', select), range);
   const approve = async () => {
     if (choice !== 'all' || total === null || total <= 1000 || confirmed) return true;
     if (!confirming) confirming = modal({ titleKey: 'common.all_rows', body: h('p', {}, t('common.confirm_all_rows', { count: total })) });
@@ -136,9 +176,11 @@ export function tablePaging(userId, name, go) {
     },
     render(count, offset) {
       total = count;
-      return h('div', { class: 'pager' }, field('common.rows_per_page', select),
+      controls.hidden = count === 0;
+      mount(range,
         pager(count, offset, choice === 'all' ? Math.max(1, count) : Number(choice), go) ||
         h('span', {}, t('common.page_range', { from: count ? offset + 1 : 0, to: count, total: count })));
+      return controls;
     },
   };
 }
@@ -210,13 +252,20 @@ async function act(job, action, onChange) {
 }
 
 // Polls a function while the tab is visible; returns a stop function.
-export function poll(fn, ms) {
+export function refreshBlocked(container) {
+  return Boolean(container && (container.contains(document.activeElement) &&
+    document.activeElement.matches('input, select, textarea, button, summary, [role="combobox"]') ||
+    container.querySelector('details[open], [aria-expanded="true"]') ||
+    document.querySelector('.modal-overlay, .menu-panel:not([hidden])')));
+}
+
+export function poll(fn, ms, container = null) {
   if (!pollingEnabled) return () => {};
   let timer = null; let stopped = false; let running = false;
   const tick = async () => {
     if (stopped || running) return;
     running = true;
-    if (!document.hidden) { try { await fn(); } catch (e) { /* keep polling */ } }
+    if (!document.hidden && !refreshBlocked(container)) { try { await fn(); } catch (e) { /* keep polling */ } }
     running = false;
     if (!stopped) timer = setTimeout(tick, ms);
   };
@@ -231,12 +280,15 @@ export function poll(fn, ms) {
 export function jobList(container, query, opts = {}) {
   const box = h('div', { class: 'jobs' });
   container.appendChild(box);
-  const refresh = async () => {
+  const refresh = async (automatic = false) => {
     const data = await get('/api/jobs?' + query);
+    if (!box.isConnected || automatic && refreshBlocked(container)) return;
+    const scroll = window.scrollY;
     mount(box, data.items.length ? data.items.map((j) => jobCard(j, refresh)) : h('p', { class: 'muted' }, t(opts.emptyKey || 'job.none')));
+    window.scrollTo(0, scroll);
     if (opts.onData) opts.onData(data.items);
   };
-  return { refresh, stop: poll(refresh, opts.interval || 1500) };
+  return { refresh, stop: poll(() => refresh(true), opts.interval || 1500, container) };
 }
 
 export async function waitForJob(id, onUpdate) {
@@ -281,7 +333,7 @@ export function folderBrowser(onPick, start = '', selectedPath = null) {
     currentPath = data.path;
     choose = button('browser.choose', () => { onPick(data.path); mark(); }, selectedPath ? 'small' : 'primary small');
     mount(box,
-      h('div', { class: 'browser-head' }, h('code', {}, data.display_path || '/data/' + data.path),
+      h('div', { class: 'browser-head' }, h('code', {}, data.display_path || data.path || '.'),
         choose),
       h('ul', { class: 'browser-list' },
         data.path && data.path !== data.root ? h('li', {}, h('button', { type: 'button', class: 'link', onclick: () => load(parent) }, '..')) : null,

@@ -119,6 +119,8 @@ window.fetch = async (url, opts = {}) => {
     analyzed_at: '2026-11-24T20:00:00Z', summary: { analysed: 54, fills: 0, review: 50 }, review_pending: 50,
     review_counts: { total: 50, decided: 0, pending: 50, needs_recheck: 0 }, plan_job_id: 1,
     review_file_count: 50,
+    population: { analysed: 54, unreadable: 0, total: 50, pending: 50, decided: 0,
+      current: 54, reliable: 4, review_files: 50, other: 0 },
   };
   else if (path === '/api/sources') data = sourceData;
   else if (path === '/api/fs/browse') data = browseTree ?
@@ -162,16 +164,31 @@ window.fetch = async (url, opts = {}) => {
       recheck_reason: 'mtime_utc_match', library_timezone: 'Europe/Rome',
       recheck_proposal: { value: '2007-08-29T21:51:02', source: 'filesystem_mtime', timezone: 'Europe/Rome' } } : {}),
   };
-  else if (path === '/api/review') data = { items: [], total: 0, counts: {} };
+  else if (path === '/api/review') {
+    const q = new URL(String(url), location.href).searchParams;
+    const rows = Array.from({ length: 50 }, (_, n) => ({ id: n + 1, kind: 'no_date', status: 'pending', details: {},
+      file: { name: `synthetic-${n}.jpg`, folder: 'lib' } }));
+    data = { items: rows.slice(Number(q.get('offset') || 0), Number(q.get('offset') || 0) + Number(q.get('limit') || 50)),
+      total: 50, review_counts: { total: 50, pending: 50, decided: 0 },
+      population: { analysed: 54, unreadable: 0, total: 50, pending: 50, decided: 0, current: 54, reliable: 4, review_files: 50, other: 0 } };
+  }
   else if (path === '/api/admin/users' && opts.method !== 'PATCH') data = { users: [user], groups: [] };
   else if (path === '/api/admin/users/test-admin' && opts.method === 'PATCH') data = { ok: true };
   else if (path === '/api/admin/archives') data = { exports: [], imports: [] };
   else if (path === '/api/jobs') data = { items: jobFixture.slice(0, Number(new URL(String(url), location.href).searchParams.get('limit') || 50)), total: jobFixture.length };
-  else if (path === '/api/logs' || path === '/api/admin/audit') data = { items: [{
+  else if (path === '/api/me/security-activity') {
+    const rows = ['LOGIN_OK', 'LOGIN_FAILED'].map((event) => ({
+      ts: '2026-11-24T20:00:00Z', user: 'admin', actor: 'admin', ip: '127.0.0.1', event, message: 'Synthetic security activity',
+    }));
+    const q = new URL(String(url), location.href).searchParams;
+    const items = rows.filter((row) => !q.get('event') || row.event === q.get('event'));
+    data = { items, total: items.length, all_total: 2, event_counts: { LOGIN_OK: 1, LOGIN_FAILED: 1 }, users: [] };
+  }
+  else if (path === '/api/logs' || path === '/api/admin/audit' || path === '/api/me/security-activity') data = { items: [{
     ts: '2026-11-24T20:00:00Z', level: 'INFO', event: 'REVIEW_DECIDED',
-    message: 'Review decision saved for synthetic.jpg', actor: 'synthetic', job_id: 1,
+    message: 'Review decision saved for synthetic.jpg', actor: 'synthetic', user: 'synthetic', ip: '127.0.0.1', job_id: 1,
   }].filter(() => !emptyLogs), total: emptyLogs ? 0 : 1, all_total: 1, event_counts: { REVIEW_DECIDED: 1, REVIEW_SKIPPED: 0, FILE_UNREADABLE: 0 },
-    users: [{ id: 'synthetic', username: 'synthetic' }] };
+    users: path === '/api/logs' ? [{ id: 'synthetic', username: 'synthetic' }] : ['synthetic'] };
   else if (path === '/api/admin/db') data = {
     current: { type: 'sqlite', path: '/state/synthetic.sqlite3' }, status: { connected: true, schema_version: 6 },
     info: { last_update: '2026-11-24T20:00:00Z', db_id: 'synthetic', files: 2, open_jobs: 0 }, previous: [],
@@ -320,7 +337,7 @@ await test('B4: scan selection survives page changes including the data root', a
     await go('#/home');
     await go('#/analyze');
     const codes = [...document.querySelectorAll('main p code')];
-    assert(codes.some((el) => el.textContent === '/data/' + path), 'selected folder label was lost');
+    assert(codes.some((el) => el.textContent === path), 'library-relative selected folder label was lost');
     const before = requests.length;
     [...document.querySelectorAll('main button')].find((el) => el.textContent === t('scan.analyze_library')).click();
     await new Promise((resolve) => setTimeout(resolve, 80));
@@ -330,14 +347,14 @@ await test('B4: scan selection survives page changes including the data root', a
   await go('#/home');
 });
 await test('B4: initial selection and browser markings match the submitted source/path', async () => {
-  const source = { id: 'source-test', label: 'Assigned', path: '/data/assigned', path_rel: 'assigned', same_as_source: true };
+  const source = { id: 'source-test', label: 'Assigned', path: 'assigned', path_rel: 'assigned', same_as_source: true };
   for (const selection of [{ path: 'previous', source_id: null }, { path: 'assigned', source_id: source.id }, null]) {
     sourceData = { sources: [source], can_browse: true, scan_selection: selection };
     app.state.scanPath = null;
     browsePath = selection?.path || '';
     await go('#/analyze');
     const chosen = document.querySelector('main p code');
-    assert(chosen.textContent === (selection ? '/data/' + selection.path : ''), 'initial selected label is incorrect');
+    assert(chosen.textContent === (selection ? selection.path : ''), 'initial selected label is incorrect');
     const choose = [...document.querySelectorAll('main button')].find((el) => el.textContent === t('browser.choose'));
     assert(choose.getAttribute('aria-pressed') === String(Boolean(selection)), 'browser marks a folder that is not selected');
     const before = requests.length;
@@ -391,7 +408,7 @@ await test('B11: base-user tree stays within sources and submits the selected su
     await new Promise((resolve) => setTimeout(resolve, 80));
     const submitted = requests.filter((r) => r.url === '/api/library/analyze').at(-1).body;
     assert(submitted.source_id === 'own' && submitted.path === 'mine/child', 'selected subfolder was not submitted with its source');
-    assert(document.querySelector('main p code').textContent === 'Mine/child', 'selected label does not match subfolder');
+    assert(document.querySelector('main p code').textContent === 'mine/child', 'library-relative selected label does not match subfolder');
     const select = document.querySelector('main select');
     select.value = 'second';
     select.dispatchEvent(new Event('change'));
@@ -550,14 +567,14 @@ await test('B9: duplicate groups explain shared dates, unknown dates and keeper 
   duplicateGroups = [];
   await go('#/home');
 });
-await test('U10/U11: duplicate dates and readable metadata summary are shown', async () => {
+await test('U10/U11/U38: metadata has one readable summary, explained populations and immediate review', async () => {
   await go('#/metadata');
-  assert(document.querySelector('main .summary').textContent.includes(t('meta.analysis_summary', { analysed: 54, fills: 0 })),
+  assert(document.querySelector('main .summary').textContent.includes(t('meta.compact_summary', {
+    analysed: 54, unreadable: 0, reliable: 4, review_files: 50, pending: 50, decided: 0 })),
     'metadata result is not human-readable');
-  assert(document.querySelector('.review-population').textContent === t('meta.review_population', { items: 50, files: 50 }),
-    'review file/item population is not explained separately');
-  assert([...document.querySelectorAll('main a[href="#/metadata/review"]')].some((a) => a.textContent.includes('50')),
-    'metadata summary has no direct review link');
+  assert(document.querySelector('.analysis-population [role="note"]').title.includes('54'), 'population detail is not explained in the tooltip');
+  assert(document.querySelector('.start-review').getAttribute('href') === '#/metadata/review/1', 'Start review does not open first pending item');
+  assert(!document.querySelector('.metadata-help').open && document.querySelector('.review-queue'), 'rules are not collapsed after the direct list');
   await go('#/home');
 });
 await test('B20/B21/B25: one results notice, no stale job cards or contradictory notice', async () => {
@@ -596,12 +613,13 @@ await test('U14/B24: Review is inside Metadata, with one entry and complete stat
   assert(!document.querySelector('.mainnav a[href="#/review"]'), 'Review tab is still visible');
   await go('#/review');
   assert(location.hash === '#/metadata/review', 'Review route does not redirect into Metadata');
-  assert(document.querySelectorAll('main .review-entry').length === 1, 'review entry is duplicated');
+  assert(!document.querySelector('main .review-entry') && document.querySelectorAll('main .start-review').length === 1, 'direct review entry is duplicated');
   assert(document.querySelector('.mainnav a.active[href="#/metadata"]'), 'Metadata tab is not highlighted');
   const options = [...document.querySelector('.review-queue select').options].map((el) => el.value);
   assert(['pending', 'decided', 'needs_recheck', 'all'].every((s) => options.includes(s)), 'review status filter is incomplete');
   assert(!document.querySelector('.automatic-fills'), 'automatic preview shown despite zero fills');
-  assert(document.querySelector('.review-counts').textContent === t('review.live_counts', { total: 50, decided: 0, pending: 50 }),
+  assert(document.querySelector('.analysis-population .summary').textContent.includes(t('meta.compact_summary', {
+    analysed: 54, unreadable: 0, reliable: 4, review_files: 50, pending: 50, decided: 0 })),
     'live review summary is inconsistent');
   await go('#/review/1');
   assert(location.hash === '#/metadata/review/1', 'review item legacy route does not redirect');
@@ -625,7 +643,8 @@ await test('U16: 24-hour inputs, Use copies proposal, sticky controls precede fi
   const table = document.querySelector('.review-side .table-wrap');
   assert(controls && table && (controls.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING), 'controls are not above the field table');
   assert(!document.querySelector('input[type="datetime-local"]'), 'locale-dependent AM/PM input remains');
-  assert(document.querySelector('.organizing-date').placeholder === t('review.date_format'), 'date format hint missing');
+  assert(document.querySelector('.organizing-date').placeholder === '2007-08-26 20:36:42' &&
+    controls.textContent.includes(t('review.date_format')), 'short date example or full format hint missing');
   [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.use_proposal')).click();
   assert(document.querySelector('input.date-input').value === '2020-01-02 03:04:05', 'Use does not copy 24-hour proposal');
   const proposal = document.querySelector('.proposal').textContent;
@@ -640,8 +659,8 @@ await test('U16: 24-hour inputs, Use copies proposal, sticky controls precede fi
     Math.abs(rect.top - 5 * parseFloat(getComputedStyle(document.documentElement).fontSize)) < 2,
     'actions leave their required viewport edge while scrolling');
   window.scrollTo(0, 0);
-  assert(![...document.querySelectorAll('main input')].some((el) => ['+01:00', '45.464200, 9.190000'].includes(el.placeholder)),
-    'example values look like real data');
+  assert([...document.querySelectorAll('.review-side input')].every((el) => el.value === '' || el.classList.contains('date-input')),
+    'placeholder example was inserted as editable data');
   const title = document.querySelector('input[aria-label="' + t('field.title') + '"]');
   title.value = 'Manual title after Use';
   title.dispatchEvent(new Event('input'));
@@ -695,10 +714,10 @@ await test('B28/B30: re-analysis retains skip and decisions in badge, filters an
       'Decided list lacks the Decision column');
     select.value = 'all'; select.dispatchEvent(new Event('change')); await sleep();
     const skipped = [...document.querySelectorAll('tbody tr')].find((row) => row.textContent.includes('synthetic-1.jpg'));
-    assert(skipped.querySelector('.badge') && skipped.querySelector('.review-decision').textContent === '\u2014',
-      'skipped pending item appears as a decision');
-    assert(skipped.querySelector('.review-decision').title === t('review.postponed_on', { date: fmt.date('2026-01-15T20:51:02Z') }),
-      'postponement tooltip is missing or not 24-hour');
+    assert(skipped.querySelector('.badge') && skipped.querySelector('.review-decision .muted') &&
+      !skipped.querySelector('.review-decision').textContent.includes(t('review.decision.date')), 'skipped pending item appears as a decision');
+    assert(skipped.querySelector('.skipped-full').textContent === t('review.postponed_on', { date: fmt.date('2026-01-15T20:51:02Z').slice(0, 16) }),
+      'visible postponement text is missing or not 24-hour');
     assert(document.documentElement.scrollWidth <= innerWidth, 'review status overflows viewport');
   } finally { reviewStateFixture = null; await go('#/home'); }
 });
@@ -739,18 +758,22 @@ await test('U18/U27: timezone combobox preserves the saved zone, filters and sup
   const search = document.querySelector('.timezone-input');
   const combo = search.closest('.combobox');
   assert(search.value === 'Europe/Rome (UTC+01:00)', 'saved timezone and offset not shown');
-  assert(combo.querySelector('[aria-selected="true"]').textContent === search.value, 'saved zone is not highlighted');
+  assert(combo.querySelector('[aria-selected="true"] > span').textContent === search.value, 'saved zone is not highlighted');
+  assert(search.getAttribute('aria-expanded') === 'false', 'searchable select is not initially closed');
+  search.click();
+  const filter = combo.querySelector('input[type="search"]');
   assert(search.getAttribute('aria-expanded') === 'true' && search.getAttribute('aria-controls') === combo.querySelector('[role="listbox"]').id,
     'combobox ARIA relationship is missing');
-  search.value = 'Kathmandu'; search.dispatchEvent(new Event('input'));
+  filter.value = 'invalid timezone'; filter.dispatchEvent(new Event('input'));
   const save = [...document.querySelectorAll('main button')].find((el) => el.textContent === t('common.save'));
-  assert(combo.querySelectorAll('[role="option"]').length === 1 && save.disabled, 'filter or invalid-text protection failed');
-  search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert(combo.querySelectorAll('[role="option"]').length === 0 && search.value === 'Europe/Rome (UTC+01:00)', 'free search text changed the committed selection');
+  filter.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   assert(search.value === 'Europe/Rome (UTC+01:00)' && !save.disabled, 'Escape does not restore the previous value');
-  search.value = 'KATHMANDU'; search.dispatchEvent(new Event('input'));
-  search.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
-  assert(search.getAttribute('aria-activedescendant'), 'keyboard active option is not announced');
-  search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  search.click();
+  filter.value = 'KATHMANDU'; filter.dispatchEvent(new Event('input'));
+  filter.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+  assert(filter.getAttribute('aria-activedescendant'), 'keyboard active option is not announced');
+  filter.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   assert(search.value === 'Asia/Kathmandu (UTC+05:45)' && !save.disabled, 'keyboard selection did not choose the IANA zone');
   [...document.querySelectorAll('main button')].find((el) => el.textContent === t('common.save')).click();
   await sleep();
@@ -784,12 +807,12 @@ await test('U27: ArrowUp starts at the last match when the committed option is f
   ] });
   document.querySelector('main').appendChild(combo.el);
   try {
-    combo.input.value = 'Europe'; combo.input.dispatchEvent(new Event('input'));
-    combo.input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
-    combo.input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    combo.input.click(); combo.search.value = 'Europe'; combo.search.dispatchEvent(new Event('input'));
+    combo.search.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+    combo.search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     assert(combo.value() === 'Europe/London', 'ArrowUp skips the last filtered option');
-    combo.input.value = 'invalid'; combo.input.dispatchEvent(new Event('input'));
-    combo.input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    combo.input.click(); combo.search.value = 'invalid'; combo.search.dispatchEvent(new Event('input'));
+    combo.search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     assert(combo.value() === 'Europe/London', 'Escape does not preserve the last committed option');
   } finally { combo.el.remove(); }
 });
@@ -833,7 +856,7 @@ await test('U22/U22b: event combobox groups zero-count codes and filters can be 
   present.checked = false; present.dispatchEvent(new Event('change'));
   assert([...combo.querySelectorAll('[role="option"]')].some((o) => o.textContent === 'REVIEW_SKIPPED (0)' && o.classList.contains('muted')),
     'zero-count event missing or not greyed');
-  assert(combo.querySelector('[role="separator"]'), 'zero-count separator missing');
+  assert(combo.querySelector('.combo-section'), 'zero-count section separator missing');
   assert(select.value === 'REVIEW_DECIDED (1)', 'event filter URL selection lost');
   [...document.querySelectorAll('main button')].find((el) => el.textContent === t('logs.clear')).click();
   await sleep();
@@ -934,11 +957,11 @@ await test('U29: All confirms above 1000 before requesting rows, including a rem
     assert(document.querySelectorAll('main tbody tr').length === 50, 'cancelled restore does not return to a bounded page');
   } finally { paginationCount = null; localStorage.removeItem(key); document.querySelector('.modal-overlay')?.remove(); await go('#/home'); }
 });
-await test('U31: export controls align with the Job input within two pixels at every width', async () => {
+await test('U31b: export controls form a separate natural-width, left-aligned row at every width', async () => {
   await go('#/logs');
-  const bottom = document.querySelector('.log-job-filter').getBoundingClientRect().bottom;
+  const bottom = document.querySelector('.log-filters').getBoundingClientRect().bottom;
   for (const button of document.querySelectorAll('.log-export, .log-export-all')) {
-    assert(Math.abs(button.getBoundingClientRect().bottom - bottom) <= 2, 'export control is not bottom aligned with its input');
+    assert(button.getBoundingClientRect().top >= bottom && getComputedStyle(button).flexGrow === '0', 'export control is not on its own natural-width row');
   }
   const perms = app.state.perms;
   app.state.perms = { ...perms, transfer_database: true, security_settings: true };
@@ -948,7 +971,8 @@ await test('U31: export controls align with the Job input within two pixels at e
     await go(route);
     assert(document.documentElement.scrollWidth <= innerWidth, 'filter/action row overflows on ' + route);
     for (const row of document.querySelectorAll('.filters, .actions, .form.inline')) {
-      assert(getComputedStyle(row).alignItems === 'end', 'shared bottom alignment missing on ' + route);
+      assert(getComputedStyle(row).alignItems === (innerWidth <= 600 && row.classList.contains('log-filters') ? 'stretch' : 'end'),
+        'shared responsive alignment missing on ' + route);
     }
   }
   app.state.perms = perms;
@@ -984,8 +1008,8 @@ await test('U33/#64: live export counts, role notes and shared analysis populati
     app.state.user.role = old;
     await go('#/metadata');
     const text = document.querySelector('.analysis-population').textContent;
-    assert(text.includes(t('meta.latest_population', populationFixture())) &&
-      text.includes(t('meta.current_population', populationFixture())), 'analysis populations are not explained');
+    assert(text.includes(t('meta.compact_summary', populationFixture())) &&
+      document.querySelector('.analysis-population [role="note"]').title.includes(t('meta.current_population', populationFixture())), 'analysis populations are not explained');
     await go('#/metadata/review');
     assert(document.querySelector('.analysis-population').textContent === text, 'metadata/review summaries disagree');
   } finally { paginationCount = null; app.state.user.role = old; await go('#/home'); }
@@ -1178,6 +1202,8 @@ await test('B10/U7: theme controls change the whole palette and preserve section
   await sleep();
 });
 async function interactiveFixture(run, signedOut = false, query = '') {
+  const themeCookie = document.cookie.match(/(?:^|; )tc_theme=([^;]+)/)?.[1];
+  document.cookie = 'tc_theme=; Path=/; Max-Age=0';
   const saved = ['fixture_theme', 'fixture_signed_out', 'fixture_user', 'tc_theme'].map((key) => [key, localStorage.getItem(key)]);
   saved.forEach(([key]) => localStorage.removeItem(key));
   if (signedOut) localStorage.setItem('fixture_signed_out', '1');
@@ -1200,6 +1226,7 @@ async function interactiveFixture(run, signedOut = false, query = '') {
     await run({ frame, loaded, ready });
   } finally {
     frame.remove();
+    document.cookie = themeCookie ? `tc_theme=${themeCookie}; Path=/; Max-Age=31536000; SameSite=Strict` : 'tc_theme=; Path=/; Max-Age=0';
     saved.forEach(([key, value]) => value === null ? localStorage.removeItem(key) : localStorage.setItem(key, value));
   }
 }
@@ -1337,6 +1364,111 @@ await test('U9: offline menu icons retain visible labels, accessible names and c
     app.state.perms = perms;
     await go('#/home');
   }
+});
+await test('B33: Jobs controls, focus and scroll survive polling; choices remain usable', async () => {
+  paginationCount = 105;
+  const key = `tc-rows:${app.state.user.id}:jobs`;
+  localStorage.removeItem(key);
+  try {
+    await go('#/jobs');
+    const select = document.querySelector('.rows-per-page');
+    select.focus();
+    const before = requests.filter((row) => row.url.startsWith('/api/jobs?')).length;
+    await new Promise((resolve) => setTimeout(resolve, 1700));
+    assert(document.activeElement === select && select.isConnected, 'polling removed the focused select');
+    assert(requests.filter((row) => row.url.startsWith('/api/jobs?')).length === before, 'polling did not pause while a control had focus');
+    for (const value of ['10', '100', 'all']) {
+      select.value = value; select.dispatchEvent(new Event('change')); await sleep(); await sleep();
+      assert(document.querySelector('.rows-per-page') === select && document.activeElement === select, 'changing page size replaced the control');
+      assert(document.querySelectorAll('main .job-card').length === (value === 'all' ? 105 : Number(value)), 'page-size choice was ignored');
+    }
+    select.blur();
+    window.scrollTo(0, 200);
+    const scroll = scrollY;
+    await new Promise((resolve) => setTimeout(resolve, 1700));
+    assert(document.querySelector('.rows-per-page') === select && Math.abs(scrollY - scroll) <= 2, 'polling replaced controls or moved the page');
+  } finally { paginationCount = null; localStorage.removeItem(key); window.scrollTo(0, 0); await go('#/home'); }
+});
+await test('U27b/U36: searchable selects close safely and users see only their present codes', async () => {
+  const role = app.state.user.role;
+  try {
+    app.state.user.role = 'user'; await go('#/logs');
+    assert(!document.querySelector('.log-only-present'), 'base user can request the full catalogue');
+    const trigger = document.querySelector('.log-event-filter');
+    assert(trigger.getAttribute('aria-expanded') === 'false', 'select is initially open');
+    trigger.click();
+    const combo = trigger.closest('.combobox');
+    const search = combo.querySelector('input[type="search"]');
+    assert(document.activeElement === search, 'search input did not receive focus');
+    assert(![...combo.querySelectorAll('[role="option"]')].some((row) => row.textContent.includes('LOGIN_OK') || row.textContent.includes('REVIEW_SKIPPED')),
+      'user catalogue reveals inaccessible or absent codes');
+    search.value = 'does not match'; search.dispatchEvent(new Event('input'));
+    assert(combo.querySelector('[role="status"]').textContent === t('logs.no_matching_event'), 'no-match explanation is missing');
+    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert(trigger.value === t('logs.all_events') && trigger.getAttribute('aria-expanded') === 'false', 'Escape changed the selection or left popup open');
+    trigger.click();
+    document.querySelector('main h1').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    assert(trigger.getAttribute('aria-expanded') === 'false', 'outside pointer/touch did not dismiss');
+    emptyLogs = true;
+    await go('#/logs?event=FILE_UNREADABLE');
+    assert(document.querySelector('.empty-state').textContent.includes(t('logs.no_code_events', { code: 'FILE_UNREADABLE' })), 'zero-code empty state is vague');
+    assert(document.querySelector('.log-export').getAttribute('aria-disabled') === 'true' &&
+      !document.querySelector('.log-export').hasAttribute('href'), 'empty filtered export remains actionable');
+    assert(!visible(document.querySelector('.pager')), 'zero-result pager remains visible');
+  } finally { app.state.user.role = role; emptyLogs = false; await go('#/home'); }
+});
+await test('U39/U40: short examples fit; fields precede the sticky right preview in tab order', async () => {
+  reviewStateFixture = [{
+    id: 1, status: 'pending', kind: 'no_date', details: {}, proposals: [],
+    file: { name: 'synthetic.jpg', path: 'lib/synthetic.jpg', origin: 'lib/synthetic.jpg', media_kind: 'image' },
+    fields: ['datetime_original', 'offset', 'gps', 'make', 'model', 'orientation', 'title', 'description']
+      .map((field) => ({ field, writable: true, present: false, candidates: [] })),
+  }];
+  try {
+    await go('#/metadata/review/1'); await sleep();
+    assert(![...document.querySelectorAll('main button')].some((button) => button.textContent === t('review.reopen')), 'Reopen is shown on pending items');
+    for (const input of document.querySelectorAll('.review-side input')) {
+      const style = getComputedStyle(input);
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d'); context.font = style.font;
+      const available = input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      assert(input.placeholder && context.measureText(input.placeholder).width <= available, 'placeholder is truncated: ' + input.placeholder);
+      assert(input.value === '', 'an example was saved as a real value');
+    }
+    const side = document.querySelector('.review-side');
+    const preview = document.querySelector('.review-preview');
+    assert(side.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING, 'preview controls precede editable fields in DOM/tab order');
+    const left = side.getBoundingClientRect(), right = preview.getBoundingClientRect();
+    assert(innerWidth > 1000 ? left.right <= right.left && left.width > right.width :
+      right.bottom <= left.top, 'preview is not right on desktop/top on mobile');
+    assert(innerWidth <= 1000 || getComputedStyle(preview).position === 'sticky', 'desktop preview is not sticky');
+    const enlarge = [...preview.querySelectorAll('button')].find((button) => button.textContent === t('review.enlarge'));
+    assert(enlarge, 'preview enlargement control is missing');
+    enlarge.click();
+    assert(document.querySelector('dialog[open]'), 'enlarged preview did not open');
+    document.querySelector('dialog').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert(!document.querySelector('dialog[open]'), 'Escape did not close enlarged preview');
+  } finally { reviewStateFixture = null; await go('#/home'); }
+});
+await test('U35: last sign-in and failed-attempt banners work without an operational database', async () => {
+  const oldDb = app.state.boot.db;
+  const oldBanner = app.state.boot.security_banner;
+  try {
+    app.state.boot.db = { connected: false };
+    for (const failed of [0, 2]) {
+      app.state.boot.security_banner = { last: { ts: '2026-11-24T20:00:00Z', ip: '127.0.0.1' },
+        failed, since: '2026-11-24T20:00:00Z', until: '2026-11-25T20:00:00Z' };
+      window.dispatchEvent(new CustomEvent('po:password-changed')); await sleep(); await sleep();
+      const banner = [...document.querySelectorAll('#app > .notice')].find((node) => node.textContent.includes('127.0.0.1'));
+      assert(banner?.textContent.includes(t('security.last_login', { date: fmt.date('2026-11-24T20:00:00Z'), ip: '127.0.0.1' })),
+        'last sign-in banner is absent while database is unavailable');
+      const link = banner.querySelector('a');
+      assert(failed ? link?.getAttribute('href').includes('event=LOGIN_FAILED') && banner.classList.contains('warn') : !link,
+        'failed-attempt highlight/filter link is wrong');
+    }
+    await go('#/security-activity?event=LOGIN_FAILED');
+    assert(document.querySelector('main tbody tr')?.textContent.includes('LOGIN_FAILED') && document.querySelector('.back-link'), 'security page depends on the database or lacks Back');
+  } finally { app.state.boot.db = oldDb; app.state.boot.security_banner = oldBanner; window.dispatchEvent(new CustomEvent('po:password-changed')); await sleep(); await go('#/home'); }
 });
 if (app.state.view?.destroy) app.state.view.destroy();
 if (app.state.stopMetrics) app.state.stopMetrics();

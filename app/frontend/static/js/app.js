@@ -23,6 +23,7 @@ const ROUTES = [
   [/^#\/admin\/users$/, () => admin.users], [/^#\/admin\/groups$/, () => admin.groups], [/^#\/admin\/settings$/, () => admin.settings],
   [/^#\/admin\/database$/, () => admin.database], [/^#\/admin\/transfer$/, () => transferView.transfer],
   [/^#\/admin\/audit$/, () => admin.audit], [/^#\/admin\/security$/, () => admin.security], [/^#\/admin$/, () => admin.users],
+  [/^#\/security-activity(?:\?.*)?$/, () => (main, state) => tool.securityActivity(main, state)],
 ];
 
 const NAV = [
@@ -101,10 +102,18 @@ async function renderShell() {
   databaseBanner.classList.add('content');
   databaseBanner.hidden = state.boot.db?.connected !== false;
   shell = { header, nav, main, metrics, databaseBanner };
-  mount(root, header, nav, databaseBanner, main);
+  const security = state.boot.security_banner;
+  const securityBanner = security && (security.last || security.failed)
+    ? h('div', { class: 'content notice' + (security.failed ? ' warn' : ''), role: 'status' },
+      security.last ? h('p', {}, t('security.last_login', { date: fmt.date(security.last.ts), ip: security.last.ip })) : null,
+      security.failed ? h('p', {}, t('security.failed_since', { count: security.failed }), ' ',
+        h('a', { href: '#/security-activity?' + new URLSearchParams({
+          event: 'LOGIN_FAILED', ...(security.since ? { since: security.since } : {}), until: security.until,
+        }) }, t('review.open'))) : null) : null;
+  mount(root, header, nav, databaseBanner, securityBanner, main);
   stopMetrics();
   resumePolling();
-  state.stopMetrics = poll(refreshMetrics, 5000);
+  state.stopMetrics = poll(refreshMetrics, 5000, header);
   route();
 }
 
@@ -129,6 +138,7 @@ function userMenu() {
       try { await post('/api/me/lang', { lang: code }); } catch (e) { toast(e.message, 'error'); }
     })),
     h('label', { class: 'menu-row' }, icon('sun-moon'), t('theme.label'), ' ', themeSelect()),
+    h('a', { class: 'menu-row', href: '#/security-activity' }, icon('shield'), h('span', { class: 'nav-label' }, t('security.activity'))),
     state.perms.manage_users ? h('a', { class: 'menu-row', href: '#/admin/users' }, icon('shield'), h('span', { class: 'nav-label' }, t('nav.admin'))) : null,
     h('a', { class: 'menu-row', href: '#/me' }, icon('key-round'), h('span', { class: 'nav-label' }, t('user.change_password'))),
     h('button', { type: 'button', class: 'menu-row link', onclick: logout }, icon('log-out'), h('span', { class: 'nav-label' }, t('user.logout'))));
@@ -174,6 +184,7 @@ function vol(v) {
 let lastMetrics = null;
 async function refreshMetrics() {
   const m = await get('/api/sysinfo');
+  if (shell && document.activeElement && shell.header.contains(document.activeElement)) return;
   lastMetrics = m;
   state.boot.db = m.database;
   if (shell?.databaseBanner) shell.databaseBanner.hidden = m.database?.connected !== false;

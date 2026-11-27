@@ -69,6 +69,20 @@ check that polling stops, and verifies failed login, successful login and a late
 old-session response.
 Stop the server afterwards. These browser checks supplement the Python suite.
 
+rc.11 extends the same fixture to 52 scenarios, including focus/scroll-preserving Jobs
+polling, closed searchable selects, role-specific catalogues, zero-result controls,
+direct Metadata review, short placeholder measurements, fields-first preview layout,
+Escape enlargement and database-independent sign-in banners. Run Light/Dark at
+1600/1280/900/375 px. `test_rc11.py` covers legacy scan/duplicate log identity across
+list/count/CSV, relative paths, admin `path_container`, descriptive filenames, initial
+HTML theme precedence, instance security isolation/retention, unknown-account failures,
+password resets, session expiry, role/group changes and lockouts.
+Real-browser checks must preserve the production CSP, inspect the computed background
+at DOMContentLoaded on login/reload/logout, open the native Jobs select through a refresh
+cycle and choose 10/100/All, and exercise searchable-select keyboard/mouse/touch.
+Use synthetic accounts/libraries only. Browser tools and their optional dependencies must
+remain outside application dependencies; the fixture tests need no build step or Node.js project.
+
 The required-password regression covers a new account and an admin reset,
 including five preceding failed logins. It checks the single change-password
 page, stopped polling, preserved values on wrong/weak passwords, in-place

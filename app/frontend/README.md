@@ -41,12 +41,15 @@ as well as the content and native controls. Login offers the same controls witho
 rebuilding the form or losing typed values.
 
 The per-user choice is validated and saved in the encrypted vault through
-`POST /api/me/theme`, without a database schema change. Local storage remembers
+`POST /api/me/theme`, without a database schema change. Local storage and a non-secret `tc_theme` cookie remember
 the last authenticated user's restored choice as well as selector changes for
 the login page; after login the authenticated user's vault preference takes
 precedence. Logout therefore retains that user's theme even when another user
 previously chose a different theme in this browser. Browser storage failures
 are reported explicitly.
+The server renders the authenticated preference (or cookie) directly on `<html>`.
+CSS follows `prefers-color-scheme` for Auto and loads in the head before the body.
+No inline script or CSP exception is used, including for login and logout.
 
 ## Header metrics
 
@@ -108,18 +111,33 @@ completion result.
 
 ## Accessible selectors and long tables
 
-`components.comboBox` uses a text input with `role="combobox"` and an always-visible,
-roughly eight-row `listbox`. It supports case-insensitive substring filtering, a selected
-option, active-descendant keyboard navigation, Enter selection and Escape restore.
-Pointer and touch select the same options. Invalid input is announced inline; Settings
-disables Save. Library timezone and Logs Event code share this implementation.
-Zero-count events are muted and separated after present events; Only events present defaults on.
+`components.comboBox` is a closed value/chevron control with an overlaid popup that flips
+upward when needed. Its search input, clear button, section titles, listbox and filled
+selected option support case-insensitive substring filtering, active-descendant keyboard
+navigation, Enter selection and Escape/outside dismissal. Search text never becomes a value.
+Pointer and touch select the same options. Library timezone and Logs Event code share it.
+Timezone sections are Suggested/All timezones; administrator event sections are Present/Not present.
+Normal users see only their own present codes, without Only events present.
 
 `components.tablePaging` remembers 10/50/100/All in browser local storage keyed by stable
 user id and table, with a visible warning when storage is unavailable. A remembered All
 choice still confirms before loading more than 1,000 rows. Sticky headers and page ranges
 remain independent of the selected size. Filter/action rows share bottom alignment;
-CSV export buttons stay aligned with the Job input, including at narrow widths.
+Logs filters occupy the first row, wrapping one per line on narrow screens.
+Natural-width, left-aligned CSV export buttons occupy the next row. Empty filtered exports
+are disabled and zero-result pagers hidden. Security guidance links to the instance activity
+page or administrative audit log, never the operational Logs.
+Jobs polling refreshes only rows/cards, retaining the pagination controls. All automatic
+card/metrics refreshes pause while controls in their view have focus or a popup is open,
+including a focus change while a request is in flight; page scroll stays unchanged.
+
+Metadata shows one summary with an information tooltip, followed directly by filters,
+Start review and the queue, with rules collapsed below. Skipped items show muted timestamped
+pending text, shortened on narrow screens, not a decision. Review inputs use short examples
+with date rules below the field. Fields/actions precede the preview in DOM/tab order:
+desktop is approximately 60% fields left, 40% sticky preview right; mobile shows a thumbnail
+and filename first and retains the fixed bottom action bar. Preview enlargement uses a
+native dialog; Escape closes it and restores focus.
 
 ## Replacing the logo
 

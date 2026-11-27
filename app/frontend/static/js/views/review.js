@@ -32,6 +32,7 @@ export async function list(main, state, options = {}) {
       h('a', { class: 'btn', href: '#/analyze' }, t('scan.analyze_library')));
   const counts = h('p', { class: 'summary' });
   const population = h('div', {});
+  const start = h('a', { class: 'btn primary start-review', hidden: true }, t('meta.start_review'));
   const pagination = tablePaging(state.user.id, 'review', (o) => { offset = o; load(); });
   const load = async () => {
     const q = new URLSearchParams({ status: status.value, offset, limit: pagination.query() });
@@ -39,6 +40,9 @@ export async function list(main, state, options = {}) {
     const d = await get('/api/review?' + q);
     if (!await pagination.check(d.total, d.items.length)) return;
     counts.textContent = reviewCounts(d.review_counts);
+    const first = await get('/api/review?status=pending&limit=10' + (kind.value ? '&kind=' + encodeURIComponent(kind.value) : ''));
+    start.hidden = !first.items.length;
+    if (first.items.length) start.href = '#/metadata/review/' + first.items[0].id;
     if (!options.embedded) mount(population, analysisSummary(d.population));
     const showDecision = ['decided', 'all'].includes(status.value);
     mount(box, d.items.length ? table(['review.col_kind', 'review.col_file', 'review.col_folder', 'review.col_date',
@@ -48,8 +52,12 @@ export async function list(main, state, options = {}) {
           r.status === 'skipped' ? [' ', badge(t('review.status.skipped'), 'warn')] : null),
         h('td', {}, r.file ? h('code', {}, r.file.folder) : ''),
         h('td', {}, r.file ? fmt.localDate(r.file.chosen_date) : ''),
-        showDecision ? h('td', { class: 'review-decision',
-          title: r.status === 'skipped' && r.skipped_at ? t('review.postponed_on', { date: fmt.date(r.skipped_at) }) : undefined }, r.decision_kind ? [
+        showDecision ? h('td', { class: 'review-decision' }, r.status === 'skipped' && r.skipped_at ? [
+          h('span', { class: 'muted skipped-full' }, t('review.postponed_on', { date: fmt.date(r.skipped_at, r.library_timezone).slice(0, 16) })),
+          h('span', { class: 'muted skipped-short', title: t('review.postponed_on', { date: fmt.date(r.skipped_at, r.library_timezone).slice(0, 16) }) },
+            t('review.skipped_compact', { date: fmt.date(r.skipped_at, r.library_timezone).slice(8, 10) + '/' +
+              fmt.date(r.skipped_at, r.library_timezone).slice(5, 7) + ' ' + fmt.date(r.skipped_at, r.library_timezone).slice(11, 16) })),
+        ] : r.decision_kind ? [
           t('review.decision.' + r.decision_kind), r.decision?.date ? ' · ' + fmt.localDate(r.decision.date) : '',
         ] : '\u2014') : null,
         h('td', {}, h('a', { class: 'btn small', href: '#/metadata/review/' + r.id }, t('review.open')))))) : h('p', { class: 'muted' }, t('review.empty')),
@@ -59,7 +67,7 @@ export async function list(main, state, options = {}) {
   kind.addEventListener('change', () => { offset = 0; load(); });
   mount(main, options.embedded ? null : [
     h('h1', { class: 'sr-only' }, t('review.title')), stepGuide(2, flowStatus), h('p', { class: 'intro' }, t('review.intro')), notice, counts],
-    population, h('div', { class: 'filters' }, field('review.filter_status', status), field('review.filter_kind', kind)), box,
+    population, h('div', { class: 'filters' }, field('review.filter_status', status), field('review.filter_kind', kind), start), box,
     options.embedded ? null : [h('h2', {}, t('review.write_title')), h('p', { class: 'hint' }, t('review.write_help'))],
     !options.embedded && flowStatus.exists && h('div', { class: 'actions' }, button('review.write_plan', async (event) => {
       event.currentTarget.disabled = true;
@@ -93,6 +101,22 @@ function mediaView(reviewId, f) {
     } else {
       mount(box, h('img', { src: preview.url, alt: f.name, loading: 'lazy' }));
     }
+    const enlarge = button('review.enlarge', () => {
+      const previous = document.activeElement;
+      const previewMedia = f.media_kind === 'video'
+        ? h('video', { src: preview.url, controls: true, playsinline: true })
+        : h('img', { src: preview.url, alt: f.name });
+      const dialog = h('dialog', { class: 'preview-dialog', 'aria-label': t('review.enlarge') }, previewMedia,
+        button('common.close', () => dialog.close()));
+      dialog.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); dialog.close(); }
+      });
+      document.body.appendChild(dialog);
+      dialog.addEventListener('close', () => { dialog.remove(); if (previous?.isConnected) previous.focus(); });
+      dialog.showModal();
+    }, 'small');
+    box.appendChild(enlarge);
+    box.querySelector('img')?.addEventListener('click', () => enlarge.click());
   };
   const stop = poll(show, 2500);
   return { el: box, stop, destroy: () => {
@@ -121,7 +145,7 @@ export async function item(main, state, [id]) {
   const inputs = {};
   const dateChoice = h('select', {}, h('option', { value: '' }, t('review.date_keep')));
   const organizingDate = h('input', { type: 'text', class: 'organizing-date', inputmode: 'text',
-    placeholder: t('review.date_format'), 'aria-label': t('review.date_choice') });
+    placeholder: t('review.example_date'), 'aria-label': t('review.date_choice') });
   organizingDate.value = r.decision?.date ? wallDate(r.decision.date) : '';
   organizingDate.addEventListener('input', () => {
     dateChoice.value = '';
@@ -145,7 +169,7 @@ export async function item(main, state, [id]) {
     if (row.writable && !row.present) {
       const isDate = row.field === 'datetime_original' || row.field === 'create_date';
       const inp = h('input', { type: 'text', class: isDate ? 'date-input' : '', 'aria-label': t('field.' + row.field),
-        placeholder: isDate ? t('review.date_format') : undefined });
+        placeholder: t('review.example_' + (isDate ? 'date' : row.field)) });
       const prop = r.proposals.find((p) => p.field === row.field);
       if (prop) inp.dataset.proposal = prop.value;
       inputs[row.field] = inp;
@@ -206,7 +230,6 @@ export async function item(main, state, [id]) {
     h('div', { class: 'review-head' }, h('a', { class: 'back-link', href: '#/metadata/review' }, '← ',
       t('common.back_to', { page: t('nav.metadata') })), ' ', badge(t('review.kind.' + r.kind), 'warn'), ' ', badge(t('review.status.' + r.status), '')),
     h('div', { class: 'review' },
-      media ? media.el : h('div', { class: 'media' }, h('p', { class: 'muted' }, t('review.no_file'))),
       h('div', { class: 'review-side' },
         r.recheck_reason ? h('div', { class: 'notice warn recheck-notice' },
           t('review.recheck_notice', { stored: wallDate(r.decision?.date), timezone: r.library_timezone,
@@ -219,7 +242,7 @@ export async function item(main, state, [id]) {
             button('review.keep_stored', () => decide('save', false, r.decision.date)),
             button('review.keep_next', () => decide('save', true, r.decision.date)))) : null,
         h('div', { class: 'review-controls' },
-          field('review.date_choice', organizingDate),
+          field('review.date_choice', organizingDate, 'review.date_format'),
           field('review.proposal', dateChoice),
           field('review.apply_scope', scope),
           h('div', { class: 'actions review-actions' },
@@ -227,7 +250,7 @@ export async function item(main, state, [id]) {
             button('review.save_next', () => decide('save', true)), button('review.skip', () => decide('skip', true)),
             button('review.leave', () => decide('keep')),
             button('review.keep_next', () => decide('keep', true)),
-            r.status !== 'pending' && !r.applied ? button('review.reopen', async () => { try { await post(`/api/review/${id}/reopen`); location.reload(); } catch (e) { toast(e.message, 'error'); } }) : null),
+            r.status === 'decided' && !r.applied ? button('review.reopen', async () => { try { await post(`/api/review/${id}/reopen`); location.reload(); } catch (e) { toast(e.message, 'error'); } }) : null),
           h('p', { class: 'hint' }, t('review.empty_stays_empty')),
           h('p', { class: 'hint' }, t('review.date_choice_hint'))),
         f ? h('dl', { class: 'kv' }, h('dt', {}, t('review.file_name')), h('dd', {}, h('code', {}, f.name)),
@@ -241,6 +264,10 @@ export async function item(main, state, [id]) {
             h('dt', {}, t('review.detail_label', { name: key })),
             h('dd', {}, typeof value === 'object' ? t('review.detail_values', { count: Object.keys(value || {}).length }) : String(value)),
           ])) : null,
-        rows.length ? table(['review.col_field', 'review.col_values', 'review.col_edit'], rows) : null)));
-  return { destroy: () => { if (media) { media.stop(); media.destroy(); } } };
+        rows.length ? table(['review.col_field', 'review.col_values', 'review.col_edit'], rows) : null),
+      h('aside', { class: 'review-preview' },
+        media ? media.el : h('div', { class: 'media' }, h('p', { class: 'muted' }, t('review.no_file'))),
+        f ? h('p', { class: 'preview-caption' }, h('code', {}, f.name), ' ',
+          r.fields?.find((row) => row.field === 'dimensions')?.candidates?.map((candidate) => candidate.value).join(' · ')) : null)));
+  return { destroy: () => { document.querySelector('.preview-dialog')?.close(); if (media) { media.stop(); media.destroy(); } } };
 }

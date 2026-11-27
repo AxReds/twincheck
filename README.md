@@ -100,12 +100,14 @@ On a server with **Portainer** you do not need the source code: use the publishe
    Without an internal capture date the oldest mtime wins, then the tidiest path
    (fewest components, shortest length, lexicographic order). The group shows the
    effective date and rule. Metadata is not written by duplicate analysis.
-6. **Metadata** - one tab contains automatic completions and the review queue. Live counts show
-   total, decided, pending and, when present, needs re-check; filter pending/decided/needs re-check/all.
+6. **Metadata** - one tab contains automatic completions and the review queue. One summary shows
+   analysed/unreadable/dated/review counts, with technical population details in its information tooltip.
+   Filters and the list follow directly; **Start review** opens the first pending item.
+   Filter pending/decided/needs re-check/all.
    Preview automatic completions only when fills exist, then confirm to write (original values
    are saved first). Zero fills is explained and does not mean there are no files to review.
    The latest selected-folder analysis counts files; the review queue spans all assigned folders
-   and states both its item count and distinct current-file count. Missing files and superseded
+   and explains item counts versus distinct current-file counts in the tooltip. Missing files and superseded
    metadata queue rows are excluded without deleting their history.
 7. **Review within Metadata** - for each file: media on one side, every field on the other; save, skip, leave as it
    is, or apply to the whole folder/group. Decisions are stored immediately; *Preview writing*
@@ -138,12 +140,20 @@ unchanged. Tables scroll inside bounded containers with sticky headers in both t
 Analyze shows the last three analysis jobs and links to their full history. Phase-completion
 logs distinguish newly hashed/extracted values from reused values and unreadable files.
 
-**Logs** offers an accessible Event code combo box, present events by default, optional
+**Logs** offers an accessible searchable Event code select, present events by default, optional
 muted zero-count events, Clear filters and counted **Export filtered / Export all** controls.
 CSV includes UTC `time_utc` and 24-hour `time_local` in the library timezone with offset;
 messages stay English.
 Base users see only their own scoped job/file/review events, never system/login events.
 Administrators see all events and can filter by User. Empty lists explain why nothing is shown.
+The admin User filter and that user's own view use the same scope, including legacy jobs.
+All roles see library-relative paths; admin CSV adds `path_container` for technical support.
+CSV files have descriptive, timestamped names rather than a generic export name.
+Normal users see only present event codes and no catalogue checkbox. Filters form the first
+row; naturally sized exports form the second. Security events are separate:
+**My security activity** in the user menu is a trial, backed by the encrypted instance
+audit store even without a working database. Sign-in banners show the previous retained
+sign-in and failed attempts since then. Admins keep **Administration → Audit log**.
 
 The step guide is **1 Analyze → 2 Check (Duplicates · Metadata) → 3 Organize → 4 Report & Undo**.
 There is no separate Review menu tab; existing Scan and Review links redirect to their new locations.
@@ -165,11 +175,11 @@ Review items, Logs, Duplicates and Jobs default to 50 rows per page and offer
 10 / 50 / 100 / All. The browser remembers each user's choice separately for each table.
 Loading All above 1,000 rows requires confirmation, including after returning to the page.
 
-### Upgrade to 1.0.1-rc.10
+### Upgrade to 1.0.1-rc.11
 
-From rc.9, no schema migration is required: schema remains 6 and an already-current
+From rc.10, no schema migration is required: schema remains 6 and an already-current
 database emits no `DB_MIGRATED`. User decisions are not changed.
-Deploy `ghcr.io/axreds/twincheck:1.0.1-rc.10` (or the moving `rc` alias).
+Deploy `ghcr.io/axreds/twincheck:1.0.1-rc.11` (or the moving `rc` alias).
 
 From an older version, stop the container and back up `/state` (and the operational MariaDB database, if used).
 After upgrading, an administrator must open **Administration → Database → Migrate schema**

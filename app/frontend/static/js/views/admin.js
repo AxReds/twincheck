@@ -5,6 +5,7 @@ import { get, post, patch, del } from '../api.js';
 import { folderBrowser, kv, pager, comboBox } from '../components.js';
 import { testResult } from './setup.js';
 import { icon } from '../icons.js';
+import { securityActivity } from './tool.js';
 
 export function adminNav(state, active) {
   const items = [['users', 'admin.users', 'users-round'], ['groups', 'admin.groups', 'users-round'], ['settings', 'admin.settings', 'sliders-horizontal'], ['database', 'admin.database', 'database']];
@@ -16,7 +17,8 @@ export function adminNav(state, active) {
 }
 
 function shell(main, state, active, titleKey, ...body) {
-  mount(main, h('h1', {}, t('nav.admin')), adminNav(state, active), h('h2', {}, t(titleKey)), ...body);
+  mount(main, h('h1', {}, t('nav.admin')), adminNav(state, active), h('h2', {}, t(titleKey)), ...body,
+    h('a', { class: 'back-link', href: '#/home' }, t('common.back')));
 }
 
 async function showPassword(pw) {
@@ -33,7 +35,7 @@ function sourcesEditor(initial) {
       dest.addEventListener('input', () => { s.dest = dest.value; });
       const label = h('input', { type: 'text', value: s.label || '' });
       label.addEventListener('input', () => { s.label = label.value; });
-      return h('tr', {}, h('td', {}, h('code', {}, '/data/' + s.path)), h('td', {}, dest), h('td', {}, label),
+      return h('tr', {}, h('td', {}, h('code', {}, s.path)), h('td', {}, dest), h('td', {}, label),
         h('td', {}, button('common.remove', () => { list.splice(i, 1); render(); }, 'small danger-outline')));
     })) : h('p', { class: 'muted' }, t('admin.no_sources')),
     h('details', { class: 'panel' }, h('summary', {}, t('admin.add_source')), folderBrowser((p) => {
@@ -68,7 +70,7 @@ export async function users(main, state) {
     h('td', {}, h('strong', {}, u.username), u.fixed ? ' ' : null, u.fixed ? badge(t('admin.fixed'), 'muted') : null),
     h('td', {}, t('role.' + u.role)), h('td', {}, u.active ? badge(t('admin.active'), 'ok') : badge(t('admin.inactive'), 'warn')),
     h('td', {}, u.groups.map(groupName).join(', ')),
-    h('td', {}, u.sources.map((s) => h('div', {}, h('code', {}, '/data/' + s.path), s.dest !== s.path ? h('span', { class: 'muted' }, ' → /data/' + s.dest) : null))),
+    h('td', {}, u.sources.map((s) => h('div', {}, h('code', {}, s.path), s.dest !== s.path ? h('span', { class: 'muted' }, ' → ' + s.dest) : null))),
     h('td', { class: 'actions' }, editable(u) ? [
       button('admin.edit', () => editUser(u)),
       !u.fixed ? button(u.active ? 'admin.deactivate' : 'admin.activate', async () => { await act(() => patch('/api/admin/users/' + u.id, { active: !u.active })); }) : null,
@@ -154,7 +156,13 @@ export async function settings(main, state) {
   const saveButton = button('common.save', () => save(), 'primary');
   const timezone = state.user.role === 'admin' ? comboBox({
     value: s.library_timezone,
-    options: d.timezones.map((zone) => ({ value: zone.name, label: `${zone.name} (UTC${zone.offset})` })),
+    searchKey: 'settings.timezone_search', emptyKey: 'settings.no_matching_timezone',
+    options: [
+      ...[...new Set([s.library_timezone, Intl.DateTimeFormat().resolvedOptions().timeZone, 'UTC'])]
+        .map((name) => d.timezones.find((zone) => zone.name === name)).filter(Boolean)
+        .map((zone) => ({ value: zone.name, label: `${zone.name} (UTC${zone.offset})`, section: 'common.suggested' })),
+      ...d.timezones.map((zone) => ({ value: zone.name, label: `${zone.name} (UTC${zone.offset})`, section: 'settings.all_timezones' })),
+    ],
     onChange: (value, valid) => { saveButton.disabled = !valid; },
   }) : null;
   if (timezone) timezone.input.classList.add('timezone-input');
@@ -260,16 +268,9 @@ export async function database(main, state) {
 
 // --- audit ------------------------------------------------------------------------------------------------
 export async function audit(main, state) {
-  let offset = 0;
-  const box = h('div', {});
-  const load = async () => {
-    const d = await get(`/api/admin/audit?offset=${offset}&limit=100`);
-    mount(box, table(['logs.col_time', 'audit.col_actor', 'logs.col_event', 'logs.col_message'],
-      d.items.map((a) => h('tr', {}, h('td', {}, instant(a.ts)), h('td', {}, a.actor), h('td', {}, h('code', {}, a.event)), h('td', { lang: 'en', dir: 'ltr' }, a.message)))),
-    pager(d.total, offset, 100, (o) => { offset = o; load(); }));
-  };
-  shell(main, state, 'audit', 'admin.audit', h('p', { class: 'hint' }, t('audit.english_note')), box);
-  await load();
+  const view = await securityActivity(main, state, true);
+  main.prepend(...adminNav(state, 'audit'));
+  return view;
 }
 
 // --- security: key rotation -------------------------------------------------------------------------------

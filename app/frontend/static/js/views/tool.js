@@ -2,14 +2,15 @@
 import { h, mount, button, field, table, modal, toast, badge, instant } from '../dom.js';
 import { t, fmt } from '../i18n.js';
 import { get, post } from '../api.js';
-import { jobList, jobCard, sourceSelect, folderBrowser, kv, pager, poll, jobBadge, stepGuide, waitForJob, databaseNotice, comboBox, tablePaging, analysisSummary } from '../components.js';
+import { jobList, jobCard, sourceSelect, folderBrowser, kv, pager, poll, jobBadge, stepGuide, waitForJob, databaseNotice, comboBox, tablePaging, analysisSummary, refreshBlocked } from '../components.js';
 import { reviewCounts, list as reviewQueue } from './review.js';
 
 function page(main, titleKey, introKey, ...body) {
   const guide = body[0]?.classList?.contains('step-guide') ? body.shift() : null;
   const hidden = ['scan.title', 'dup.title', 'meta.title', 'org.title', 'report.title', 'jobs.title', 'logs.title'].includes(titleKey);
   mount(main, h('h1', { class: hidden ? 'sr-only' : '' }, t(titleKey)), guide,
-    introKey ? h('p', { class: 'intro' }, t(introKey)) : null, ...body);
+    introKey ? h('p', { class: 'intro' }, t(introKey)) : null, ...body,
+    titleKey !== 'home.title' ? h('a', { class: 'back-link', href: '#/home' }, t('common.back')) : null);
 }
 
 async function startJob(url, body, then, control = null) {
@@ -108,8 +109,7 @@ export async function scan(main, state) {
   const noSelection = h('p', { class: 'notice warn', role: 'status' }, t('scan.choose_folder'));
   const updateSelection = () => {
     const source = selectedSource();
-    adhocLabel.textContent = state.scanPath === null ? '' : (adminBrowse ? '/data/' + state.scanPath :
-      source ? source.path + state.scanPath.slice(source.path_rel.length) : '');
+    adhocLabel.textContent = state.scanPath === null ? '' : state.scanPath;
     noSelection.hidden = state.scanPath !== null;
     select.value = selectedSource()?.id || '';
     browser?.querySelector('.browser')?.dispatchEvent(new Event('po:folder-selected'));
@@ -192,7 +192,7 @@ export async function duplicates(main, state) {
       button('dup.plan', (event) => startJob(
         scope() === 'global' ? '/api/admin/global-dedupe/plan' : '/api/duplicates/plan',
         {}, openPlanWhenReady, event.currentTarget), 'primary'),
-      h('a', { class: 'btn', href: '/api/duplicates.csv?scope=' + scope(), download: 'duplicates.csv' }, t('dup.export_csv'))),
+      h('a', { class: 'btn', href: '/api/duplicates.csv?scope=' + scope(), download: '' }, t('dup.export_csv'))),
     h('p', { class: 'hint' }, t('dup.rule')), summary, list);
   await load();
   main.appendChild(h('a', { class: 'small history-link', href: '#/jobs' }, t('analysis.history')));
@@ -204,13 +204,7 @@ function metadataResult(data) {
     return null;
   }
   return h('div', {},
-    h('p', { class: 'summary' }, t('meta.analysis_summary', data.summary)),
-    analysisSummary(data.population),
-    h('p', { class: 'summary review-counts' }, reviewCounts(data.review_counts)),
-    h('p', { class: 'hint review-population' }, t('meta.review_population', {
-      items: data.review_counts?.total || 0, files: data.review_file_count || 0 })),
-    data.summary.fills === 0 ? h('p', { class: 'empty-state hint' }, t('meta.empty_fills', { count: data.review_pending || 0 })) : null,
-    h('a', { class: 'btn review-entry', href: '#/metadata/review' }, t('meta.review_items', { count: data.review_pending || 0 })));
+    analysisSummary(data.population));
 }
 
 export async function metadata(main, state, [view] = []) {
@@ -220,18 +214,18 @@ export async function metadata(main, state, [view] = []) {
   page(main, 'meta.title', 'meta.intro',
     stepGuide(2, flowStatus), analysisNotice(flowStatus),
     flowStatus.exists ? metadataResult(data) : null,
-    h('p', { class: 'hint' }, t('review.short_date_help')),
-    h('p', { class: 'hint' }, t('review.write_help')),
-    h('ul', { class: 'rules' }, ['meta.rule_copy', 'meta.rule_never_invent', 'meta.rule_never_overwrite', 'meta.rule_conflicts', 'meta.rule_video_utc', 'meta.rule_backup']
-      .map((k) => h('li', {}, t(k)))),
+    queue,
     flowStatus.exists && data.summary?.fills > 0 ? h('div', { class: 'automatic-fills' },
       h('h2', {}, t('review.auto_fill')),
       h('a', { class: 'btn primary', href: '#/plans/' + data.plan_job_id }, t('job.open_plan'))) : null,
-    view === 'review' ? queue : null,
+    h('details', { class: 'panel metadata-help' }, h('summary', {}, t('meta.how_completion_works')),
+      h('p', { class: 'hint' }, t('review.short_date_help')), h('p', { class: 'hint' }, t('review.write_help')),
+      h('ul', { class: 'rules' }, ['meta.rule_copy', 'meta.rule_never_invent', 'meta.rule_never_overwrite', 'meta.rule_conflicts', 'meta.rule_video_utc', 'meta.rule_backup']
+        .map((k) => h('li', {}, t(k))))),
     data.review_write_pending > 0 ? h('div', { class: 'actions' }, button('review.write_plan',
       (event) => startJob('/api/review/plan', {}, openPlanWhenReady, event.currentTarget), 'primary')) : null,
     h('a', { class: 'small history-link', href: '#/jobs' }, t('analysis.history')));
-  if (view === 'review') await reviewQueue(queue, state, { embedded: true });
+  await reviewQueue(queue, state, { embedded: true });
 }
 
 // --- organise ---------------------------------------------------------------------------------
@@ -322,7 +316,7 @@ export async function report(main) {
     h('h2', {}, t('report.files')), table(['report.col_status', 'report.col_kind', 'report.col_count', 'report.col_size'], rows),
     h('p', {}, t('report.missing', { count: r.missing })),
     h('h2', {}, t('report.manifest')), table(['report.col_action', 'report.col_count', 'report.col_undone'], man),
-    h('div', { class: 'actions' }, h('a', { class: 'btn', href: '/api/manifest.csv', download: 'manifest.csv' }, t('report.manifest_csv'))),
+    h('div', { class: 'actions' }, h('a', { class: 'btn', href: '/api/manifest.csv', download: '' }, t('report.manifest_csv'))),
     h('h2', {}, t('report.undo')), h('p', { class: 'hint' }, t('report.undo_db_note')),
     h('div', { class: 'actions' },
       button('report.undo_moves', (event) => startJob('/api/undo/moves/plan', {}, openPlanWhenReady, event.currentTarget)),
@@ -340,22 +334,27 @@ export async function jobs(main, state) {
   const kind = query.get('kind') || '';
   const sel = h('select', {}, ['open', '', 'completed', 'failed', 'cancelled'].map((s) => h('option', { value: s }, s ? t('job.filter.' + s) : t('job.filter.all'))));
   const box = h('div', {});
+  const pagingBox = h('div', {});
   sel.value = kind ? '' : 'open';
-  page(main, 'jobs.title', 'jobs.intro', stepGuide(0, await analysisState()), field('jobs.filter', sel), box);
+  page(main, 'jobs.title', 'jobs.intro', stepGuide(0, await analysisState()), field('jobs.filter', sel), box, pagingBox);
   let offset = 0;
   const pagination = tablePaging(state.user.id, 'jobs', (o) => { offset = o; load(); });
-  const load = async () => {
+  const load = async (automatic = false) => {
     const q = new URLSearchParams({ offset, limit: pagination.query() });
     if (kind) q.set('kind', kind);
     if (sel.value) q.set('status', sel.value);
     const d = await get('/api/jobs?' + q);
     if (!box.isConnected || !await pagination.check(d.total, d.items.length)) return;
-    mount(box, d.items.length ? d.items.map((j) => jobCard(j, load)) : h('p', { class: 'muted' }, t('job.none')),
-      pagination.render(d.total, offset));
+    if (automatic && refreshBlocked(main)) return;
+    const scroll = window.scrollY;
+    mount(box, d.items.length ? d.items.map((j) => jobCard(j, load)) : h('p', { class: 'muted' }, t('job.none')));
+    const controls = pagination.render(d.total, offset);
+    if (!controls.isConnected) pagingBox.appendChild(controls);
+    window.scrollTo(0, scroll);
   };
   sel.addEventListener('change', () => { offset = 0; load(); });
   await load();
-  return { destroy: poll(load, 1500) };
+  return { destroy: poll(() => load(true), 1500, main) };
 }
 
 // --- logs (entries stay in English; only the surrounding UI is translated) -------------------------
@@ -374,16 +373,17 @@ export async function logs(main, state) {
   lv.value = params.get('level') || '';
   job.value = params.get('job_id') || '';
   const box = h('div', {});
-  const exportFiltered = h('a', { class: 'btn log-export', download: 'logs.csv' });
-  const exportAll = h('a', { class: 'btn log-export-all', href: '/api/logs.csv?scope=all', download: 'logs.csv' });
+  const exportFiltered = h('a', { class: 'btn log-export', download: '' });
+  const exportAll = h('a', { class: 'btn log-export-all', href: '/api/logs.csv?scope=all', download: '' });
   const exportNote = h('p', { class: 'hint log-export-note' });
   let appliedFilters = new URLSearchParams();
   let eventCounts = {};
   const updateEvents = () => {
     ev.setOptions([{ value: '', label: t('logs.all_events') },
-      ...Object.entries(eventCounts).filter(([code, count]) => !onlyPresent.checked || count > 0 || code === selectedEvent)
+      ...Object.entries(eventCounts).filter(([code, count]) => owner ? !onlyPresent.checked || count > 0 || code === selectedEvent : count > 0)
         .sort(([a, x], [b, y]) => Number(y > 0) - Number(x > 0) || a.localeCompare(b))
-        .map(([code, count]) => ({ value: code, label: `${code} (${fmt.number(count)})`, muted: count === 0 }))]);
+        .map(([code, count]) => ({ value: code, label: `${code} (${fmt.number(count)})`, muted: count === 0,
+          section: count > 0 ? 'logs.present' : 'logs.not_present' }))]);
     ev.setValue(selectedEvent);
   };
   onlyPresent.addEventListener('change', updateEvents);
@@ -391,6 +391,8 @@ export async function logs(main, state) {
     const q = new URLSearchParams(appliedFilters);
     q.delete('offset'); q.delete('limit'); q.set('scope', 'filtered');
     exportFiltered.href = '/api/logs.csv?' + q;
+    exportFiltered.setAttribute('aria-disabled', String(d.total === 0));
+    if (d.total === 0) exportFiltered.removeAttribute('href');
     exportFiltered.textContent = t('logs.export_filtered', { count: d.total });
     exportAll.textContent = t('logs.export_all', { count: d.all_total });
     const username = selectedOwner === '__system__' ? t('logs.system') : d.users?.find((u) => u.id === selectedOwner)?.username;
@@ -398,6 +400,7 @@ export async function logs(main, state) {
       ? (selectedOwner ? t('logs.export_user_note', { user: username || selectedOwner }) + ' ' + t('logs.export_all_note') : t('logs.export_all_note'))
       : t('logs.export_own_note');
   };
+  exportFiltered.addEventListener('click', (event) => { if (exportFiltered.getAttribute('aria-disabled') === 'true') event.preventDefault(); });
   const clearFilters = () => {
     selectedEvent = ''; ev.setValue(''); lv.value = ''; job.value = ''; offset = 0;
     selectedOwner = ''; if (owner) owner.value = '';
@@ -421,23 +424,77 @@ export async function logs(main, state) {
       d.items.map((r) => h('tr', {}, h('td', {}, instant(r.ts)), h('td', {}, r.level), h('td', { class: 'event-code' }, h('code', {}, r.event)),
         h('td', { lang: 'en', dir: 'ltr' }, r.message), h('td', {}, r.job_id ? '#' + r.job_id : ''),
         owner ? h('td', {}, r.user || t('logs.system')) : null))) :
-      h('div', { class: 'empty-state notice' }, h('p', {}, t('logs.empty')), button('logs.clear', clearFilters)),
+      h('div', { class: 'empty-state notice' }, h('p', {}, t(selectedEvent ? 'logs.no_code_events' : 'logs.empty', { code: selectedEvent })),
+        button('logs.clear', clearFilters)),
     pagination.render(d.total, offset));
   };
   const eventField = field('logs.event', ev.el);
   eventField.classList.add('log-event-field');
-  page(main, 'logs.title', 'logs.intro', stepGuide(0, await analysisState()), h('div', { class: 'filters' }, eventField,
-    field('logs.only_present', onlyPresent), field('logs.level', lv),
+  page(main, 'logs.title', 'logs.intro', stepGuide(0, await analysisState()), h('div', { class: 'filters log-filters' }, eventField,
+    owner ? field('logs.only_present', onlyPresent) : null, field('logs.level', lv),
     owner ? field('admin.col_user', owner) : null,
+    field('logs.job', job),
     button('logs.apply', () => {
       if (!ev.valid()) { ev.input.focus(); return; }
       selectedEvent = ev.value(); if (owner) selectedOwner = owner.value; offset = 0; load();
-    }), button('logs.clear', clearFilters),
-    h('div', { class: 'filters log-export-actions' }, field('logs.job', job), exportFiltered, exportAll)), exportNote, box);
+    }), button('logs.clear', clearFilters)),
+    h('div', { class: 'filters log-export-actions' }, exportFiltered, exportAll), exportNote,
+    h('p', { class: 'hint security-log-note' }, t(owner ? 'logs.security_admin_note' : 'logs.security_own_note'), ' ',
+      h('a', { href: owner ? '#/admin/audit' : '#/security-activity' }, t(owner ? 'admin.audit' : 'security.activity'))), box);
   await load();
 }
 
 // --- personal settings ------------------------------------------------------------------------------
+export async function securityActivity(main, state, admin = false) {
+  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  let selectedEvent = params.get('event') || '';
+  const event = comboBox({ options: [{ value: '', label: t('logs.all_events') }], value: selectedEvent });
+  const owner = admin ? h('select', {}) : null;
+  let offset = 0;
+  const box = h('div', {});
+  const filtered = h('a', { class: 'btn', download: '' });
+  const all = h('a', { class: 'btn', download: '' });
+  const endpoint = admin ? '/api/admin/audit' : '/api/me/security-activity';
+  const pagination = tablePaging(state.user.id, admin ? 'audit' : 'security', (next) => { offset = next; load(); });
+  const load = async () => {
+    const q = new URLSearchParams(params);
+    q.set('offset', offset); q.set('limit', pagination.query());
+    if (selectedEvent) q.set('event', selectedEvent); else q.delete('event');
+    if (owner?.value) q.set('user', owner.value); else q.delete('user');
+    const data = await get(endpoint + '?' + q);
+    if (!await pagination.check(data.total, data.items.length)) return;
+    event.setOptions([{ value: '', label: t('logs.all_events') }, ...Object.entries(data.event_counts)
+      .map(([code, count]) => ({ value: code, label: `${code} (${fmt.number(count)})` }))]);
+    event.setValue(selectedEvent);
+    if (owner) {
+      const value = owner.value;
+      mount(owner, h('option', { value: '' }, t('logs.all_users')),
+        data.users.map((user) => h('option', { value: user, selected: value === user }, user)));
+    }
+    q.delete('offset'); q.delete('limit'); q.set('scope', 'filtered');
+    filtered.href = endpoint + '.csv?' + q;
+    filtered.textContent = t('logs.export_filtered', { count: data.total });
+    filtered.setAttribute('aria-disabled', String(!data.total));
+    if (!data.total) filtered.removeAttribute('href');
+    all.href = endpoint + '.csv?scope=all';
+    all.textContent = t('logs.export_all', { count: data.all_total });
+    mount(box, data.items.length ? table(['logs.col_time', 'admin.col_user', 'security.source_ip', 'logs.col_event', 'logs.col_message'],
+      data.items.map((row) => h('tr', {}, h('td', {}, instant(row.ts)), h('td', {}, row.user),
+        h('td', {}, row.ip || t('common.na')), h('td', {}, h('code', {}, row.event)),
+        h('td', { lang: 'en', dir: 'ltr' }, row.message)))) :
+      h('p', { class: 'empty-state notice' }, t(selectedEvent ? 'logs.no_code_events' : 'logs.empty', { code: selectedEvent })),
+    pagination.render(data.total, offset));
+  };
+  const clear = () => { selectedEvent = ''; params.delete('event'); params.delete('since'); params.delete('until'); if (owner) owner.value = ''; offset = 0; load(); };
+  page(main, admin ? 'admin.audit' : 'security.activity', null,
+    h('p', { class: 'hint' }, t('security.trial')),
+    h('div', { class: 'filters log-filters' }, field('logs.event', event.el), owner ? field('admin.col_user', owner) : null,
+      button('logs.apply', () => { selectedEvent = event.value() || ''; offset = 0; load(); }), button('logs.clear', clear)),
+    h('div', { class: 'actions' }, filtered, all), box);
+  await load();
+  return { destroy: () => event.close() };
+}
+
 export async function me(main, state) {
   const cur = h('input', { type: 'password', autocomplete: 'current-password' });
   const p1 = h('input', { type: 'password', autocomplete: 'new-password' });
