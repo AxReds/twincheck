@@ -41,6 +41,8 @@ class App:
         self.jobs = JobManager(self, settings.job_workers)
         self.exiftool = ExifTool(settings.exiftool, persistent=True)
         self.sessions = SessionStore()
+        self.sessions.on_expire = lambda session: self.security_audit(
+            self.user(session["user_id"]), "SESSION_EXPIRED", ip=session.get("ip", ""))
         self.limiter = LoginLimiter()
         self.setup_token: str | None = None
         self.maintenance: str | None = None
@@ -186,6 +188,13 @@ class App:
             self.end_maintenance(resume=True)
 
     # -- audit ---------------------------------------------------------------------------
+    def security_audit(self, user: dict | None, event: str, **params) -> None:
+        """Security activity belongs only to the encrypted instance audit store."""
+        with self.vault.transaction() as data:
+            audit(data, user["username"] if user else "system", event,
+                  user_id=user["id"] if user else None,
+                  username=user["username"] if user else params.pop("username", ""), **params)
+
     def audit(self, actor: str, event: str, **params) -> None:
         with self.vault.transaction() as data:
             audit(data, actor, event, **params)

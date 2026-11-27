@@ -546,7 +546,7 @@ class ResetPassword(unittest.TestCase):
             self.assertIn("PASSWORD_RESET_CLI", ev)
             body = c.get("/api/admin/audit").text + c.get("/api/logs?limit=1000").text
             self.assertNotIn(pw, body)
-            self.assertIn("PASSWORD_RESET_CLI", c.get("/api/logs?event=PASSWORD_RESET_CLI").text)
+            self.assertEqual(c.get("/api/logs?event=PASSWORD_RESET_CLI").json()["items"], [])
             # another user via --user, app stopped
             (inst.data / "u1").mkdir()
             make_user(c, "someone", [{"path": "u1"}])

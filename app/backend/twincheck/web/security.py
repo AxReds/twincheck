@@ -68,16 +68,17 @@ class SessionStore:
     def __init__(self):
         self._s: dict[str, dict] = {}
         self._lock = threading.Lock()
+        self.on_expire = None
 
     @staticmethod
     def _h(token: str) -> str:
         return hashlib.sha256(token.encode()).hexdigest()
 
-    def create(self, user: dict) -> tuple[str, dict]:
+    def create(self, user: dict, ip: str = "") -> tuple[str, dict]:
         token = secrets.token_urlsafe(32)
         now = time.time()
         sess = {"user_id": user["id"], "created": now, "last": now, "epoch": user.get("session_epoch", 0),
-                "csrf": secrets.token_urlsafe(24)}
+                "csrf": secrets.token_urlsafe(24), "ip": ip}
         with self._lock:
             self._s[self._h(token)] = sess
         return token, sess
@@ -93,9 +94,12 @@ class SessionStore:
                 return None
             if now - sess["created"] > max_age or now - sess["last"] > idle:
                 self._s.pop(h, None)
-                return None
-            sess["last"] = now
-            return sess
+            else:
+                sess["last"] = now
+                return sess
+        if self.on_expire:
+            self.on_expire(sess)
+        return None
 
     def drop(self, token: str | None) -> None:
         if token:

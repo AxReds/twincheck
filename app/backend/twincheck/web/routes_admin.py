@@ -104,10 +104,15 @@ def update_user(req: Request):
         if "role" in body and body["role"] != u["role"]:
             if u["username"] == "admin" or not access.can(req.user, "manage_administrators") or body["role"] not in ("user", "administrator"):
                 fail(403, "forbidden")
+            audit(data, req.user["username"], "USER_ROLE_CHANGED", user_id=uid, username=u["username"],
+                  old_role=u["role"], role=body["role"])
             u["role"] = body["role"]
             u["session_epoch"] = u.get("session_epoch", 0) + 1
         if "groups" in body:
-            u["groups"] = [g for g in body["groups"] if g in data.get("groups", {})]
+            groups = [g for g in body["groups"] if g in data.get("groups", {})]
+            if groups != u["groups"]:
+                audit(data, req.user["username"], "USER_GROUPS_CHANGED", user_id=uid, username=u["username"])
+            u["groups"] = groups
         if "sources" in body:
             try:
                 u["sources"] = access.validate_sources(data, uid, body["sources"] or [], core.settings.data_dir.as_posix())
@@ -154,7 +159,7 @@ def reset_user_password(req: Request):
         u["session_epoch"] = u.get("session_epoch", 0) + 1
         data["auth_epoch"] = data.get("auth_epoch", 0) + 1
         auth_epoch = data["auth_epoch"]
-        audit(data, req.user["username"], "PASSWORD_RESET", username=u["username"])
+        audit(data, req.user["username"], "PASSWORD_RESET", user_id=uid, username=u["username"])
     core.limiter.sync_epoch(auth_epoch)
     core.sessions.drop_user(uid)
     events.console("PASSWORD_RESET", username=target["username"], actor=req.user["username"])
@@ -198,8 +203,10 @@ def update_group(req: Request):
                     continue
                 if u["id"] in body["members"] and gid not in u.get("groups", []):
                     u.setdefault("groups", []).append(gid)
+                    audit(data, req.user["username"], "USER_GROUPS_CHANGED", user_id=u["id"], username=u["username"])
                 elif u["id"] not in body["members"] and gid in u.get("groups", []):
                     u["groups"].remove(gid)
+                    audit(data, req.user["username"], "USER_GROUPS_CHANGED", user_id=u["id"], username=u["username"])
         audit(data, req.user["username"], "GROUP_UPDATED", name=g["name"])
     return JSONResponse({"ok": True})
 
@@ -216,6 +223,7 @@ def delete_group(req: Request):
         for u in data["users"].values():
             if gid in u.get("groups", []):
                 u["groups"].remove(gid)
+                audit(data, req.user["username"], "USER_GROUPS_CHANGED", user_id=u["id"], username=u["username"])
         audit(data, req.user["username"], "GROUP_DELETED", name=g["name"])
     return JSONResponse({"ok": True})
 
@@ -326,14 +334,14 @@ def set_security(req: Request):
 
 @router.get("/api/admin/audit")
 def audit_log(req: Request):
-    require(req, "view_audit")
-    core = common.app()
-    items = list(reversed(core.vault.data.get("audit", [])))
-    try:
-        off, lim = int(req.query.get("offset", 0)), min(500, int(req.query.get("limit", 100)))
-    except ValueError:
-        fail(400, "bad_paging")
-    return JSONResponse({"items": items[off:off + lim], "total": len(items)})
+    from .app import security_activity_response
+    return security_activity_response(req, admin=True)
+
+
+@router.get("/api/admin/audit.csv", maintenance_ok=True)
+def audit_csv(req: Request):
+    from .app import security_csv_response
+    return security_csv_response(req, admin=True)
 
 
 # --- database: status, test, switch, schema migration -----------------------------------------

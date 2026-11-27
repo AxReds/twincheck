@@ -17,7 +17,7 @@ and [`backend/README.md`](backend/README.md) (all environment variables read by 
 
 | Data | Where | Protection |
 |------|-------|-----------|
-| accounts, roles, groups, sources, password hashes (scrypt), per-user language/theme, settings, MariaDB credentials, admin audit log | `/state/vault.enc` | AES-256-GCM, key from `APP_MASTER_KEY` (HKDF; scrypt for passphrases), decrypted only in memory |
+| accounts, roles, groups, sources, password hashes (scrypt), per-user language/theme, settings, MariaDB credentials, instance security activity and admin audit log | `/state/vault.enc` | AES-256-GCM, key from `APP_MASTER_KEY` (HKDF; scrypt for passphrases), decrypted only in memory |
 | index, hashes, duplicates, jobs, checkpoints, execution log, move journal, manifest, metadata before/after, review decisions | operational database (SQLite in `/state` or MariaDB) | no credentials, no user names (only stable user ids); encrypt the disk/volume for encryption at rest |
 | generated/transcoded previews | `/state/cache/previews/<user id>/` | deletable at any time; scope-checked before use |
 
@@ -159,14 +159,15 @@ The full organizing-date help is kept only in the item panel.
 
 Every displayed date uses numeric `yyyy-mm-dd hh:mm:ss`, independent of language. Instants
 are browser-local with offset/timezone on hover; timezone-free capture values remain unchanged.
-Settings exposes every IANA zone available in the container in one always-visible, accessible
-combo box with current UTC offsets and daylight-saving help. Invalid free text disables Save;
-keyboard, pointer and touch selections share server validation. Tables use bounded scroll
+Settings exposes every IANA zone available in the container in one closed searchable select
+with current UTC offsets and daylight-saving help. The popup searches Suggested/All timezones;
+only list values can be committed, and keyboard, pointer and touch share server validation. Tables use bounded scroll
 containers with sticky headers and explained empty states; checkbox fields place checkbox
 and label together with help below. Per-table rows-per-page preferences live in browser storage.
 
-Logs uses the same combo box for the `events.EVENTS` catalogue. Only events present defaults
-on; when disabled, zero-count events are muted after a separator. Counts respect the other
+Logs uses the same searchable select for the `events.EVENTS` catalogue. Administrators retain
+Only events present; when disabled, zero-count events are muted in a separate section.
+Normal users see only codes actually present in their own scope, with no catalogue checkbox. Counts respect the other
 applied filters and role/User scope. Clear filters and an explained no-matches state remain.
 `/api/logs.csv?scope=filtered|all` shares visibility with list/counts and includes the time
 columns documented above. Counted export controls explain the applied scope.
@@ -178,11 +179,30 @@ all users plus system events and get a User filter. Analyze shows only the lates
 analysis jobs with a full-history link; completion messages spell out hashed/extracted versus
 reused values and unreadable/unknown counts, rather than describing reuse as zero items.
 
-rc.10 uses schema 6 unchanged: no schema migration or `DB_MIGRATED` is needed from rc.9.
+rc.11 uses schema 6 unchanged: no schema migration or `DB_MIGRATED` is needed from rc.10.
 Before upgrading an older schema, stop the container and back up `/state` and MariaDB if applicable.
 After upgrading an older schema, an administrator must run **Administration → Database → Migrate schema**.
 Every signed-in user sees the database-required banner while unavailable/outdated; admin roles
 can follow it directly to the migration action. Home uses the same explanation.
+
+### Instance security activity (trial)
+
+The user menu's **My security activity** page reads only the caller's sign-ins, failures,
+throttling/lockouts, sign-outs, session expiry, password changes/resets and role/group
+membership changes from the encrypted vault. It works while the operational database is
+unavailable or switched; security events are not copied into per-database Logs.
+Unknown-account failures remain admin-only, even if an account with that name is later created.
+Administration → Audit log retains all instance audit events and adds a User filter.
+Both pages have event search, pagination and filtered/all CSV exports. Security CSV columns:
+`time_utc, time_local, event, user, source_ip, actor, message`.
+No password, token or key is included. Activity is bounded by the existing 10,000-entry audit
+retention; the banner reports the previous retained successful sign-in and subsequent retained
+failed attempts, with a pre-filtered Review link. Session expiry is recorded once when an
+expired session is next used. The page is a trial and may later be replaced by administrator guidance.
+
+The server renders the theme preference into the initial HTML using the authenticated
+account, otherwise the non-secret `tc_theme` cookie. CSS handles Auto using the system
+preference before body content; no inline script or CSP relaxation is required.
 
 ## Operational database schema (version 6)
 
