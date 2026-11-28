@@ -6,7 +6,7 @@ import re
 import unittest
 from pathlib import Path
 
-from helpers import APP_DIR
+from helpers import APP_DIR, Instance
 
 from twincheck.config import ENV_PARAMS
 
@@ -40,6 +40,22 @@ def repository_files():
 
 @unittest.skipUnless((ROOT / "docker" / "README.md").exists(), "repository files not available (running inside the image)")
 class DocsConsistency(unittest.TestCase):
+    def test_browser_health_instructions_match_both_endpoint_responses(self):
+        inst = Instance().start()
+        try:
+            for endpoint in ("/health", "/healthz"):
+                response = inst.client().get(endpoint)
+                self.assertEqual(response.status, 200)
+                self.assertEqual(response.json(), {"status": "ok"})
+                for path in (ROOT / "README.md", ROOT / "docker/README.md"):
+                    text = path.read_text()
+                    self.assertIn("http://<server>:7777/health", text)
+                    self.assertIn(response.text, text)
+                    for phrase in ("wait a minute", "another browser", "what you were doing"):
+                        self.assertIn(phrase, text)
+        finally:
+            inst.cleanup()
+
     def test_required_readmes_exist(self):
         for p in ("README.md", "CONTRIBUTING.md", "LICENSE", ".gitignore", ".env.example", "app/README.md",
                   "app/backend/README.md", "app/frontend/README.md", "app/frontend/locales/README.md", "app/tests/README.md",

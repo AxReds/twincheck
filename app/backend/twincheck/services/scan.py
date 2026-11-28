@@ -17,6 +17,40 @@ from ..jobs import JobContext, register
 BATCH = 200
 
 
+def validate_exclusions(patterns: list[str]) -> None:
+    """Validate basename-only shell patterns without changing fnmatch semantics."""
+    if not isinstance(patterns, list) or len(patterns) > 100:
+        raise ValueError("exclusion_limit")
+    seen = set()
+    for pattern in patterns:
+        if not isinstance(pattern, str) or not pattern.strip():
+            raise ValueError("exclusion_empty")
+        if pattern in seen:
+            raise ValueError("exclusion_duplicate")
+        seen.add(pattern)
+        if len(pattern) > 100 or "/" in pattern or "\0" in pattern:
+            raise ValueError("exclusion_invalid")
+        if "*" in pattern and set(pattern) <= {"*", "?"} and pattern.count("?") <= 1:
+            raise ValueError("exclusion_all")
+        pos = 0
+        while pos < len(pattern):
+            if pattern[pos] != "[":
+                pos += 1
+                continue
+            start = pos + 1
+            if start < len(pattern) and pattern[start] == "!":
+                start += 1
+            end = start + (start < len(pattern) and pattern[start] == "]")
+            end = pattern.find("]", end)
+            if end < 0 or end == start:
+                raise ValueError("exclusion_invalid")
+            content = pattern[start:end]
+            for i in range(1, len(content) - 1):
+                if content[i] == "-" and content[i - 1] > content[i + 1]:
+                    raise ValueError("exclusion_invalid")
+            pos = end + 1
+
+
 def _excluded(name: str, patterns: list[str]) -> bool:
     return any(fnmatch.fnmatchcase(name, p) for p in patterns) or name.startswith(".twincheck-")
 

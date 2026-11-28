@@ -29,6 +29,18 @@ docker compose logs app | grep SETUP_TOKEN      # one-time token for the setup w
 Open `http://<host>:7777`. Requires Docker Compose v2.20+ (for `include`). With an older
 Compose run it from `docker/`: `cd docker && docker compose --env-file ../.env up -d`.
 
+### Is TwinCheck running? (for application administrators)
+
+The TwinCheck admin is not necessarily the person who manages Docker or the server.
+Open **http://<server>:7777/health** in a browser, using your usual server name or address.
+The healthy answer is `{"status": "ok"}`: the web application is responding.
+It is not a check of the library, database, or completion of an analysis.
+If there is no answer, wait a minute after an update, reload, and try another browser.
+If it still fails, tell whoever manages the server the time (including timezone),
+what you were doing, the `/health` result (or no answer), and the exact browser error.
+Never send passwords, keys or photos. The technical Docker healthcheck remains `/healthz`,
+on internal port 80; both endpoints return the same healthy answer.
+
 ## Parameters
 
 All parameters go in the `.env` file next to `compose.yaml` (repository root). "Compose" in the
@@ -93,11 +105,11 @@ Parameters that exist only inside the image and are set by the Dockerfile (`DATA
 `STATE_DIR=/state`, `APP_PORT=80`, `EXIFTOOL_PATH`, `FFMPEG_PATH`) are documented in
 [`app/backend/README.md`](../app/backend/README.md); do not change them in a container deployment.
 
-## Upgrading to 1.0.1-rc.12
+## Upgrading to 1.0.1-rc.13
 
 Stop the container and back up `/state` and the operational MariaDB database if used.
-Deploy the exact candidate image `ghcr.io/axreds/twincheck:1.0.1-rc.12` (or the moving `rc`
-alias) after publication. From rc.11 no schema migration is needed: schema remains 6 and there is no
+Deploy the exact candidate image `ghcr.io/axreds/twincheck:1.0.1-rc.13` (or the moving `rc`
+alias) after publication. From rc.12 no schema migration is needed: schema remains 6 and there is no
 `DB_MIGRATED` event for an already-current database. Existing decisions remain unchanged.
 From older schemas, an administrator must run **Settings → Database → Migrate schema**
 and confirm the backup. All signed-in users see **Database update required. Contact an
@@ -132,6 +144,16 @@ but changed inputs or old preview formats require recomputation before execution
 The logo version tooltip uses the UTC build timestamp stamped during image construction.
 The existing global undo remains available; per-operation undo is tracked separately in #110.
 No environment parameter or schema change is added.
+
+rc.13 corrects sign-in banner positioning, navigation outlines, count plurals in all ten
+languages, review dimensions and History wording. Missing/legacy analysis shows an explained
+no-results state, not fabricated zeros, on Home and the analysis-dependent pages.
+Compact filters apply selections/dates immediately and text/numbers on Enter/Apply only;
+pending text is preserved without silently applying it. Users/Groups gain name/state filters.
+Excluded names is a validated, confirmed list with built-in explanations and a server-matched
+name test. Patterns retain their case-sensitive basename shell semantics; optional descriptions
+live in the vault. It has no environment override, so server-managed read-only mode is not needed.
+Changes affect the next analysis only; internal `.twincheck-*` exclusions remain mandatory.
 
 ## The master key
 

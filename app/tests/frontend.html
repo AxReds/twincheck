@@ -31,6 +31,9 @@ let planKind = 'review_plan';
 let planItemsFixture = [];
 let savedPreviewFixture = null;
 let operationsFixture = [];
+let dimensionsFixture = false;
+let exclusionsFixture = null;
+let groupsFixture = [];
 let recheckFixture = false;
 let reviewStateFixture = null;
 let jobFixture = [];
@@ -164,7 +167,9 @@ window.fetch = async (url, opts = {}) => {
   }
   else if (path === '/api/review/1' && opts.method === 'POST') data = { updated: 1, next_id: null };
   else if (/^\/api\/review\/\d+$/.test(path) && opts.method !== 'POST') data = {
-    file: null, fields: ['datetime_original', 'create_date', 'title'].map((field) => ({ field, candidates: [], writable: true, present: false })),
+    file: dimensionsFixture ? { name: 'synthetic.jpg', media_kind: 'image', path: 'lib/synthetic.jpg' } : null,
+    fields: [...['datetime_original', 'create_date', 'title'].map((field) => ({ field, candidates: [], writable: true, present: false })),
+      ...(dimensionsFixture ? [{ field: 'dimensions', candidates: [{ value: '512 771', tag: 'Composite:ImageSize', source: 'file' }], present: true }] : [])],
     proposals: [{ field: 'datetime_original', value: '2020-01-02T03:04:05', origin: 'mtime_utc',
       source: 'filesystem_mtime', timezone: 'Europe/Rome' }],
     status: 'pending', kind: 'no_date', details: {}, next_id: Number(path.split('/').at(-1)) + 1,
@@ -180,7 +185,7 @@ window.fetch = async (url, opts = {}) => {
       total: 50, review_counts: { total: 50, pending: 50, decided: 0 },
       population: { analysed: 54, unreadable: 0, total: 50, pending: 50, decided: 0, current: 54, reliable: 4, review_files: 50, other: 0 } };
   }
-  else if (path === '/api/admin/users' && opts.method !== 'PATCH') data = { users: [user], groups: [] };
+  else if (path === '/api/admin/users' && opts.method !== 'PATCH') data = { users: [user], groups: groupsFixture };
   else if (path === '/api/admin/users/test-admin' && opts.method === 'PATCH') data = { ok: true };
   else if (path === '/api/admin/archives') data = { exports: [], imports: [] };
   else if (path === '/api/jobs') data = { items: jobFixture.slice(0, Number(new URL(String(url), location.href).searchParams.get('limit') || 50)), total: jobFixture.length };
@@ -201,10 +206,25 @@ window.fetch = async (url, opts = {}) => {
     current: { type: 'sqlite', path: '/state/synthetic.sqlite3' }, status: { connected: true, schema_version: 6 },
     info: { last_update: '2026-11-24T20:00:00Z', db_id: 'synthetic', files: 2, open_jobs: 0 }, previous: [],
   };
-  else if (path === '/api/admin/settings') data = opts.method === 'PATCH' ? { ok: true } : {
-    settings: { organize: { no_date_folder: 'No_date', duplicates_folder: 'Duplicates' }, scan: { exclude: [] },
+  else if (path === '/api/admin/settings/exclusions/test') {
+    const body = JSON.parse(opts.body);
+    const code = body.exclude.some((pattern) => !pattern.trim()) ? 'exclusion_empty' :
+      new Set(body.exclude).size !== body.exclude.length ? 'exclusion_duplicate' :
+      body.exclude.some((pattern) => ['*', '**', '?*', '*?*'].includes(pattern)) ? 'exclusion_all' :
+      body.exclude.includes('[abc') ? 'exclusion_invalid' : null;
+    if (code) return new Response(JSON.stringify({ error: code }), { status: 400 });
+    data = { matches: body.exclude.filter((pattern) => pattern === body.name || pattern === '.*' && body.name.startsWith('.')) };
+  }
+  else if (path === '/api/admin/settings' && opts.method === 'PATCH') {
+    const body = JSON.parse(opts.body);
+    if (body.scan) exclusionsFixture = body.scan;
+    data = { ok: true };
+  }
+  else if (path === '/api/admin/settings') data = {
+    settings: { organize: { no_date_folder: 'No_date', duplicates_folder: 'Duplicates' }, scan: exclusionsFixture || { exclude: [] },
       metadata: { fields: [] }, previews: { transcode_height: 720, crf: 28 }, default_lang: 'en',
       library_timezone: 'Europe/Rome', show_version_on_login: true },
+    scan_exclude_defaults: ['.*', '@eaDir', '#recycle', '$RECYCLE.BIN', 'lost+found', 'Thumbs.db', 'desktop.ini'],
     locales: [{ code: 'en', name: 'English' }], timezones: [
       { name: 'UTC', offset: '+00:00' }, { name: 'Europe/Rome', offset: '+01:00' },
       { name: 'Asia/Kathmandu', offset: '+05:45' },
@@ -1563,7 +1583,7 @@ await test('U45: Jobs Metadata and Diagnostics filters survive route reconstruct
 });
 await test('U46/U39b: flagged counts exclude decisions from To review and examples are clearly hints', async () => {
   const { reviewCounts } = await import('../frontend/static/js/views/review.js');
-  assert(reviewCounts({ total: 53, pending: 52, decided: 1 }) === '53 flagged · 52 to review · 1 decided', 'review counts are misleading');
+  assert(reviewCounts({ total: 53, pending: 52, decided: 1 }) === 'Flagged: 53 items · To review: 52 items · Decided: 1 item', 'review counts are misleading');
   await go('#/metadata');
   assert([...document.querySelector('.review-queue select').options].map((option) => option.textContent).join('/') === 'All/To review/Decided', 'review status labels differ');
   assert(document.querySelector('thead').textContent.includes(t('review.col_decision')), 'Decision column missing in default filter');
@@ -1627,6 +1647,246 @@ await test('UI polish: sign-in ignores a second submit while the first is in fli
     assert(submitted === 1 && form.querySelector('[type="submit"]').disabled, 'double submit was accepted');
     release(); await sleep();
   } finally { window.fetch = original; root.remove(); await go('#/home'); }
+});
+await test('P1: banner close is inside the first-line corner and main focus has no ring', async () => {
+  const previous = app.state.boot.security_banner;
+  try {
+    app.state.boot.security_banner = { last: { ts: '2026-11-24T20:00:00Z', ip: '127.0.0.1' }, failed: 1, until: '2026-11-25T20:00:00Z' };
+    window.dispatchEvent(new CustomEvent('po:password-changed')); await sleep(); await sleep();
+    const banner = document.querySelector('.security-banner');
+    const close = banner.querySelector('.banner-close');
+    const b = banner.getBoundingClientRect(), c = close.getBoundingClientRect(), p = banner.querySelector('p').getBoundingClientRect();
+    assert(c.left >= b.left && c.right <= b.right && c.top >= b.top && c.bottom <= b.bottom, 'close button lies outside banner');
+    assert(Math.abs(c.top - p.top) <= 2 && c.right > b.right - 40, 'close button is not in first-line top corner');
+    assert(close.getAttribute('aria-label') === t('security.close_banner'), 'close label does not describe the banner');
+    await go('#/jobs');
+    const main = document.querySelector('main');
+    assert(document.activeElement === main && getComputedStyle(main).outlineStyle === 'none', 'programmatic navigation focus shows a container ring');
+  } finally { app.state.boot.security_banner = previous; window.dispatchEvent(new CustomEvent('po:password-changed')); await sleep(); await go('#/home'); }
+});
+await test('P2: every counted string renders 0, 1 and 2 with complete plural forms in all ten locales', async () => {
+  const { setLanguage } = await import('../frontend/static/js/i18n.js');
+  const codes = ['en', 'it', 'de', 'fr', 'es', 'pt-BR', 'ru', 'ar', 'zh-Hans', 'ja'];
+  const base = await (await fetch('/api/locales/en')).json();
+  try {
+    for (const code of codes) {
+      await setLanguage(code); await sleep();
+      const data = await (await fetch('/api/locales/' + code)).json();
+      const required = new Intl.PluralRules(code).resolvedOptions().pluralCategories.sort().join(',');
+      for (const [key, value] of Object.entries(base.messages)) {
+        if (!JSON.stringify(value).includes('{count}')) continue;
+        assert(typeof data.messages[key] === 'object' && Object.keys(data.messages[key]).sort().join(',') === required,
+          code + ':' + key + ' missing plural form');
+        for (const count of [0, 1, 2]) {
+          const params = { count, size: '1 MB', recoverable: '1 MB', user: 'synthetic', id: '1', date: '2026-11-28',
+            planned: count, done: count, blocked: count };
+          const rendered = t(key, params);
+          assert(rendered && !/\{\w+\}|…/.test(rendered), code + ':' + key + ':' + count + ' did not render');
+        }
+      }
+      const mixed = t('meta.compact_summary', { analysed: 1, unreadable: 2, reliable: 0, total: 2, pending: 1, decided: 0 });
+      assert(!/\{\w+\}|…/.test(mixed), code + ': independent counters failed');
+      if (code === 'en') assert(t('security.failed_since', { count: 1 }).includes('1 failed sign-in attempt since') &&
+        t('security.failed_since', { count: 2 }).includes('2 failed sign-in attempts since'), 'English singular/plural regression');
+      if (code === 'it') assert(t('security.failed_since', { count: 1 }).startsWith('1 tentativo fallito') &&
+        t('security.failed_since', { count: 2 }).startsWith('2 tentativi falliti'), 'Italian singular/plural regression');
+    }
+  } finally { await setLanguage('en'); await sleep(); await go('#/home'); }
+});
+await test('P3/P4: review dimensions and History wording are exact', async () => {
+  dimensionsFixture = true;
+  try {
+    await go('#/metadata/review/1');
+    assert(document.querySelector('.preview-caption').textContent.includes('512 × 771'), 'caption lacks dimension separator');
+    assert([...document.querySelectorAll('tbody code')].some((node) => node.textContent === '512 × 771'), 'field table lacks dimension separator');
+    assert(fmt.dimensions('512x771') === '512 × 771' && fmt.dimensions('512 × 771') === '512 × 771', 'dimension formats are not preserved');
+    assert(t('home.step_report') === 'See what was done, verify, and undo if needed.', 'Home step wording wrong');
+    operationsFixture = [{ id: 33, date: '2026-11-28T12:00:00Z', type: 'dedupe_apply', count: 35, user: 'synthetic', undone: 0 }];
+    await go('#/report');
+    assert(document.querySelector('.intro').textContent === 'Operations performed, their undo, and final verification.', 'History description wrong');
+    assert(document.querySelector('#operation-33 td:last-child').textContent === '0', 'Undone includes redundant text');
+  } finally { dimensionsFixture = false; operationsFixture = []; await go('#/home'); }
+});
+await test('P5: absent and legacy analysis never show fabricated zero or historical queue results', async () => {
+  const previous = analysisStatus;
+  try {
+    for (const reason of ['never_analyzed', 'older_version']) {
+      analysisStatus = { exists: false, empty: true, reason };
+      for (const route of ['#/home', '#/duplicates', '#/metadata', '#/metadata/review', '#/organize']) {
+        await go(route);
+        const main = document.querySelector('main');
+        assert(main.innerText.includes(t('analysis.no_results')), 'no-results explanation missing on ' + route);
+        assert(!main.innerText.includes(t('dup.none')) && !main.innerText.includes(t('dup.summary', { count: 0, size: fmt.bytes(0) })), 'fake zero result on ' + route);
+        assert(!main.querySelector('.cards .card, .review-queue tbody, .start-review:not([hidden]), .automatic-fills'), 'historical analysis-dependent results remain on ' + route);
+      }
+    }
+    await go('#/report');
+    assert(!document.querySelector('main').innerText.includes(t('analysis.no_results')), 'History is incorrectly gated by analysis');
+  } finally { analysisStatus = previous; await go('#/home'); }
+});
+await test('P6/U49: immediate selectors are compact, clearable, URL-persistent and have no Apply', async () => {
+  const previous = app.state.perms;
+  app.state.perms = { ...previous, global_dedupe: true };
+  const cases = [
+    ['#/jobs', '.filters select', 'completed', 'status', 'open'],
+    ['#/duplicates', '.filters select', 'global', 'scope', 'user'],
+    ['#/metadata', '.filters select', 'decided', 'status', 'pending'],
+    ['#/plans/1', '.filters select', 'planned', 'status', ''],
+  ];
+  try {
+    for (const [route, selector, value, key, defaultValue] of cases) {
+      await go(route);
+      const select = document.querySelector(selector);
+      assert(!document.querySelector('.filter-apply'), 'Apply appears without deferred filters on ' + route);
+      select.value = value; select.dispatchEvent(new Event('change')); await sleep();
+      assert(new URLSearchParams(location.hash.split('?')[1]).get(key) === value, 'selector was not applied immediately on ' + route);
+      if (route === '#/metadata') {
+        const kind = document.querySelectorAll('.filters select')[1];
+        kind.value = 'no_date'; kind.dispatchEvent(new Event('change')); await sleep();
+        const params = new URLSearchParams(location.hash.split('?')[1]);
+        assert(params.get('status') === 'decided' && params.get('kind') === 'no_date', 'Metadata kind is not immediate or loses status');
+      }
+      assert(select.getBoundingClientRect().width < document.querySelector('main').getBoundingClientRect().width - 25, 'full-width select on ' + route);
+      await app.route(); await sleep();
+      assert(document.querySelector(selector).value === value, 'URL filter reconstruction failed on ' + route);
+      [...document.querySelectorAll('.filters button')].find((node) => node.textContent === t('logs.clear')).click(); await sleep();
+      assert(document.querySelector(selector).value === defaultValue, 'Clear failed on ' + route);
+    }
+    for (const route of ['#/logs', '#/security-activity', '#/admin/users', '#/admin/groups']) {
+      await go(route);
+      for (const select of document.querySelectorAll('.filters select')) assert(select.getBoundingClientRect().width < innerWidth - 25, 'filter select overflows on ' + route);
+      assert(document.documentElement.scrollWidth <= innerWidth, 'filters overflow viewport on ' + route);
+    }
+  } finally { app.state.perms = previous; await go('#/home'); }
+});
+await test('U49: Diagnostics number filter waits for Enter/Apply and immediate filters keep applied text', async () => {
+  await go('#/logs?job_id=1');
+  const job = document.querySelector('.log-job-filter');
+  const apply = document.querySelector('.filter-apply');
+  const last = () => new URL(requests.filter((row) => row.url.startsWith('/api/logs?')).at(-1).url, location.href).searchParams;
+  const before = requests.filter((row) => row.url.startsWith('/api/logs?')).length;
+  job.value = '99'; job.dispatchEvent(new Event('input')); await sleep();
+  assert(requests.filter((row) => row.url.startsWith('/api/logs?')).length === before && apply.classList.contains('pending'), 'typing applied or Apply not highlighted');
+  const level = document.querySelector('.log-filters select');
+  level.value = 'WARNING'; level.dispatchEvent(new Event('change')); await sleep();
+  assert(last().get('level') === 'WARNING' && last().get('job_id') === '1' && job.value === '99' && apply.classList.contains('pending'), 'dropdown silently applies or overwrites pending number');
+  const owner = document.querySelector('.log-user-filter');
+  owner.value = 'synthetic'; owner.dispatchEvent(new Event('change')); await sleep();
+  assert(last().get('owner') === 'synthetic' && last().get('job_id') === '1', 'User filter is not immediate or applies pending number');
+  const present = document.querySelector('.log-only-present');
+  present.checked = false; present.dispatchEvent(new Event('change')); await sleep();
+  assert(last().get('job_id') === '1' && new URLSearchParams(location.hash.split('?')[1]).get('only_present') === '0', 'checkbox applies pending text');
+  document.querySelector('.log-event-filter').click();
+  [...document.querySelectorAll('.combo-option')].find((node) => node.textContent.includes('FILE_UNREADABLE')).click(); await sleep();
+  assert(last().get('event') === 'FILE_UNREADABLE' && last().get('job_id') === '1', 'searchable selection is not immediate or commits pending number');
+  job.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await sleep();
+  assert(last().get('job_id') === '99' && !apply.classList.contains('pending'), 'Enter did not apply number');
+  job.value = '14'; job.dispatchEvent(new Event('input')); apply.click(); await sleep();
+  assert(last().get('job_id') === '14', 'Apply did not apply number');
+  await app.route(); await sleep();
+  assert(document.querySelector('.log-job-filter').value === '14', 'applied number did not survive URL reconstruction');
+  await go('#/home');
+});
+await test('U49: Security searchable select, User and UTC dates apply immediately without Apply', async () => {
+  await go('#/security-activity');
+  assert(!document.querySelector('.filter-apply'), 'Security Log has an unnecessary Apply');
+  document.querySelector('main .combo-trigger').click();
+  [...document.querySelectorAll('.combo-option')].find((node) => node.textContent.includes('LOGIN_FAILED')).click(); await sleep();
+  const owner = document.querySelector('.filters select');
+  owner.value = 'synthetic'; owner.dispatchEvent(new Event('change')); await sleep();
+  const date = document.querySelector('.filters input[type="date"]');
+  date.value = '2026-11-24'; date.dispatchEvent(new Event('change')); await sleep();
+  const until = document.querySelectorAll('.filters input[type="date"]')[1];
+  until.value = '2026-11-28'; until.dispatchEvent(new Event('change')); await sleep();
+  const q = new URL(requests.filter((row) => row.url.startsWith('/api/admin/audit?')).at(-1).url, location.href).searchParams;
+  assert(q.get('event') === 'LOGIN_FAILED' && q.get('user') === 'synthetic' && q.get('since') === '2026-11-24T00:00:00Z' &&
+    q.get('until') === '2026-11-28T23:59:59.999Z', 'Security discrete filters need Apply or lose each other');
+  await app.route(); await sleep();
+  assert(document.querySelector('.filters input[type="date"]').value === '2026-11-24', 'date did not survive URL reconstruction');
+  await go('#/home');
+});
+await test('U49: admin list text waits for Enter/Apply; state dropdowns keep unapplied text', async () => {
+  groupsFixture = [{ id: 'synthetic-group', name: 'Synthetic', active: true }];
+  try {
+    for (const route of ['#/admin/users', '#/admin/groups']) {
+      await go(route);
+      const text = document.querySelector('.filters input[type="search"]');
+      const apply = document.querySelector('.filter-apply');
+      text.value = 'missing-name'; text.dispatchEvent(new Event('input')); await sleep();
+      assert(document.querySelector('main tbody') && apply.classList.contains('pending') && !location.hash.includes('search='), 'typing applies admin search on ' + route);
+      const state = [...document.querySelectorAll('.filters select')].at(-1);
+      state.value = '1'; state.dispatchEvent(new Event('change')); await sleep();
+      assert(document.querySelector('main tbody') && !location.hash.includes('search=') && text.value === 'missing-name', 'state commits pending admin search on ' + route);
+      text.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await sleep();
+      assert(!document.querySelector('main tbody') && location.hash.includes('search=missing-name') && !apply.classList.contains('pending'), 'Enter fails admin search on ' + route);
+      text.value = ''; text.dispatchEvent(new Event('input')); apply.click(); await sleep();
+      assert(document.querySelector('main tbody'), 'Apply fails admin search on ' + route);
+      await app.route(); await sleep();
+      assert([...document.querySelectorAll('.filters select')].at(-1).value === '1', 'admin URL state reconstruction fails on ' + route);
+      [...document.querySelectorAll('.filters button')].find((node) => node.textContent === t('logs.clear')).click(); await sleep();
+      assert(!location.hash.includes('?'), 'admin Clear leaves filters on ' + route);
+    }
+  } finally { groupsFixture = []; await go('#/home'); }
+});
+await test('U48: managed defaults, name testing, validation and staged save confirmations', async () => {
+  exclusionsFixture = { exclude: ['.*', '@eaDir', '#recycle', '$RECYCLE.BIN', 'lost+found', 'Thumbs.db', 'desktop.ini'] };
+  const control = (key) => document.getElementById([...document.querySelectorAll('.modal label')].find((node) => node.textContent === t(key)).htmlFor);
+  const clickModal = async (key) => { [...document.querySelectorAll('.modal button')].find((node) => node.textContent === t(key)).click(); await sleep(); };
+  try {
+    await go('#/admin/settings');
+    assert(!document.querySelector('textarea') && document.querySelectorAll('.exclusions-list tbody tr').length === 7, 'exclusions remain free text or missing defaults');
+    assert(document.querySelectorAll('.exclusions-list .badge').length === 7 && document.querySelector('.exclusions-list').textContent.includes(t('exclusions.default.hidden')), 'default tags/descriptions missing');
+    [...document.querySelectorAll('.exclusions-list button')].find((node) => node.textContent === t('exclusions.add')).click(); await sleep();
+    control('exclusions.pattern').value = '*'; await clickModal('common.save');
+    assert(document.querySelector('.modal-overlay'), 'exclude-all pattern accepted');
+    control('exclusions.pattern').value = 'Backup';
+    control('exclusions.description').value = 'Synthetic backup';
+    control('exclusions.test_name').value = 'Backup'; control('exclusions.test_name').dispatchEvent(new Event('input')); await sleep();
+    assert(document.querySelector('.exclusion-dialog [role="status"]').textContent === t('exclusions.matches', { patterns: 'Backup' }), 'name test does not report matching pattern');
+    await clickModal('common.save');
+    const row = [...document.querySelectorAll('.exclusions-list tbody tr')].find((node) => node.textContent.includes('#recycle'));
+    row.querySelectorAll('button')[1].click(); await sleep();
+    await clickModal('common.cancel');
+    assert(row.isConnected, 'cancelled removal changes list');
+    row.querySelectorAll('button')[1].click(); await sleep(); await clickModal('common.confirm');
+    const save = document.querySelector('main .form > .actions button');
+    save.click(); await sleep();
+    assert(document.querySelector('.modal-body').textContent.includes(t('exclusions.added', { patterns: 'Backup' })) &&
+      document.querySelector('.modal-body').textContent.includes(t('exclusions.removed', { patterns: '#recycle' })) &&
+      document.querySelector('.modal-body').textContent.includes(t('exclusions.next_analysis')), 'save lacks explicit change summary/safety note');
+    const before = requests.filter((row) => row.url === '/api/admin/settings' && row.body).length;
+    await clickModal('common.cancel');
+    assert(requests.filter((row) => row.url === '/api/admin/settings' && row.body).length === before, 'cancelled save writes setting');
+    save.click(); await sleep(); await clickModal('common.confirm');
+    const saved = requests.filter((row) => row.url === '/api/admin/settings' && row.body).at(-1).body.scan;
+    assert(saved.confirm && saved.exclude.includes('Backup') && !saved.exclude.includes('#recycle') &&
+      saved.exclude_descriptions.Backup === 'Synthetic backup', 'confirmed save loses pattern semantics/description');
+    [...document.querySelectorAll('.exclusions-list button')].find((node) => node.textContent === t('exclusions.restore')).click(); await sleep();
+    await clickModal('common.cancel');
+    assert(document.querySelector('.exclusions-list').textContent.includes('Backup'), 'cancelled defaults changes list');
+  } finally { exclusionsFixture = null; document.querySelectorAll('.modal-overlay').forEach((node) => node.remove()); await go('#/home'); }
+});
+await test('U48: Edit rejects duplicate/empty/invalid patterns and Restore defaults is confirmed', async () => {
+  exclusionsFixture = { exclude: ['.*', '@eaDir', '#recycle', '$RECYCLE.BIN', 'lost+found', 'Thumbs.db', 'desktop.ini'] };
+  const click = async (key) => { [...document.querySelectorAll('.modal button')].find((node) => node.textContent === t(key)).click(); await sleep(); };
+  try {
+    await go('#/admin/settings');
+    const row = [...document.querySelectorAll('.exclusions-list tbody tr')].find((node) => node.textContent.includes('#recycle'));
+    row.querySelector('button').click(); await sleep();
+    const pattern = document.getElementById([...document.querySelectorAll('.modal label')].find((node) => node.textContent === t('exclusions.pattern')).htmlFor);
+    for (const invalid of ['', '@eaDir', '[abc']) {
+      pattern.value = invalid; await click('common.save');
+      assert(document.querySelector('.modal-overlay'), 'Edit accepted invalid pattern ' + invalid);
+    }
+    pattern.value = 'Backup'; await click('common.save');
+    assert(document.querySelector('.exclusions-list').textContent.includes('Backup') &&
+      !document.querySelector('.exclusions-list').textContent.includes('#recycle'), 'Edit does not update the staged list');
+    [...document.querySelectorAll('.exclusions-list button')].find((node) => node.textContent === t('exclusions.restore')).click(); await sleep();
+    assert(document.querySelector('.modal-body').textContent.includes(t('exclusions.restore_confirm')), 'Restore does not confirm');
+    await click('common.confirm');
+    assert(document.querySelectorAll('.exclusions-list .badge').length === 7 &&
+      !document.querySelector('.exclusions-list').textContent.includes('Backup'), 'Restore does not restore all built-ins');
+  } finally { exclusionsFixture = null; document.querySelectorAll('.modal-overlay').forEach((node) => node.remove()); await go('#/home'); }
 });
 if (app.state.view?.destroy) app.state.view.destroy();
 if (app.state.stopMetrics) app.state.stopMetrics();

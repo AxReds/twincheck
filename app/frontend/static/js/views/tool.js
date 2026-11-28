@@ -2,7 +2,7 @@
 import { h, mount, button, field, table, modal, toast, badge, instant, dataView } from '../dom.js';
 import { t, fmt } from '../i18n.js';
 import { get, post } from '../api.js';
-import { jobList, jobCard, sourceSelect, folderBrowser, kv, pager, poll, jobBadge, stepGuide, waitForJob, databaseNotice, comboBox, tablePaging, analysisSummary, refreshBlocked, pageFilters } from '../components.js';
+import { jobList, jobCard, sourceSelect, folderBrowser, kv, pager, poll, jobBadge, stepGuide, waitForJob, databaseNotice, comboBox, tablePaging, analysisSummary, refreshBlocked, pageFilters, filterControls } from '../components.js';
 import { reviewCounts, list as reviewQueue } from './review.js';
 
 function page(main, titleKey, introKey, ...body) {
@@ -48,7 +48,7 @@ function analysisNotice(status, current = false) {
     h('a', { class: 'btn', href: '#/analyze' }, t('scan.analyze_library')));
   if (status.stale) return h('div', { class: 'notice warn' },
     status.reason === 'files_changed' ? t('analysis.changed_since', { date: fmt.date(status.analyzed_at) }) + ' ' : '',
-    status.changes && Object.values(status.changes).some(Boolean) ? t('analysis.changes', Object.fromEntries(Object.entries(status.changes).map(([key, n]) => [key, fmt.number(n)]))) : t('analysis.stale'),
+    status.changes && Object.values(status.changes).some(Boolean) ? t('analysis.changes', status.changes) : t('analysis.stale'),
     status.incomplete ? ' ' + t('analysis.incomplete') : '', ' ',
     current ? null : h('a', { href: '#/analyze' }, t('analysis.update')));
   if (status.analyzed_at) return h('p', { class: 'notice', title: fmt.dateTooltip(status.analyzed_at) },
@@ -76,13 +76,18 @@ export async function home(main, state) {
     return;
   }
   try {
-    const r = await get('/api/report');
-    const total = r.files.reduce((a, x) => a + x.n, 0);
-    const bytes = r.files.reduce((a, x) => a + x.bytes, 0);
-    const pending = r.review_counts?.pending ?? r.review.filter((x) => ['pending', 'skipped', 'needs_recheck'].includes(x.status)).reduce((n, x) => n + x.n, 0);
-    mount(summary, card('home.files', t('home.files_value', { count: total, size: fmt.bytes(bytes) })),
-      card('home.duplicates', t('home.duplicates_value', { count: r.duplicates.groups, size: fmt.bytes(r.duplicates.recoverable) })),
-      card('home.review_pending', fmt.number(pending)), card('home.missing', fmt.number(r.missing)));
+    const status = await analysisState();
+    if (!status.exists || status.empty) {
+      mount(summary, h('p', { class: 'notice' }, t('analysis.no_results')), analysisNotice(status));
+    } else {
+      const r = await get('/api/report');
+      const total = r.files.reduce((a, x) => a + x.n, 0);
+      const bytes = r.files.reduce((a, x) => a + x.bytes, 0);
+      const pending = r.review_counts?.pending ?? r.review.filter((x) => ['pending', 'skipped', 'needs_recheck'].includes(x.status)).reduce((n, x) => n + x.n, 0);
+      mount(summary, card('home.files', t('home.files_value', { count: total, size: fmt.bytes(bytes) })),
+        card('home.duplicates', t('home.duplicates_value', { count: r.duplicates.groups, size: fmt.bytes(r.duplicates.recoverable) })),
+        card('home.review_pending', fmt.number(pending)), card('home.missing', fmt.number(r.missing)));
+    }
   } catch (e) { mount(summary, h('p', { class: 'notice warn' }, e.message)); }
   const jl = jobList(main, 'status=open&limit=20');
   return { destroy: jl.stop };
@@ -162,6 +167,11 @@ export async function duplicates(main, state) {
   const flowStatus = await analysisState();
   const pagination = tablePaging(state.user.id, 'duplicates', (o) => { offset = o; load(); });
   const load = async () => {
+    if (!flowStatus.exists || flowStatus.empty) {
+      summary.hidden = true;
+      mount(list, h('p', { class: 'notice' }, t('analysis.no_results')));
+      return;
+    }
     const d = await get(`/api/duplicates?scope=${scope()}&offset=${offset}&limit=${pagination.query()}`);
     if (!await pagination.check(d.total, d.groups.length)) return;
     summary.textContent = t('dup.summary', { count: d.total, size: fmt.bytes(d.recoverable) });
@@ -190,7 +200,8 @@ export async function duplicates(main, state) {
   if (scopeSel) scopeSel.addEventListener('change', () => { filters.save({ scope: scope() }); offset = 0; load(); });
   page(main, 'dup.title', 'dup.intro',
     stepGuide(2, flowStatus), analysisNotice(flowStatus),
-    scopeSel ? field('dup.scope', scopeSel) : null,
+    h('div', { class: 'filters' }, scopeSel ? field('dup.scope', scopeSel) : null,
+      button('logs.clear', () => { if (scopeSel) scopeSel.value = 'user'; filters.save({ scope: 'user' }); offset = 0; load(); })),
     flowStatus.empty ? null : h('div', { class: 'actions' },
       button('dup.plan', (event) => startJob(
         scope() === 'global' ? '/api/admin/global-dedupe/plan' : '/api/duplicates/plan',
@@ -225,10 +236,11 @@ export async function metadata(main, state, [view] = []) {
       h('p', { class: 'hint' }, t('review.short_date_help')), h('p', { class: 'hint' }, t('review.write_help')),
       h('ul', { class: 'rules' }, ['meta.rule_copy', 'meta.rule_never_invent', 'meta.rule_never_overwrite', 'meta.rule_conflicts', 'meta.rule_video_utc', 'meta.rule_backup']
         .map((k) => h('li', {}, t(k))))),
-    data.review_write_pending > 0 ? h('div', { class: 'actions' }, button('review.write_plan',
+    flowStatus.exists && !flowStatus.empty && data.review_write_pending > 0 ? h('div', { class: 'actions' }, button('review.write_plan',
       (event) => startJob('/api/review/plan', {}, openPlanWhenReady, event.currentTarget), 'primary')) : null,
     h('a', { class: 'small history-link', href: '#/jobs' }, t('analysis.history')));
-  await reviewQueue(queue, state, { embedded: true });
+  if (flowStatus.exists && !flowStatus.empty) await reviewQueue(queue, state, { embedded: true });
+  else mount(queue, h('p', { class: 'notice' }, t('analysis.no_results')));
 }
 
 // --- organise ---------------------------------------------------------------------------------
@@ -238,6 +250,10 @@ export async function organize(main, state) {
   const previewBox = h('div', { class: 'organize-preview-banner' });
   const updatePreview = dataView(previewBox);
   const loadPreview = async () => {
+    if (!flowStatus.exists || flowStatus.empty) {
+      mount(previewBox, h('p', { class: 'notice' }, t('analysis.no_results')));
+      return;
+    }
     const data = await get('/api/organize/preview?source_id=' + encodeURIComponent(select.value));
     updatePreview(data.preview, (preview) => preview ? h('div', { class: 'notice' + (preview.stale ? ' warn' : '') },
       h('p', {}, t('org.last_preview', { id: preview.id, date: fmt.date(preview.date), count: preview.count })),
@@ -269,14 +285,15 @@ export async function organize(main, state) {
 export async function plan(main, state, [id]) {
   let offset = 0;
   let section = '#/jobs';
-  let status = '';
+  let status = pageFilters().get('status');
   const box = h('div', {});
   const update = dataView(box);
   const applyBox = h('div', {});
   const back = h('a', { class: 'back-link', href: section });
   let stopApply = null;
   const filter = h('select', {}, ['', 'planned', 'blocked', 'done', 'skipped', 'failed'].map((s) => h('option', { value: s }, s ? t('plan.status.' + s) : t('plan.all'))));
-  filter.addEventListener('change', () => { status = filter.value; offset = 0; load(); });
+  filter.value = status;
+  filter.addEventListener('change', () => { status = filter.value; pageFilters().save({ status }); offset = 0; load(); });
   const filterField = field('plan.filter', filter);
   const load = async () => {
     const d = await get(`/api/plans/${id}?offset=${offset}&limit=100${status ? '&status=' + status : ''}`);
@@ -326,7 +343,9 @@ export async function plan(main, state, [id]) {
       stopApply = jobList(applyBox, 'kind=' + d.job.apply_kind + '&limit=3').stop;
     } catch (e) { toast(e.message, 'error'); }
   };
-  page(main, 'plan.title', 'plan.intro', back, filterField, box, h('h2', {}, t('plan.execution')), applyBox);
+  page(main, 'plan.title', 'plan.intro', back, h('div', { class: 'filters' }, filterField,
+    button('logs.clear', () => { filter.value = ''; filter.dispatchEvent(new Event('change')); })), box,
+    h('h2', {}, t('plan.execution')), applyBox);
   await load();
   const stop = poll(load, 4000, box);
   return { section, destroy: () => { stop(); if (stopApply) stopApply(); } };
@@ -343,7 +362,7 @@ export async function report(main) {
     class: String(op.id) === selected ? 'operation-selected' : '' },
     h('td', {}, instant(op.date)), h('td', {}, t('report.operation.' + op.type), ' #' + op.id),
     h('td', {}, fmt.number(op.count)), h('td', {}, op.user),
-    h('td', {}, t('report.operation_undone', { count: op.undone }))));
+    h('td', {}, fmt.number(op.undone))));
   page(main, 'report.title', 'report.intro',
     stepGuide(4, flowStatus),
     h('h2', {}, t('report.operations')),
@@ -368,19 +387,19 @@ export async function report(main) {
 export async function jobs(main, state) {
   const query = new URLSearchParams(location.hash.split('?')[1] || '');
   const kind = query.get('kind') || '';
-  const sel = h('select', {}, ['open', '', 'completed', 'failed', 'cancelled'].map((s) => h('option', { value: s }, s ? t('job.filter.' + s) : t('job.filter.all'))));
+  const sel = h('select', {}, ['open', 'all', 'completed', 'failed', 'cancelled'].map((s) => h('option', { value: s }, t('job.filter.' + s))));
   const box = h('div', {});
   const pagingBox = h('div', {});
-  sel.value = query.has('status') ? (query.get('status') === 'all' ? '' : query.get('status')) : kind ? '' : 'open';
   const update = dataView(box);
-  const filters = pageFilters({ status: kind ? '' : 'open' });
-  page(main, 'jobs.title', 'jobs.intro', stepGuide(0, await analysisState()), h('div', { class: 'filters log-filters' }, field('jobs.filter', sel)), box, pagingBox);
+  const filters = filterControls({ status: sel }, () => { offset = 0; return load(); }, { status: kind ? 'all' : 'open' });
+  page(main, 'jobs.title', 'jobs.intro', stepGuide(0, await analysisState()), h('div', { class: 'filters log-filters' },
+    field('jobs.filter', sel), filters.clear), box, pagingBox);
   let offset = 0;
   const pagination = tablePaging(state.user.id, 'jobs', (o) => { offset = o; load(); });
   const load = async (automatic = false) => {
     const q = new URLSearchParams({ offset, limit: pagination.query() });
     if (kind) q.set('kind', kind);
-    if (sel.value) q.set('status', sel.value);
+    if (filters.get('status') !== 'all') q.set('status', filters.get('status'));
     const d = await get('/api/jobs?' + q);
     if (!box.isConnected || !await pagination.check(d.total, d.items.length)) return;
     if (automatic && refreshBlocked(main)) return;
@@ -388,7 +407,6 @@ export async function jobs(main, state) {
     const controls = pagination.render(d.total, offset);
     if (!controls.isConnected) pagingBox.appendChild(controls);
   };
-  sel.addEventListener('change', () => { filters.save({ status: sel.value || 'all' }); offset = 0; load(); });
   await load();
   return { destroy: poll(() => load(true), 1500, main) };
 }
@@ -413,7 +431,9 @@ export async function logs(main, state) {
   const exportAll = h('a', { class: 'btn log-export-all', href: '/api/logs.csv?scope=all', download: '' });
   const exportNote = h('p', { class: 'hint log-export-note' });
   const visibilityNote = h('p', { class: 'notice log-visibility-note', hidden: true });
-  const filters = pageFilters();
+  const filters = filterControls({ event: ev, level: lv, job_id: job, ...(owner ? { owner, only_present: onlyPresent } : {}) },
+    () => { selectedEvent = filters.get('event'); selectedOwner = filters.get('owner') || ''; offset = 0; return load(); },
+    { only_present: '1' });
   let appliedFilters = new URLSearchParams();
   let eventCounts = {};
   const updateEvents = () => {
@@ -424,9 +444,7 @@ export async function logs(main, state) {
           section: count > 0 ? 'logs.present' : 'logs.not_present' }))]);
     ev.setValue(selectedEvent);
   };
-  onlyPresent.addEventListener('change', () => {
-    updateEvents(); filters.save({ only_present: onlyPresent.checked ? '' : '0' });
-  });
+  onlyPresent.addEventListener('change', updateEvents);
   const updateExport = (d) => {
     const q = new URLSearchParams(appliedFilters);
     q.delete('offset'); q.delete('limit'); q.set('scope', 'filtered');
@@ -441,18 +459,13 @@ export async function logs(main, state) {
       : t('logs.export_own_note');
   };
   exportFiltered.addEventListener('click', (event) => { if (exportFiltered.getAttribute('aria-disabled') === 'true') event.preventDefault(); });
-  const clearFilters = () => {
-    selectedEvent = ''; ev.setValue(''); lv.value = ''; job.value = ''; offset = 0;
-    selectedOwner = ''; if (owner) owner.value = '';
-    onlyPresent.checked = true;
-    history.replaceState(null, '', '#/logs'); load();
-  };
+  const clearFilters = () => filters.clear.click();
   const pagination = tablePaging(state.user.id, 'logs', (o) => { offset = o; load(); });
   const load = async () => {
     const q = new URLSearchParams({ offset, limit: pagination.query() });
     if (selectedEvent) q.set('event', selectedEvent);
     if (lv.value) q.set('level', lv.value);
-    if (job.value) q.set('job_id', job.value);
+    if (filters.get('job_id')) q.set('job_id', filters.get('job_id'));
     if (owner && selectedOwner) q.set('owner', selectedOwner);
     const d = await get('/api/logs?' + q);
     if (!await pagination.check(d.total, d.items.length)) return;
@@ -468,7 +481,7 @@ export async function logs(main, state) {
       d.items.map((r) => h('tr', {}, h('td', {}, instant(r.ts)), h('td', {}, r.level), h('td', { class: 'event-code' }, h('code', {}, r.event)),
         h('td', { lang: 'en', dir: 'ltr' }, r.message), h('td', {}, r.job_id ? '#' + r.job_id : ''),
         owner ? h('td', {}, r.user || t('logs.system')) : null))) :
-      h('div', { class: 'empty-state notice' }, h('p', {}, t(job.value ? 'logs.no_job_events' : selectedEvent ? 'logs.no_code_events' : 'logs.empty', { code: selectedEvent, id: job.value })),
+      h('div', { class: 'empty-state notice' }, h('p', {}, t(filters.get('job_id') ? 'logs.no_job_events' : selectedEvent ? 'logs.no_code_events' : 'logs.empty', { code: selectedEvent, id: filters.get('job_id') })),
         button('logs.clear', clearFilters)),
     pagination.render(d.total, offset));
   };
@@ -478,12 +491,7 @@ export async function logs(main, state) {
     owner ? field('logs.only_present', onlyPresent) : null, field('logs.level', lv),
     owner ? field('admin.col_user', owner) : null,
     field('logs.job', job),
-    button('logs.apply', () => {
-      if (!ev.valid()) { ev.input.focus(); return; }
-      selectedEvent = ev.value(); if (owner) selectedOwner = owner.value;
-      filters.save({ event: selectedEvent, owner: selectedOwner, level: lv.value, job_id: job.value });
-      offset = 0; load();
-    }), button('logs.clear', clearFilters)),
+    filters.apply, filters.clear),
     h('div', { class: 'filters log-export-actions' }, exportFiltered, exportAll), exportNote,
     h('p', { class: 'hint security-log-note' }, h('a', { href: '#/security-activity' }, t('security.see_log'))),
     visibilityNote, box);
@@ -496,6 +504,8 @@ export async function securityActivity(main, state, admin = ['admin', 'administr
   let selectedEvent = params.get('event') || '';
   const event = comboBox({ options: [{ value: '', label: t('logs.all_events') }], value: selectedEvent });
   const owner = admin ? h('select', {}) : null;
+  const since = h('input', { type: 'date' });
+  const until = h('input', { type: 'date' });
   let selectedUser = params.get('user') || '';
   let offset = 0;
   const box = h('div', {});
@@ -504,7 +514,11 @@ export async function securityActivity(main, state, admin = ['admin', 'administr
   const endpoint = admin ? '/api/admin/audit' : '/api/me/security-activity';
   const pagination = tablePaging(state.user.id, admin ? 'audit' : 'security', (next) => { offset = next; load(); });
   const load = async () => {
-    const q = new URLSearchParams(params);
+    const q = new URLSearchParams();
+    for (const key of ['since', 'until']) {
+      const value = filters.get(key);
+      if (value) q.set(key, value.length === 10 ? value + (key === 'until' ? 'T23:59:59.999Z' : 'T00:00:00Z') : value);
+    }
     q.set('offset', offset); q.set('limit', pagination.query());
     if (selectedEvent) q.set('event', selectedEvent); else q.delete('event');
     if (selectedUser) q.set('user', selectedUser); else q.delete('user');
@@ -532,15 +546,13 @@ export async function securityActivity(main, state, admin = ['admin', 'administr
       h('p', { class: 'empty-state notice' }, t(selectedEvent ? 'logs.no_code_events' : 'logs.empty', { code: selectedEvent })),
     pagination.render(data.total, offset));
   };
-  const clear = () => { selectedEvent = ''; selectedUser = ''; for (const key of [...params.keys()]) params.delete(key); if (owner) owner.value = ''; history.replaceState(null, '', '#/security-activity'); offset = 0; load(); };
-  const filters = pageFilters();
+  const filters = filterControls({ event, ...(owner ? { user: owner } : {}), since, until }, () => {
+    selectedEvent = filters.get('event'); selectedUser = filters.get('user') || ''; offset = 0; return load();
+  });
   page(main, 'security.activity', null,
     h('p', { class: 'hint' }, t('security.trial')),
     h('div', { class: 'filters log-filters' }, field('logs.event', event.el), owner ? field('admin.col_user', owner) : null,
-      button('logs.apply', () => {
-        selectedEvent = event.value() || ''; selectedUser = owner?.value || '';
-        filters.save({ event: selectedEvent, user: selectedUser }); offset = 0; load();
-      }), button('logs.clear', clear)),
+      field('filters.since', since), field('filters.until', until), filters.clear),
     h('div', { class: 'actions' }, filtered, all), box);
   await load();
   return { destroy: () => event.close() };

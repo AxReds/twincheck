@@ -60,6 +60,7 @@ export function comboBox({ options, value = '', onChange = () => {}, searchKey =
     close(true);
     render();
     onChange(committed, true);
+    input.dispatchEvent(new Event('change', { bubbles: true }));
   };
   const render = () => {
     const term = search.value.trim().toLowerCase();
@@ -309,10 +310,59 @@ export function pageFilters(defaults = {}) {
         if (value === '' || value === null || value === defaults[key]) params.delete(key);
         else params.set(key, value);
       }
+
       const query = params.toString();
       history.replaceState(null, '', location.hash.split('?')[0] + (query ? '?' + query : ''));
     },
   };
+}
+
+// Immediate controls commit only themselves; text fields retain their last applied value.
+export function filterControls(fields, onApply, defaults = {}) {
+  const url = pageFilters(defaults);
+  const applied = {};
+  const deferred = [];
+  const read = (control) => control.input ? control.value() || '' :
+    control.type === 'checkbox' ? (control.checked ? '1' : '0') : control.value;
+  const write = (control, value) => {
+    if (control.input) control.setValue(value);
+    else if (control.type === 'checkbox') control.checked = value === '1';
+    else control.value = control.type === 'date' ? value.slice(0, 10) : value;
+  };
+  const apply = button('logs.apply', () => {
+    for (const [key, control] of deferred) applied[key] = read(control);
+    commit();
+  }, 'filter-apply');
+  const dirty = () => {
+    const pending = deferred.some(([key, control]) => read(control) !== applied[key]);
+    apply.classList.toggle('pending', pending);
+    apply.setAttribute('aria-label', t(pending ? 'filters.pending' : 'logs.apply'));
+  };
+  const commit = () => {
+    url.save(applied);
+    dirty();
+    Promise.resolve().then(onApply).catch((error) => toast(error.message, 'error'));
+  };
+  for (const [key, control] of Object.entries(fields)) {
+    applied[key] = url.get(key);
+    write(control, applied[key]);
+    const input = control.input || control;
+    if (input.matches('input:not([type="checkbox"]):not([type="date"]):not([type="datetime-local"])') && !control.input) {
+      deferred.push([key, control]);
+      input.addEventListener('input', dirty);
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') { event.preventDefault(); apply.click(); }
+      });
+    } else input.addEventListener('change', () => { applied[key] = read(control); commit(); });
+  }
+  const clear = button('logs.clear', () => {
+    for (const [key, control] of Object.entries(fields)) {
+      applied[key] = defaults[key] ?? '';
+      write(control, applied[key]);
+    }
+    commit();
+  });
+  return { get: (key) => applied[key], apply: deferred.length ? apply : null, clear };
 }
 
 export async function waitForJob(id, onUpdate) {

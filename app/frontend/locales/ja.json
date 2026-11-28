@@ -14,25 +14,37 @@
     "common.rows_storage_unavailable": "ブラウザーのストレージが利用できないため、ページの行数を記憶できません。",
     "common.rows_per_page": "ページあたりの行数",
     "common.all_rows": "すべて",
-    "common.confirm_all_rows": "全{count}行を読み込みますか？時間がかかる場合があります。",
+    "common.confirm_all_rows": {
+      "other": "{count} 行を読み込みますか？時間がかかる場合があります。"
+    },
     "review.postponed_on": "{date} に延期 · 確認待ち",
     "logs.only_present": "存在するイベントのみ",
-    "logs.export_filtered": "絞り込み結果を出力 ({count})",
-    "logs.export_all": "すべて出力 ({count})",
+    "logs.export_filtered": {
+      "other": "絞り込み結果を出力 ({count})"
+    },
+    "logs.export_all": {
+      "other": "すべて出力 ({count})"
+    },
     "logs.export_own_note": "自分のイベントのみが含まれます。",
     "logs.export_all_note": "すべて出力には全ユーザーのイベントが含まれます。",
     "logs.export_user_note": "絞り込み結果の出力には{user}のイベントが含まれます。",
-    "meta.latest_population": "{analysed} 件解析済み · {unreadable} 件読み取り不可 · {total} 件指摘 · {pending} 件確認待ち · {decided} 件決定済み",
-    "meta.current_population": "現在のファイル：{current} = 確認対象外で日付あり {reliable} + 確認中 {review_files} + その他 {other}。確認一覧は割り当てられた全フォルダー、解析は最後に選択したフォルダーを対象とします。読み取り不可のファイルが確認中の場合もあります。",
+    "meta.latest_population": "{analysed} · {unreadable} · {total} · {pending} · {decided}",
+    "meta.current_population": "{current} = {reliable} + {review_files} + {other}. 確認一覧は割り当てられた全フォルダー、解析は最後に選択したフォルダーを対象とします。読み取り不可のファイルが確認中の場合もあります。",
     "settings.show_version_on_login": "ログインページにバージョンを表示",
     "review.date_format": "yyyy-mm-dd hh:mm:ss（24時間）",
     "common.back_to": "{page}に戻る",
-    "meta.empty_fills": "自動補完はありません。欠落フィールドに信頼できる情報源がありません。確認での選択待ち: {count}。",
+    "meta.empty_fills": {
+      "other": "自動補完はありません。欠落フィールドに信頼できる情報源がありません。確認での選択待ち: {count}。"
+    },
     "plan.empty": "このプレビューには変更がありません。ファイルは変更されません。",
-    "review.live_counts": "{total} 件指摘 · {pending} 件確認待ち · {decided} 件決定済み",
-    "review.recheck_count": "{count}件再確認",
-    "job.library_result": "検出ファイル: {found} · 新規または変更: {changed} · 未変更（再利用）: {unchanged} · ハッシュ計算: {hashed}",
-    "job.unreadable": "{count}読み取り不可",
+    "review.live_counts": "{total} · {pending} · {decided}",
+    "review.recheck_count": {
+      "other": "再確認が必要: {count} 項目"
+    },
+    "job.library_result": "{found} · {changed} · {unchanged} · {hashed}",
+    "job.unreadable": {
+      "other": "読み取り不可: {count} ファイル"
+    },
     "analysis.history": "ジョブの履歴",
     "settings.library_timezone": "ライブラリのタイムゾーン",
     "settings.library_timezone_hint": "IANA名（例：Asia/Tokyo）。元のEXIFを変更せず整理に使用します。",
@@ -89,7 +101,7 @@
     "header.host": "ホスト",
     "header.os": "システム",
     "header.cpu": "CPU",
-    "header.cpu_value": "{cores} コア · {pct}",
+    "header.cpu_value": "{cores} · {pct}",
     "header.load": "負荷 {load}",
     "header.memory": "メモリ",
     "header.disk_value": "{used} / {total}（{pct}）",
@@ -193,7 +205,7 @@
     "home.step_metadata": "欠落しているメタデータを信頼できるソースからのみ補完します。",
     "home.step_review": "判断が必要なファイルを決定します。",
     "home.step_organize": "ファイルを 年/月/日 フォルダーに移動します。",
-    "home.step_report": "レポートを確認し、検証し、必要なら取り消します。",
+    "home.step_report": "実行した内容を確認し、検証して、必要に応じて取り消します。",
     "home.summary": "概要",
     "home.files": "インデックス済みファイル",
     "home.files_value": {
@@ -216,8 +228,8 @@
       "other": "{count} 項目"
     },
     "job.phase": "フェーズ {phase}",
-    "job.scan_result": "登録 {indexed} · ハッシュ計算 {hashed} · 再利用 {reused} · ハッシュなし {unhashed}",
-    "job.scan_result_legacy": "登録 {indexed} · ハッシュ計算 {hashed}。変更のないファイルのハッシュは再利用されます（以前のスキャンでは未集計）。",
+    "job.scan_result": "{indexed} · {hashed} · {reused} · {unhashed}",
+    "job.scan_result_legacy": "{indexed} · {hashed}; 変更のないファイルのハッシュは再利用されます（以前のスキャンでは未集計）。",
     "job.needs_confirmation": "このジョブはファイルを書き込みまたは移動します。「再開」をクリックしたときにのみ再開されます。",
     "job.started": "ジョブ #{id} を開始しました。",
     "job.status.queued": "待機中",
@@ -323,7 +335,7 @@
     "plan.col_to": "移動先 / 変更内容",
     "plan.col_status": "状態",
     "plan.summary": {
-      "other": "{count} 項目：未実行 {planned}、完了 {done}、ブロックまたはスキップ {blocked}"
+      "other": "{count} 項目: {planned} · {done} · {blocked}"
     },
     "plan.renamed": "接尾辞を追加",
     "plan.from": "{tag} から（{source}）",
@@ -367,7 +379,7 @@
     "plan.note.recovered": "中断後に復旧しました",
     "review.title": "レビュー",
     "review.intro": "判断が必要なファイルです。決定はすぐに保存されるので、いつでも中断・再開できます。",
-    "review.counts": "保留 {pending} · 保存済み {saved} · スキップ {skipped} · そのまま {kept}",
+    "review.counts": "{pending} · {saved} · {skipped} · {kept}",
     "review.filter_status": "状態",
     "review.filter_kind": "理由",
     "review.all_kinds": "すべての理由",
@@ -459,7 +471,7 @@
     "manifest.action.metadata": "メタデータ書き込み済み",
     "manifest.action.restore": "元に戻し済み",
     "report.title": "履歴と取り消し",
-    "report.intro": "現在のデータベースの概要、マニフェスト、取り消し、最終検証。",
+    "report.intro": "実行した操作、その取り消し、および最終検証。",
     "report.files": "ファイル",
     "report.col_status": "状態",
     "report.col_kind": "種類",
@@ -789,8 +801,10 @@
     "dup.filesystem_date": "File system date: {date}",
     "dup.unknown_date": "unknown",
     "dup.no_analysis": "No duplicate analysis results are available yet.",
-    "meta.summary": "解析済みファイル: {analysed} · メタデータ補完候補: {fills} · 指摘: {review}",
-    "meta.review_items": "Review items ({count})",
+    "meta.summary": "{analysed} · {fills} · {review}",
+    "meta.review_items": {
+      "other": "確認一覧: {count} 項目"
+    },
     "meta.no_analysis": "No metadata analysis results are available yet.",
     "review.preview_error": "Preview could not be loaded (HTTP {status}).",
     "review.detail_values": {
@@ -806,13 +820,13 @@
     "analysis.update": "Update analysis",
     "analysis.empty": "Analyze this library before reviewing or acting on files.",
     "analysis.stale": "Files changed or analysis was interrupted. Update the analysis before continuing.",
-    "analysis.changes": "解析後の変更：新規 {new} · 変更 {changed} · 削除 {removed}。続行する前に解析を更新してください。",
+    "analysis.changes": "{new} · {changed} · {removed}",
     "analysis.incomplete": "最新の解析は中断され、完了していません。",
     "job.already_running": "Job #{id} is already running.",
     "review.status.decided": "決定済み",
     "review.status.all": "すべて",
-    "meta.review_population": "確認一覧 · 項目: {items} · 現在のファイル: {files}（割り当てられた全フォルダー）。解析数は最後に選択したフォルダーの結果です。",
-    "meta.analysis_summary": "最新の解析 · 解析ファイル: {analysed} · メタデータ補完の提案: {fills}",
+    "meta.review_population": "{items} · {files}. 解析数は最後に選択したフォルダーの結果です。",
+    "meta.analysis_summary": "{analysed} · {fills}",
     "db.update_required": "データベースの更新が必要です。管理者に連絡してください。",
     "settings.timezone_search": "タイムゾーンを検索",
     "settings.timezone_offset_hint": "現在の UTC オフセットを表示します。夏時間により変化します。日付の整理に使用し、元の EXIF は変更しません。",
@@ -853,14 +867,16 @@
     "logs.security_admin_note": "セキュリティログを表示",
     "logs.security_own_note": "セキュリティログを表示",
     "security.activity": "セキュリティログ",
-    "meta.compact_summary": "解析済み {analysed} ファイル · {unreadable} 件読み取り不可 · {reliable} 件信頼できる日付あり · {total} 件指摘 · {pending} 件確認待ち · {decided} 件決定済み",
+    "meta.compact_summary": "{analysed} · {unreadable} · {reliable} · {total} · {pending} · {decided}",
     "meta.start_review": "確認を開始 →",
     "meta.how_completion_works": "メタデータ補完の仕組み",
     "review.skipped_compact": "保留 · {date}",
     "review.enlarge": "プレビューを拡大",
     "security.source_ip": "接続元 IP",
     "security.last_login": "前回のサインイン: {date}、接続元 {ip}",
-    "security.failed_since": "前回のサインイン以降、{count} 回の失敗したサインイン試行。",
+    "security.failed_since": {
+      "other": "前回のサインイン以降、{count} 回のサインイン失敗。"
+    },
     "security.trial": "試用版: 活動はデータベースと独立してこのインスタンスに保存されます。",
     "review.example_date": "例：2007-08-26 20:36:42",
     "review.example_offset": "例：+01:00",
@@ -871,9 +887,11 @@
     "review.example_title": "例：休暇",
     "review.example_description": "例：家族写真",
     "analysis.reason.never_analyzed": "このライブラリはまだ解析されていません。",
-    "analysis.reason.older_version": "従来のスキャンまたはメタデータのジョブのみがあり、完了したライブラリ解析はありません。結果を更新するにはライブラリを解析してください。",
+    "analysis.reason.older_version": "ライブラリは古い TwinCheck で解析されました。現在の結果を見るにはライブラリを解析してください。ファイルを読むだけで、移動や変更は行いません。",
     "analysis.changed_since": "{date} の解析以降、ディスク上のファイルが変更されています。",
-    "org.last_preview": "前回のプレビュー #{id} · {date} · {count} 件",
+    "org.last_preview": {
+      "other": "前回のプレビュー #{id} · {date} · {count} 項目"
+    },
     "org.recompute": "再計算",
     "org.discard": "プレビューを破棄",
     "org.stale.scope": "ライブラリの割り当てまたは設定が変更されました。実行前に再計算してください。",
@@ -886,15 +904,197 @@
     "report.operation.move": "整理",
     "report.operation.dup_move": "重複ファイルの移動",
     "report.operation.metadata": "メタデータの変更",
-    "report.operation_undone": "{count} 件取り消し済み",
+    "report.operation_undone": {
+      "other": "{count}"
+    },
     "report.global_undo_note": "操作別の取り消しはまだ利用できません。以下の全体プレビューを使用し、確定前に各ファイルを確認してください。",
-    "report.moved_link": "{count} ファイルを移動 · 履歴と取り消しへ →",
-    "logs.not_visible": "{count} 件のイベントは {user} のライブラリ外のファイルを参照するため、{user} には表示されません。",
+    "report.moved_link": {
+      "other": "移動済み: {count} ファイル · 履歴と取り消しへ →"
+    },
+    "logs.not_visible": {
+      "other": "{user} には非表示: {count} 件のイベント. {user} のライブラリ外のファイルを参照します。"
+    },
     "logs.no_job_events": "ジョブ {id} のイベントはありません。",
     "security.review": "確認",
     "security.see_log": "セキュリティログを表示",
     "header.version_build": "{version} · ビルド日時: {date}",
     "error.preview_stale": "このプレビューは古いか破棄されています。実行前に再計算してください。",
-    "error.server_busy": "サーバーが混雑しています。しばらくして再試行してください。"
+    "error.server_busy": "サーバーが混雑しています。しばらくして再試行してください。",
+    "security.close_banner": "サインイン情報を閉じる",
+    "analysis.no_results": "まだ結果がありません。ライブラリを解析してください。",
+    "filters.pending": "未適用のテキストフィルターを適用",
+    "filters.search": "検索",
+    "filters.since": "開始日（UTC）",
+    "filters.until": "終了日（UTC）",
+    "exclusions.pattern": "パターン",
+    "exclusions.description": "説明（任意）",
+    "exclusions.default": "既定",
+    "exclusions.add": "パターンを追加",
+    "exclusions.restore": "既定に戻す",
+    "exclusions.test_name": "名前をテスト",
+    "exclusions.test_hint": "ファイル名またはフォルダー名を入力してテストします。",
+    "exclusions.matches": "除外するパターン：{patterns}",
+    "exclusions.no_match": "この名前は除外されません。",
+    "exclusions.pattern_hint": "Shell パターンはパスではなく名前に一致します。* は任意の文字列、? は1文字、[abc] は一覧の1文字です。大文字と小文字を区別します。",
+    "exclusions.remove_confirm": "除外名から {pattern} を削除しますか？",
+    "exclusions.restore_confirm": "組み込みパターンを復元し、独自の説明を消去しますか？",
+    "exclusions.next_analysis": "変更は次の解析から適用されます。ファイルを移動または変更することはありません。",
+    "exclusions.internal": "内部名 .twincheck-* は常に除外されます。この一覧はここで管理し、サーバー設定では管理しません。",
+    "exclusions.empty": "任意の除外名はありません。",
+    "exclusions.save_title": "除外名の変更を確認",
+    "exclusions.added": "追加：{patterns}",
+    "exclusions.removed": "削除：{patterns}",
+    "exclusions.edited": "編集：{patterns}",
+    "error.exclusion_empty": "空でないパターンを入力してください。",
+    "error.exclusion_duplicate": "このパターンは既に一覧にあります。",
+    "error.exclusion_invalid": "有効な名前の Shell パターンを使用してください（パス不可、最大100文字）。",
+    "error.exclusion_all": "このパターンはすべての名前を除外します。より具体的なパターンを使用してください。",
+    "error.exclusion_limit": "パターンは最大100個です。",
+    "error.exclusion_name": "パスではなく名前を入力してください。",
+    "exclusions.default.hidden": "隠しファイルとフォルダー",
+    "exclusions.default.synology_thumbnails": "Synology サムネイル",
+    "exclusions.default.synology_recycle": "Synology ごみ箱",
+    "exclusions.default.windows_recycle": "Windows ごみ箱",
+    "exclusions.default.linux_recovery": "Linux 復旧フォルダー",
+    "exclusions.default.windows_thumbnails": "Windows サムネイルキャッシュ",
+    "exclusions.default.windows_settings": "Windows フォルダー設定",
+    "meta.latest_population.analysed": {
+      "other": "解析済み: {count} ファイル"
+    },
+    "meta.latest_population.unreadable": {
+      "other": "読み取り不可: {count} ファイル"
+    },
+    "meta.latest_population.total": {
+      "other": "指摘: {count} 項目"
+    },
+    "meta.latest_population.pending": {
+      "other": "確認待ち: {count} 項目"
+    },
+    "meta.latest_population.decided": {
+      "other": "決定済み: {count} 項目"
+    },
+    "meta.compact_summary.analysed": {
+      "other": "解析済み: {count} ファイル"
+    },
+    "meta.compact_summary.unreadable": {
+      "other": "読み取り不可: {count} ファイル"
+    },
+    "meta.compact_summary.reliable": {
+      "other": "信頼できる日付: {count} ファイル"
+    },
+    "meta.compact_summary.total": {
+      "other": "指摘: {count} 項目"
+    },
+    "meta.compact_summary.pending": {
+      "other": "確認待ち: {count} 項目"
+    },
+    "meta.compact_summary.decided": {
+      "other": "決定済み: {count} 項目"
+    },
+    "review.live_counts.total": {
+      "other": "指摘: {count} 項目"
+    },
+    "review.live_counts.pending": {
+      "other": "確認待ち: {count} 項目"
+    },
+    "review.live_counts.decided": {
+      "other": "決定済み: {count} 項目"
+    },
+    "job.library_result.found": {
+      "other": "検出: {count} ファイル"
+    },
+    "job.library_result.changed": {
+      "other": "新規または変更: {count} ファイル"
+    },
+    "job.library_result.unchanged": {
+      "other": "未変更（再利用）: {count} ファイル"
+    },
+    "job.library_result.hashed": {
+      "other": "ハッシュ計算: {count} ファイル"
+    },
+    "job.scan_result.indexed": {
+      "other": "登録: {count} ファイル"
+    },
+    "job.scan_result.hashed": {
+      "other": "ハッシュ計算: {count} ファイル"
+    },
+    "job.scan_result.reused": {
+      "other": "再利用ハッシュ: {count} ハッシュ"
+    },
+    "job.scan_result.unhashed": {
+      "other": "ハッシュなし: {count} ファイル"
+    },
+    "job.scan_result_legacy.indexed": {
+      "other": "登録: {count} ファイル"
+    },
+    "job.scan_result_legacy.hashed": {
+      "other": "ハッシュ計算: {count} ファイル"
+    },
+    "review.counts.pending": {
+      "other": "確認待ち: {count} 項目"
+    },
+    "review.counts.saved": {
+      "other": "保存済み: {count} 項目"
+    },
+    "review.counts.skipped": {
+      "other": "延期: {count} 項目"
+    },
+    "review.counts.kept": {
+      "other": "変更せず: {count} 項目"
+    },
+    "meta.summary.analysed": {
+      "other": "解析済み: {count} ファイル"
+    },
+    "meta.summary.fills": {
+      "other": "補完の提案: {count} フィールド"
+    },
+    "meta.summary.review": {
+      "other": "指摘: {count} 項目"
+    },
+    "meta.analysis_summary.analysed": {
+      "other": "解析済み: {count} ファイル"
+    },
+    "meta.analysis_summary.fills": {
+      "other": "補完の提案: {count} フィールド"
+    },
+    "meta.review_population.items": {
+      "other": "確認一覧: {count} 項目"
+    },
+    "meta.review_population.files": {
+      "other": "現在: {count} ファイル"
+    },
+    "analysis.changes.new": {
+      "other": "解析後の新規: {count} ファイル"
+    },
+    "analysis.changes.changed": {
+      "other": "解析後の変更: {count} ファイル"
+    },
+    "analysis.changes.removed": {
+      "other": "解析後の削除: {count} ファイル"
+    },
+    "meta.current_population.current": {
+      "other": "現在: {count} ファイル"
+    },
+    "meta.current_population.reliable": {
+      "other": "信頼できる日付: {count} ファイル"
+    },
+    "meta.current_population.review_files": {
+      "other": "確認中: {count} ファイル"
+    },
+    "meta.current_population.other": {
+      "other": "その他: {count} ファイル"
+    },
+    "plan.summary.planned": {
+      "other": "実行待ち: {count} 項目"
+    },
+    "plan.summary.done": {
+      "other": "完了: {count} 項目"
+    },
+    "plan.summary.blocked": {
+      "other": "ブロックまたはスキップ: {count} 項目"
+    },
+    "header.cpu_value.cores": {
+      "other": "{count} コア"
+    }
   }
 }

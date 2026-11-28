@@ -125,22 +125,38 @@ export function table(headKeys, rows) {
     h('tbody', {}, rows)));
 }
 
-export function modal({ titleKey, body, confirmKey = 'common.confirm', cancelKey = 'common.cancel', danger = false, requireCheckKey }) {
+export function modal({ titleKey, body, confirmKey = 'common.confirm', cancelKey = 'common.cancel', danger = false, requireCheckKey, onConfirm }) {
   return new Promise((resolve) => {
+    const previous = document.activeElement;
+    const titleId = 'dialog-' + Math.random().toString(36).slice(2);
     const check = requireCheckKey ? h('input', { type: 'checkbox' }) : null;
     const ok = h('button', { type: 'button', class: 'btn ' + (danger ? 'danger' : 'primary'), disabled: !!check }, t(confirmKey));
-    const close = (v) => { overlay.remove(); resolve(v); };
+    const close = (v) => { overlay.remove(); if (previous?.isConnected) previous.focus(); resolve(v); };
     if (check) check.addEventListener('change', () => { ok.disabled = !check.checked; });
-    ok.addEventListener('click', () => close(true));
-    const overlay = h('div', { class: 'modal-overlay', role: 'dialog', 'aria-modal': 'true' },
+    ok.addEventListener('click', async () => {
+      ok.disabled = true;
+      try {
+        if (!onConfirm || await onConfirm()) close(true);
+      } catch (e) { toast(e.message, 'error'); }
+      finally { if (ok.isConnected) ok.disabled = check ? !check.checked : false; }
+    });
+    const overlay = h('div', { class: 'modal-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': titleId },
       h('div', { class: 'modal' },
-        h('h2', {}, t(titleKey)),
+        h('h2', { id: titleId }, t(titleKey)),
         h('div', { class: 'modal-body' }, body),
         check ? h('label', { class: 'check' }, check, ' ', t(requireCheckKey)) : null,
         h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn', onclick: () => close(false) }, t(cancelKey)), ok)));
-    overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(false); });
+    overlay.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); close(false); }
+      if (e.key === 'Tab') {
+        const controls = [...overlay.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]')]
+          .filter((node) => node.getClientRects().length);
+        if (e.shiftKey && document.activeElement === controls[0]) { e.preventDefault(); controls.at(-1)?.focus(); }
+        else if (!e.shiftKey && document.activeElement === controls.at(-1)) { e.preventDefault(); controls[0]?.focus(); }
+      }
+    });
     document.body.appendChild(overlay);
-    ok.focus();
+    (onConfirm ? overlay.querySelector('input, select, textarea') || ok : ok).focus();
   });
 }
 

@@ -14,25 +14,67 @@
     "common.rows_storage_unavailable": "تخزين المتصفح غير متاح: لا يمكن تذكّر عدد الصفوف في الصفحة.",
     "common.rows_per_page": "الصفوف في الصفحة",
     "common.all_rows": "الكل",
-    "common.confirm_all_rows": "تحميل كل الصفوف ({count})؟ قد يستغرق ذلك بعض الوقت.",
+    "common.confirm_all_rows": {
+      "few": "تحميل {count} صفوف؟ قد يستغرق ذلك بعض الوقت.",
+      "many": "تحميل {count} صفًا؟ قد يستغرق ذلك بعض الوقت.",
+      "one": "تحميل {count} صف؟ قد يستغرق ذلك بعض الوقت.",
+      "other": "تحميل {count} صف؟ قد يستغرق ذلك بعض الوقت.",
+      "two": "تحميل {count} صفان؟ قد يستغرق ذلك بعض الوقت.",
+      "zero": "تحميل {count} صفوف؟ قد يستغرق ذلك بعض الوقت."
+    },
     "review.postponed_on": "تم التأجيل في {date} · لا يزال للمراجعة",
     "logs.only_present": "الأحداث الموجودة فقط",
-    "logs.export_filtered": "تصدير المصفّاة ({count})",
-    "logs.export_all": "تصدير الكل ({count})",
+    "logs.export_filtered": {
+      "few": "تصدير المصفّاة ({count})",
+      "many": "تصدير المصفّاة ({count})",
+      "one": "تصدير المصفّاة ({count})",
+      "other": "تصدير المصفّاة ({count})",
+      "two": "تصدير المصفّاة ({count})",
+      "zero": "تصدير المصفّاة ({count})"
+    },
+    "logs.export_all": {
+      "few": "تصدير الكل ({count})",
+      "many": "تصدير الكل ({count})",
+      "one": "تصدير الكل ({count})",
+      "other": "تصدير الكل ({count})",
+      "two": "تصدير الكل ({count})",
+      "zero": "تصدير الكل ({count})"
+    },
     "logs.export_own_note": "يتم تضمين أحداثك الخاصة فقط.",
     "logs.export_all_note": "يشمل تصدير الكل أحداث جميع المستخدمين.",
     "logs.export_user_note": "يشمل التصدير المصفّى أحداث {user}.",
-    "meta.latest_population": "{analysed} محللة · {unreadable} غير قابلة للقراءة · {total} محددة · {pending} للمراجعة · {decided} محسومة",
-    "meta.current_population": "الملفات الحالية: {current} = مؤرخة خارج المراجعة: {reliable} + قيد المراجعة: {review_files} + أخرى: {other}. تشمل القائمة جميع المجلدات المعينة؛ ويشمل التحليل آخر مجلد محدد. قد تكون الملفات غير المقروءة قيد المراجعة أيضًا.",
+    "meta.latest_population": "{analysed} · {unreadable} · {total} · {pending} · {decided}",
+    "meta.current_population": "{current} = {reliable} + {review_files} + {other}. تشمل القائمة جميع المجلدات المعينة؛ ويشمل التحليل آخر مجلد محدد. قد تكون الملفات غير المقروءة قيد المراجعة أيضًا.",
     "settings.show_version_on_login": "عرض الإصدار في صفحة الدخول",
     "review.date_format": "yyyy-mm-dd hh:mm:ss (24 ساعة)",
     "common.back_to": "العودة إلى {page}",
-    "meta.empty_fills": "لا استكمالات تلقائية: لا يوجد مصدر موثوق لأي حقل مفقود. بانتظار اختيار في المراجعة: {count}.",
+    "meta.empty_fills": {
+      "few": "لا استكمالات تلقائية: لا يوجد مصدر موثوق لأي حقل مفقود. بانتظار اختيار في المراجعة: {count}.",
+      "many": "لا استكمالات تلقائية: لا يوجد مصدر موثوق لأي حقل مفقود. بانتظار اختيار في المراجعة: {count}.",
+      "one": "لا استكمالات تلقائية: لا يوجد مصدر موثوق لأي حقل مفقود. بانتظار اختيار في المراجعة: {count}.",
+      "other": "لا استكمالات تلقائية: لا يوجد مصدر موثوق لأي حقل مفقود. بانتظار اختيار في المراجعة: {count}.",
+      "two": "لا استكمالات تلقائية: لا يوجد مصدر موثوق لأي حقل مفقود. بانتظار اختيار في المراجعة: {count}.",
+      "zero": "لا استكمالات تلقائية: لا يوجد مصدر موثوق لأي حقل مفقود. بانتظار اختيار في المراجعة: {count}."
+    },
     "plan.empty": "لا تغييرات في هذه المعاينة. لن تعدّل أي ملفات.",
-    "review.live_counts": "{total} محددة · {pending} للمراجعة · {decided} محسومة",
-    "review.recheck_count": "{count} تحتاج إعادة فحص",
-    "job.library_result": "الملفات الموجودة: {found} · الجديدة أو المعدلة: {changed} · دون تغيير (معاد استخدامها): {unchanged} · المحسوبة التجزئة: {hashed}",
-    "job.unreadable": "{count} غير قابلة للقراءة",
+    "review.live_counts": "{total} · {pending} · {decided}",
+    "review.recheck_count": {
+      "few": "لإعادة الفحص: {count} عناصر",
+      "many": "لإعادة الفحص: {count} عنصرًا",
+      "one": "لإعادة الفحص: {count} عنصر",
+      "other": "لإعادة الفحص: {count} عنصر",
+      "two": "لإعادة الفحص: {count} عنصران",
+      "zero": "لإعادة الفحص: {count} عناصر"
+    },
+    "job.library_result": "{found} · {changed} · {unchanged} · {hashed}",
+    "job.unreadable": {
+      "few": "غير المقروءة: {count} ملفات",
+      "many": "غير المقروءة: {count} ملفًا",
+      "one": "غير المقروءة: {count} ملف",
+      "other": "غير المقروءة: {count} ملف",
+      "two": "غير المقروءة: {count} ملفان",
+      "zero": "غير المقروءة: {count} ملفات"
+    },
     "analysis.history": "السجل في المهام",
     "settings.library_timezone": "المنطقة الزمنية للمكتبة",
     "settings.library_timezone_hint": "اسم IANA، مثل Asia/Riyadh. للتنظيم دون تغيير EXIF الأصلي.",
@@ -89,7 +131,7 @@
     "header.host": "المضيف",
     "header.os": "النظام",
     "header.cpu": "المعالج",
-    "header.cpu_value": "{cores} نوى · {pct}",
+    "header.cpu_value": "{cores} · {pct}",
     "header.load": "الحمل {load}",
     "header.memory": "الذاكرة",
     "header.disk_value": "{used} / {total} ({pct})",
@@ -203,7 +245,7 @@
     "home.step_metadata": "أكمل البيانات الوصفية الناقصة من مصادر موثوقة فقط.",
     "home.step_review": "قرّر بشأن الملفات المشكوك فيها.",
     "home.step_organize": "انقل الملفات إلى مجلدات سنة/شهر/يوم.",
-    "home.step_report": "راجع التقرير، وتحقّق، وتراجع عند الحاجة.",
+    "home.step_report": "اطّلع على ما تم، وتحقق، وتراجع عند الحاجة.",
     "home.summary": "الملخص",
     "home.files": "الملفات المفهرسة",
     "home.files_value": {
@@ -241,8 +283,8 @@
       "other": "{count} عنصر"
     },
     "job.phase": "المرحلة {phase}",
-    "job.scan_result": "مفهرس: {indexed} · محسوب: {hashed} · بصمات معاد استخدامها: {reused} · بدون بصمة: {unhashed}",
-    "job.scan_result_legacy": "مفهرس: {indexed} · محسوب: {hashed}؛ تعيد الملفات غير المعدلة استخدام البصمات (لم تُحسب في الفحوصات السابقة).",
+    "job.scan_result": "{indexed} · {hashed} · {reused} · {unhashed}",
+    "job.scan_result_legacy": "{indexed} · {hashed}",
     "job.needs_confirmation": "تكتب هذه المهمة الملفات أو تنقلها: لا تُستأنف إلا عند النقر على «استئناف».",
     "job.started": "بدأت المهمة رقم {id}.",
     "job.status.queued": "في قائمة الانتظار",
@@ -358,12 +400,12 @@
     "plan.col_to": "إلى / التغييرات",
     "plan.col_status": "الحالة",
     "plan.summary": {
-      "zero": "لا عناصر: {planned} للتنفيذ، {done} منفّذة، {blocked} محظورة أو متخطّاة",
-      "one": "عنصر واحد: {planned} للتنفيذ، {done} منفّذة، {blocked} محظورة أو متخطّاة",
-      "two": "عنصران: {planned} للتنفيذ، {done} منفّذة، {blocked} محظورة أو متخطّاة",
-      "few": "{count} عناصر: {planned} للتنفيذ، {done} منفّذة، {blocked} محظورة أو متخطّاة",
-      "many": "{count} عنصرًا: {planned} للتنفيذ، {done} منفّذة، {blocked} محظورة أو متخطّاة",
-      "other": "{count} عنصر: {planned} للتنفيذ، {done} منفّذة، {blocked} محظورة أو متخطّاة"
+      "few": "{count} عناصر: {planned} · {done} · {blocked}",
+      "many": "{count} عنصرًا: {planned} · {done} · {blocked}",
+      "one": "{count} عنصر: {planned} · {done} · {blocked}",
+      "other": "{count} عنصر: {planned} · {done} · {blocked}",
+      "two": "{count} عنصران: {planned} · {done} · {blocked}",
+      "zero": "{count} عناصر: {planned} · {done} · {blocked}"
     },
     "plan.renamed": "أُضيفت لاحقة",
     "plan.from": "من {tag} ({source})",
@@ -412,7 +454,7 @@
     "plan.note.recovered": "استُعيد بعد الانقطاع",
     "review.title": "المراجعة",
     "review.intro": "ملفات تحتاج إلى قرار. تُحفظ القرارات فورًا: يمكنك التوقف والاستئناف في أي وقت.",
-    "review.counts": "{pending} معلّقة · {saved} محفوظة · {skipped} متخطّاة · {kept} متروكة كما هي",
+    "review.counts": "{pending} · {saved} · {skipped} · {kept}",
     "review.filter_status": "الحالة",
     "review.filter_kind": "السبب",
     "review.all_kinds": "كل الأسباب",
@@ -509,7 +551,7 @@
     "manifest.action.metadata": "كُتبت البيانات الوصفية",
     "manifest.action.restore": "أُعيد إلى موضعه",
     "report.title": "السجل والتراجع",
-    "report.intro": "ملخص قاعدة البيانات الحالية، والسجل التنفيذي، والتراجع، والتحقق النهائي.",
+    "report.intro": "العمليات المنفذة والتراجع عنها والتحقق النهائي.",
     "report.files": "الملفات",
     "report.col_status": "الحالة",
     "report.col_kind": "النوع",
@@ -854,8 +896,15 @@
     "dup.filesystem_date": "File system date: {date}",
     "dup.unknown_date": "unknown",
     "dup.no_analysis": "No duplicate analysis results are available yet.",
-    "meta.summary": "الملفات المحللة: {analysed} · مقترحات إكمال البيانات الوصفية: {fills} · المحددة: {review}",
-    "meta.review_items": "Review items ({count})",
+    "meta.summary": "{analysed} · {fills} · {review}",
+    "meta.review_items": {
+      "few": "قائمة المراجعة: {count} عناصر",
+      "many": "قائمة المراجعة: {count} عنصرًا",
+      "one": "قائمة المراجعة: {count} عنصر",
+      "other": "قائمة المراجعة: {count} عنصر",
+      "two": "قائمة المراجعة: {count} عنصران",
+      "zero": "قائمة المراجعة: {count} عناصر"
+    },
     "meta.no_analysis": "No metadata analysis results are available yet.",
     "review.preview_error": "Preview could not be loaded (HTTP {status}).",
     "review.detail_values": {
@@ -876,13 +925,13 @@
     "analysis.update": "Update analysis",
     "analysis.empty": "Analyze this library before reviewing or acting on files.",
     "analysis.stale": "Files changed or analysis was interrupted. Update the analysis before continuing.",
-    "analysis.changes": "تغييرات الملفات بعد التحليل: {new} جديدة · {changed} معدّلة · {removed} مُزالة. حدّث التحليل قبل المتابعة.",
+    "analysis.changes": "{new} · {changed} · {removed}",
     "analysis.incomplete": "توقف آخر تحليل ولم يكتمل.",
     "job.already_running": "Job #{id} is already running.",
     "review.status.decided": "مقررة",
     "review.status.all": "الكل",
-    "meta.review_population": "قائمة المراجعة · العناصر: {items} · الملفات الحالية: {files} في جميع المجلدات المعينة. يخص التحليل آخر مجلد محدد.",
-    "meta.analysis_summary": "آخر تحليل · الملفات المحللة: {analysed} · استكمالات البيانات الوصفية المقترحة: {fills}",
+    "meta.review_population": "{items} · {files}. يخص التحليل آخر مجلد محدد.",
+    "meta.analysis_summary": "{analysed} · {fills}",
     "db.update_required": "يلزم تحديث قاعدة البيانات. اتصل بالمسؤول.",
     "settings.timezone_search": "البحث عن المناطق الزمنية",
     "settings.timezone_offset_hint": "تُعرض الفروق الحالية عن UTC وتتغير مع التوقيت الصيفي. تُستخدم لتنظيم التواريخ ولا تتغير بيانات EXIF الأصلية.",
@@ -928,14 +977,21 @@
     "logs.security_admin_note": "عرض سجل الأمان",
     "logs.security_own_note": "عرض سجل الأمان",
     "security.activity": "سجل الأمان",
-    "meta.compact_summary": "تم تحليل {analysed} ملفًا · {unreadable} غير قابلة للقراءة · {reliable} بتاريخ موثوق · {total} محددة · {pending} للمراجعة · {decided} محسومة",
+    "meta.compact_summary": "{analysed} · {unreadable} · {reliable} · {total} · {pending} · {decided}",
     "meta.start_review": "بدء المراجعة ←",
     "meta.how_completion_works": "كيفية إكمال البيانات الوصفية",
     "review.skipped_compact": "مؤجل · {date}",
     "review.enlarge": "تكبير المعاينة",
     "security.source_ip": "عنوان IP المصدر",
     "security.last_login": "آخر دخول: {date} من {ip}",
-    "security.failed_since": "{count} محاولات دخول فاشلة منذ آخر دخول.",
+    "security.failed_since": {
+      "few": "{count} محاولات دخول فاشلة منذ آخر دخول.",
+      "many": "{count} محاولة دخول فاشلة منذ آخر دخول.",
+      "one": "{count} محاولة دخول فاشلة منذ آخر دخول.",
+      "other": "{count} محاولة دخول فاشلة منذ آخر دخول.",
+      "two": "{count} محاولتا دخول فاشلتان منذ آخر دخول.",
+      "zero": "{count} محاولات دخول فاشلة منذ آخر دخول."
+    },
     "security.trial": "تجريبي: يتم حفظ النشاط لهذه النسخة بشكل مستقل عن قاعدة البيانات.",
     "review.example_date": "مثلاً: 2007-08-26 20:36:42",
     "review.example_offset": "مثلاً: +01:00",
@@ -946,9 +1002,16 @@
     "review.example_title": "مثلاً: عطلة",
     "review.example_description": "مثلاً: صورة عائلية",
     "analysis.reason.never_analyzed": "لم يتم تحليل هذه المكتبة من قبل.",
-    "analysis.reason.older_version": "تتوفر مهام فحص أو بيانات وصفية قديمة فقط، دون تحليل مكتمل للمكتبة. حلل المكتبة لتحديث النتائج.",
+    "analysis.reason.older_version": "تم تحليل مكتبتك بإصدار أقدم من TwinCheck. شغّل تحليل المكتبة لرؤية النتائج الحالية. تتم قراءة الملفات فقط: لا يتم نقل أي شيء أو تغييره.",
     "analysis.changed_since": "تغيرت الملفات على القرص منذ تحليل {date}.",
-    "org.last_preview": "آخر معاينة #{id} بتاريخ {date} · {count} عناصر",
+    "org.last_preview": {
+      "few": "آخر معاينة #{id} بتاريخ {date} · {count} عناصر",
+      "many": "آخر معاينة #{id} بتاريخ {date} · {count} عنصرًا",
+      "one": "آخر معاينة #{id} بتاريخ {date} · {count} عنصر",
+      "other": "آخر معاينة #{id} بتاريخ {date} · {count} عنصر",
+      "two": "آخر معاينة #{id} بتاريخ {date} · {count} عنصران",
+      "zero": "آخر معاينة #{id} بتاريخ {date} · {count} عناصر"
+    },
     "org.recompute": "إعادة الحساب",
     "org.discard": "تجاهل المعاينة",
     "org.stale.scope": "تغيرت تعيينات المكتبة أو إعداداتها. أعد الحساب قبل التنفيذ.",
@@ -961,15 +1024,442 @@
     "report.operation.move": "تنظيم الملفات",
     "report.operation.dup_move": "نقل التكرارات",
     "report.operation.metadata": "تغييرات البيانات الوصفية",
-    "report.operation_undone": "تم التراجع عن {count}",
+    "report.operation_undone": {
+      "few": "{count}",
+      "many": "{count}",
+      "one": "{count}",
+      "other": "{count}",
+      "two": "{count}",
+      "zero": "{count}"
+    },
     "report.global_undo_note": "التراجع عن عملية منفردة غير متاح بعد. استخدم المعاينات العامة أدناه وافحص كل ملف قبل التأكيد.",
-    "report.moved_link": "تم نقل {count} ملفات · عرض السجل والتراجع →",
-    "logs.not_visible": "{count} من هذه الأحداث غير مرئية للمستخدم {user} لأنها تشير إلى ملفات خارج مكتبة {user}.",
+    "report.moved_link": {
+      "few": "المنقولة: {count} ملفات · عرض السجل والتراجع →",
+      "many": "المنقولة: {count} ملفًا · عرض السجل والتراجع →",
+      "one": "المنقولة: {count} ملف · عرض السجل والتراجع →",
+      "other": "المنقولة: {count} ملف · عرض السجل والتراجع →",
+      "two": "المنقولة: {count} ملفان · عرض السجل والتراجع →",
+      "zero": "المنقولة: {count} ملفات · عرض السجل والتراجع →"
+    },
+    "logs.not_visible": {
+      "few": "غير مرئية للمستخدم {user}: {count} أحداث. تشير إلى ملفات خارج مكتبة {user}.",
+      "many": "غير مرئية للمستخدم {user}: {count} حدثًا. تشير إلى ملفات خارج مكتبة {user}.",
+      "one": "غير مرئية للمستخدم {user}: {count} حدث. تشير إلى ملفات خارج مكتبة {user}.",
+      "other": "غير مرئية للمستخدم {user}: {count} حدث. تشير إلى ملفات خارج مكتبة {user}.",
+      "two": "غير مرئية للمستخدم {user}: {count} حدثان. تشير إلى ملفات خارج مكتبة {user}.",
+      "zero": "غير مرئية للمستخدم {user}: {count} أحداث. تشير إلى ملفات خارج مكتبة {user}."
+    },
     "logs.no_job_events": "لا توجد أحداث للمهمة {id}.",
     "security.review": "مراجعة",
     "security.see_log": "عرض سجل الأمان",
     "header.version_build": "{version} · تاريخ البناء: {date}",
     "error.preview_stale": "هذه المعاينة قديمة أو تم تجاهلها. أعد الحساب قبل التنفيذ.",
-    "error.server_busy": "الخادم مشغول. حاول مجدداً بعد قليل."
+    "error.server_busy": "الخادم مشغول. حاول مجدداً بعد قليل.",
+    "security.close_banner": "إغلاق معلومات تسجيل الدخول",
+    "analysis.no_results": "لا توجد نتائج بعد: شغّل تحليل المكتبة.",
+    "filters.pending": "تطبيق مرشحات النص المعلقة",
+    "filters.search": "بحث",
+    "filters.since": "من تاريخ (UTC)",
+    "filters.until": "إلى تاريخ (UTC)",
+    "exclusions.pattern": "النمط",
+    "exclusions.description": "الوصف (اختياري)",
+    "exclusions.default": "افتراضي",
+    "exclusions.add": "إضافة نمط",
+    "exclusions.restore": "استعادة الافتراضيات",
+    "exclusions.test_name": "اختبار اسم",
+    "exclusions.test_hint": "أدخل اسم ملف أو مجلد لاختباره.",
+    "exclusions.matches": "مستبعد بواسطة: {patterns}",
+    "exclusions.no_match": "لن يتم استبعاد هذا الاسم.",
+    "exclusions.pattern_hint": "تطابق أنماط shell الاسم وليس المسار. * لأي نص، ? لحرف واحد، [abc] لحرف من القائمة. حالة الأحرف مهمة.",
+    "exclusions.remove_confirm": "إزالة {pattern} من الأسماء المستبعدة؟",
+    "exclusions.restore_confirm": "استعادة الأنماط المدمجة ومسح الأوصاف المخصصة؟",
+    "exclusions.next_analysis": "تسري التغييرات بدءًا من التحليل التالي. لا تنقل ملفاتك أو تغيرها مطلقًا.",
+    "exclusions.internal": "تُستبعد الأسماء الداخلية .twincheck-* دائمًا. تُدار هذه القائمة هنا، وليس من إعدادات الخادم.",
+    "exclusions.empty": "لا توجد أسماء مستبعدة اختيارية.",
+    "exclusions.save_title": "تأكيد تغييرات الأسماء المستبعدة",
+    "exclusions.added": "مضاف: {patterns}",
+    "exclusions.removed": "مزال: {patterns}",
+    "exclusions.edited": "معدل: {patterns}",
+    "error.exclusion_empty": "أدخل نمطًا غير فارغ.",
+    "error.exclusion_duplicate": "هذا النمط موجود في القائمة.",
+    "error.exclusion_invalid": "استخدم نمط shell صالحًا لاسم (دون مسار، بحد أقصى 100 حرف).",
+    "error.exclusion_all": "سيستبعد هذا النمط كل الأسماء. استخدم نمطًا أكثر تحديدًا.",
+    "error.exclusion_limit": "استخدم 100 نمط كحد أقصى.",
+    "error.exclusion_name": "أدخل اسمًا وليس مسارًا.",
+    "exclusions.default.hidden": "الملفات والمجلدات المخفية",
+    "exclusions.default.synology_thumbnails": "صور Synology المصغرة",
+    "exclusions.default.synology_recycle": "سلة محذوفات Synology",
+    "exclusions.default.windows_recycle": "سلة محذوفات Windows",
+    "exclusions.default.linux_recovery": "مجلد استعادة Linux",
+    "exclusions.default.windows_thumbnails": "ذاكرة الصور المصغرة في Windows",
+    "exclusions.default.windows_settings": "إعدادات مجلدات Windows",
+    "meta.latest_population.analysed": {
+      "few": "المحللة: {count} ملفات",
+      "many": "المحللة: {count} ملفًا",
+      "one": "المحللة: {count} ملف",
+      "other": "المحللة: {count} ملف",
+      "two": "المحللة: {count} ملفان",
+      "zero": "المحللة: {count} ملفات"
+    },
+    "meta.latest_population.unreadable": {
+      "few": "غير المقروءة: {count} ملفات",
+      "many": "غير المقروءة: {count} ملفًا",
+      "one": "غير المقروءة: {count} ملف",
+      "other": "غير المقروءة: {count} ملف",
+      "two": "غير المقروءة: {count} ملفان",
+      "zero": "غير المقروءة: {count} ملفات"
+    },
+    "meta.latest_population.total": {
+      "few": "المحددة: {count} عناصر",
+      "many": "المحددة: {count} عنصرًا",
+      "one": "المحددة: {count} عنصر",
+      "other": "المحددة: {count} عنصر",
+      "two": "المحددة: {count} عنصران",
+      "zero": "المحددة: {count} عناصر"
+    },
+    "meta.latest_population.pending": {
+      "few": "للمراجعة: {count} عناصر",
+      "many": "للمراجعة: {count} عنصرًا",
+      "one": "للمراجعة: {count} عنصر",
+      "other": "للمراجعة: {count} عنصر",
+      "two": "للمراجعة: {count} عنصران",
+      "zero": "للمراجعة: {count} عناصر"
+    },
+    "meta.latest_population.decided": {
+      "few": "المحسومة: {count} عناصر",
+      "many": "المحسومة: {count} عنصرًا",
+      "one": "المحسومة: {count} عنصر",
+      "other": "المحسومة: {count} عنصر",
+      "two": "المحسومة: {count} عنصران",
+      "zero": "المحسومة: {count} عناصر"
+    },
+    "meta.compact_summary.analysed": {
+      "few": "المحللة: {count} ملفات",
+      "many": "المحللة: {count} ملفًا",
+      "one": "المحللة: {count} ملف",
+      "other": "المحللة: {count} ملف",
+      "two": "المحللة: {count} ملفان",
+      "zero": "المحللة: {count} ملفات"
+    },
+    "meta.compact_summary.unreadable": {
+      "few": "غير المقروءة: {count} ملفات",
+      "many": "غير المقروءة: {count} ملفًا",
+      "one": "غير المقروءة: {count} ملف",
+      "other": "غير المقروءة: {count} ملف",
+      "two": "غير المقروءة: {count} ملفان",
+      "zero": "غير المقروءة: {count} ملفات"
+    },
+    "meta.compact_summary.reliable": {
+      "few": "تاريخ موثوق: {count} ملفات",
+      "many": "تاريخ موثوق: {count} ملفًا",
+      "one": "تاريخ موثوق: {count} ملف",
+      "other": "تاريخ موثوق: {count} ملف",
+      "two": "تاريخ موثوق: {count} ملفان",
+      "zero": "تاريخ موثوق: {count} ملفات"
+    },
+    "meta.compact_summary.total": {
+      "few": "المحددة: {count} عناصر",
+      "many": "المحددة: {count} عنصرًا",
+      "one": "المحددة: {count} عنصر",
+      "other": "المحددة: {count} عنصر",
+      "two": "المحددة: {count} عنصران",
+      "zero": "المحددة: {count} عناصر"
+    },
+    "meta.compact_summary.pending": {
+      "few": "للمراجعة: {count} عناصر",
+      "many": "للمراجعة: {count} عنصرًا",
+      "one": "للمراجعة: {count} عنصر",
+      "other": "للمراجعة: {count} عنصر",
+      "two": "للمراجعة: {count} عنصران",
+      "zero": "للمراجعة: {count} عناصر"
+    },
+    "meta.compact_summary.decided": {
+      "few": "المحسومة: {count} عناصر",
+      "many": "المحسومة: {count} عنصرًا",
+      "one": "المحسومة: {count} عنصر",
+      "other": "المحسومة: {count} عنصر",
+      "two": "المحسومة: {count} عنصران",
+      "zero": "المحسومة: {count} عناصر"
+    },
+    "review.live_counts.total": {
+      "few": "المحددة: {count} عناصر",
+      "many": "المحددة: {count} عنصرًا",
+      "one": "المحددة: {count} عنصر",
+      "other": "المحددة: {count} عنصر",
+      "two": "المحددة: {count} عنصران",
+      "zero": "المحددة: {count} عناصر"
+    },
+    "review.live_counts.pending": {
+      "few": "للمراجعة: {count} عناصر",
+      "many": "للمراجعة: {count} عنصرًا",
+      "one": "للمراجعة: {count} عنصر",
+      "other": "للمراجعة: {count} عنصر",
+      "two": "للمراجعة: {count} عنصران",
+      "zero": "للمراجعة: {count} عناصر"
+    },
+    "review.live_counts.decided": {
+      "few": "المحسومة: {count} عناصر",
+      "many": "المحسومة: {count} عنصرًا",
+      "one": "المحسومة: {count} عنصر",
+      "other": "المحسومة: {count} عنصر",
+      "two": "المحسومة: {count} عنصران",
+      "zero": "المحسومة: {count} عناصر"
+    },
+    "job.library_result.found": {
+      "few": "الموجودة: {count} ملفات",
+      "many": "الموجودة: {count} ملفًا",
+      "one": "الموجودة: {count} ملف",
+      "other": "الموجودة: {count} ملف",
+      "two": "الموجودة: {count} ملفان",
+      "zero": "الموجودة: {count} ملفات"
+    },
+    "job.library_result.changed": {
+      "few": "الجديدة أو المعدلة: {count} ملفات",
+      "many": "الجديدة أو المعدلة: {count} ملفًا",
+      "one": "الجديدة أو المعدلة: {count} ملف",
+      "other": "الجديدة أو المعدلة: {count} ملف",
+      "two": "الجديدة أو المعدلة: {count} ملفان",
+      "zero": "الجديدة أو المعدلة: {count} ملفات"
+    },
+    "job.library_result.unchanged": {
+      "few": "دون تغيير (معاد استخدامها): {count} ملفات",
+      "many": "دون تغيير (معاد استخدامها): {count} ملفًا",
+      "one": "دون تغيير (معاد استخدامها): {count} ملف",
+      "other": "دون تغيير (معاد استخدامها): {count} ملف",
+      "two": "دون تغيير (معاد استخدامها): {count} ملفان",
+      "zero": "دون تغيير (معاد استخدامها): {count} ملفات"
+    },
+    "job.library_result.hashed": {
+      "few": "المحسوبة التجزئة: {count} ملفات",
+      "many": "المحسوبة التجزئة: {count} ملفًا",
+      "one": "المحسوبة التجزئة: {count} ملف",
+      "other": "المحسوبة التجزئة: {count} ملف",
+      "two": "المحسوبة التجزئة: {count} ملفان",
+      "zero": "المحسوبة التجزئة: {count} ملفات"
+    },
+    "job.scan_result.indexed": {
+      "few": "المفهرسة: {count} ملفات",
+      "many": "المفهرسة: {count} ملفًا",
+      "one": "المفهرسة: {count} ملف",
+      "other": "المفهرسة: {count} ملف",
+      "two": "المفهرسة: {count} ملفان",
+      "zero": "المفهرسة: {count} ملفات"
+    },
+    "job.scan_result.hashed": {
+      "few": "المحسوبة التجزئة: {count} ملفات",
+      "many": "المحسوبة التجزئة: {count} ملفًا",
+      "one": "المحسوبة التجزئة: {count} ملف",
+      "other": "المحسوبة التجزئة: {count} ملف",
+      "two": "المحسوبة التجزئة: {count} ملفان",
+      "zero": "المحسوبة التجزئة: {count} ملفات"
+    },
+    "job.scan_result.reused": {
+      "few": "التجزئات المعاد استخدامها: {count} تجزئات",
+      "many": "التجزئات المعاد استخدامها: {count} تجزئة",
+      "one": "التجزئات المعاد استخدامها: {count} تجزئة",
+      "other": "التجزئات المعاد استخدامها: {count} تجزئة",
+      "two": "التجزئات المعاد استخدامها: {count} تجزئتان",
+      "zero": "التجزئات المعاد استخدامها: {count} تجزئات"
+    },
+    "job.scan_result.unhashed": {
+      "few": "دون تجزئة: {count} ملفات",
+      "many": "دون تجزئة: {count} ملفًا",
+      "one": "دون تجزئة: {count} ملف",
+      "other": "دون تجزئة: {count} ملف",
+      "two": "دون تجزئة: {count} ملفان",
+      "zero": "دون تجزئة: {count} ملفات"
+    },
+    "job.scan_result_legacy.indexed": {
+      "few": "المفهرسة: {count} ملفات",
+      "many": "المفهرسة: {count} ملفًا",
+      "one": "المفهرسة: {count} ملف",
+      "other": "المفهرسة: {count} ملف",
+      "two": "المفهرسة: {count} ملفان",
+      "zero": "المفهرسة: {count} ملفات"
+    },
+    "job.scan_result_legacy.hashed": {
+      "few": "المحسوبة التجزئة: {count} ملفات",
+      "many": "المحسوبة التجزئة: {count} ملفًا",
+      "one": "المحسوبة التجزئة: {count} ملف",
+      "other": "المحسوبة التجزئة: {count} ملف",
+      "two": "المحسوبة التجزئة: {count} ملفان",
+      "zero": "المحسوبة التجزئة: {count} ملفات"
+    },
+    "review.counts.pending": {
+      "few": "للمراجعة: {count} عناصر",
+      "many": "للمراجعة: {count} عنصرًا",
+      "one": "للمراجعة: {count} عنصر",
+      "other": "للمراجعة: {count} عنصر",
+      "two": "للمراجعة: {count} عنصران",
+      "zero": "للمراجعة: {count} عناصر"
+    },
+    "review.counts.saved": {
+      "few": "المحفوظة: {count} عناصر",
+      "many": "المحفوظة: {count} عنصرًا",
+      "one": "المحفوظة: {count} عنصر",
+      "other": "المحفوظة: {count} عنصر",
+      "two": "المحفوظة: {count} عنصران",
+      "zero": "المحفوظة: {count} عناصر"
+    },
+    "review.counts.skipped": {
+      "few": "المؤجلة: {count} عناصر",
+      "many": "المؤجلة: {count} عنصرًا",
+      "one": "المؤجلة: {count} عنصر",
+      "other": "المؤجلة: {count} عنصر",
+      "two": "المؤجلة: {count} عنصران",
+      "zero": "المؤجلة: {count} عناصر"
+    },
+    "review.counts.kept": {
+      "few": "دون تعديل: {count} عناصر",
+      "many": "دون تعديل: {count} عنصرًا",
+      "one": "دون تعديل: {count} عنصر",
+      "other": "دون تعديل: {count} عنصر",
+      "two": "دون تعديل: {count} عنصران",
+      "zero": "دون تعديل: {count} عناصر"
+    },
+    "meta.summary.analysed": {
+      "few": "المحللة: {count} ملفات",
+      "many": "المحللة: {count} ملفًا",
+      "one": "المحللة: {count} ملف",
+      "other": "المحللة: {count} ملف",
+      "two": "المحللة: {count} ملفان",
+      "zero": "المحللة: {count} ملفات"
+    },
+    "meta.summary.fills": {
+      "few": "الاستكمالات المقترحة: {count} حقول",
+      "many": "الاستكمالات المقترحة: {count} حقلًا",
+      "one": "الاستكمالات المقترحة: {count} حقل",
+      "other": "الاستكمالات المقترحة: {count} حقل",
+      "two": "الاستكمالات المقترحة: {count} حقلان",
+      "zero": "الاستكمالات المقترحة: {count} حقول"
+    },
+    "meta.summary.review": {
+      "few": "المحددة: {count} عناصر",
+      "many": "المحددة: {count} عنصرًا",
+      "one": "المحددة: {count} عنصر",
+      "other": "المحددة: {count} عنصر",
+      "two": "المحددة: {count} عنصران",
+      "zero": "المحددة: {count} عناصر"
+    },
+    "meta.analysis_summary.analysed": {
+      "few": "المحللة: {count} ملفات",
+      "many": "المحللة: {count} ملفًا",
+      "one": "المحللة: {count} ملف",
+      "other": "المحللة: {count} ملف",
+      "two": "المحللة: {count} ملفان",
+      "zero": "المحللة: {count} ملفات"
+    },
+    "meta.analysis_summary.fills": {
+      "few": "الاستكمالات المقترحة: {count} حقول",
+      "many": "الاستكمالات المقترحة: {count} حقلًا",
+      "one": "الاستكمالات المقترحة: {count} حقل",
+      "other": "الاستكمالات المقترحة: {count} حقل",
+      "two": "الاستكمالات المقترحة: {count} حقلان",
+      "zero": "الاستكمالات المقترحة: {count} حقول"
+    },
+    "meta.review_population.items": {
+      "few": "قائمة المراجعة: {count} عناصر",
+      "many": "قائمة المراجعة: {count} عنصرًا",
+      "one": "قائمة المراجعة: {count} عنصر",
+      "other": "قائمة المراجعة: {count} عنصر",
+      "two": "قائمة المراجعة: {count} عنصران",
+      "zero": "قائمة المراجعة: {count} عناصر"
+    },
+    "meta.review_population.files": {
+      "few": "الحالية: {count} ملفات",
+      "many": "الحالية: {count} ملفًا",
+      "one": "الحالية: {count} ملف",
+      "other": "الحالية: {count} ملف",
+      "two": "الحالية: {count} ملفان",
+      "zero": "الحالية: {count} ملفات"
+    },
+    "analysis.changes.new": {
+      "few": "الجديدة بعد التحليل: {count} ملفات",
+      "many": "الجديدة بعد التحليل: {count} ملفًا",
+      "one": "الجديدة بعد التحليل: {count} ملف",
+      "other": "الجديدة بعد التحليل: {count} ملف",
+      "two": "الجديدة بعد التحليل: {count} ملفان",
+      "zero": "الجديدة بعد التحليل: {count} ملفات"
+    },
+    "analysis.changes.changed": {
+      "few": "المعدلة بعد التحليل: {count} ملفات",
+      "many": "المعدلة بعد التحليل: {count} ملفًا",
+      "one": "المعدلة بعد التحليل: {count} ملف",
+      "other": "المعدلة بعد التحليل: {count} ملف",
+      "two": "المعدلة بعد التحليل: {count} ملفان",
+      "zero": "المعدلة بعد التحليل: {count} ملفات"
+    },
+    "analysis.changes.removed": {
+      "few": "المزالة بعد التحليل: {count} ملفات",
+      "many": "المزالة بعد التحليل: {count} ملفًا",
+      "one": "المزالة بعد التحليل: {count} ملف",
+      "other": "المزالة بعد التحليل: {count} ملف",
+      "two": "المزالة بعد التحليل: {count} ملفان",
+      "zero": "المزالة بعد التحليل: {count} ملفات"
+    },
+    "meta.current_population.current": {
+      "few": "الحالية: {count} ملفات",
+      "many": "الحالية: {count} ملفًا",
+      "one": "الحالية: {count} ملف",
+      "other": "الحالية: {count} ملف",
+      "two": "الحالية: {count} ملفان",
+      "zero": "الحالية: {count} ملفات"
+    },
+    "meta.current_population.reliable": {
+      "few": "تاريخ موثوق: {count} ملفات",
+      "many": "تاريخ موثوق: {count} ملفًا",
+      "one": "تاريخ موثوق: {count} ملف",
+      "other": "تاريخ موثوق: {count} ملف",
+      "two": "تاريخ موثوق: {count} ملفان",
+      "zero": "تاريخ موثوق: {count} ملفات"
+    },
+    "meta.current_population.review_files": {
+      "few": "قيد المراجعة: {count} ملفات",
+      "many": "قيد المراجعة: {count} ملفًا",
+      "one": "قيد المراجعة: {count} ملف",
+      "other": "قيد المراجعة: {count} ملف",
+      "two": "قيد المراجعة: {count} ملفان",
+      "zero": "قيد المراجعة: {count} ملفات"
+    },
+    "meta.current_population.other": {
+      "few": "أخرى: {count} ملفات",
+      "many": "أخرى: {count} ملفًا",
+      "one": "أخرى: {count} ملف",
+      "other": "أخرى: {count} ملف",
+      "two": "أخرى: {count} ملفان",
+      "zero": "أخرى: {count} ملفات"
+    },
+    "plan.summary.planned": {
+      "few": "للتنفيذ: {count} عناصر",
+      "many": "للتنفيذ: {count} عنصرًا",
+      "one": "للتنفيذ: {count} عنصر",
+      "other": "للتنفيذ: {count} عنصر",
+      "two": "للتنفيذ: {count} عنصران",
+      "zero": "للتنفيذ: {count} عناصر"
+    },
+    "plan.summary.done": {
+      "few": "المنفذة: {count} عناصر",
+      "many": "المنفذة: {count} عنصرًا",
+      "one": "المنفذة: {count} عنصر",
+      "other": "المنفذة: {count} عنصر",
+      "two": "المنفذة: {count} عنصران",
+      "zero": "المنفذة: {count} عناصر"
+    },
+    "plan.summary.blocked": {
+      "few": "المحظورة أو المتخطاة: {count} عناصر",
+      "many": "المحظورة أو المتخطاة: {count} عنصرًا",
+      "one": "المحظورة أو المتخطاة: {count} عنصر",
+      "other": "المحظورة أو المتخطاة: {count} عنصر",
+      "two": "المحظورة أو المتخطاة: {count} عنصران",
+      "zero": "المحظورة أو المتخطاة: {count} عناصر"
+    },
+    "header.cpu_value.cores": {
+      "few": "{count} نوى",
+      "many": "{count} نواة",
+      "one": "{count} نواة",
+      "other": "{count} نواة",
+      "two": "{count} نواتان",
+      "zero": "{count} نوى"
+    }
   }
 }

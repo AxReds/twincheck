@@ -38,6 +38,11 @@ export async function list(main, state, options = {}) {
   const start = h('a', { class: 'btn primary start-review', hidden: true }, t('meta.start_review'));
   const pagination = tablePaging(state.user.id, 'review', (o) => { offset = o; load(); });
   const load = async () => {
+    if (!flowStatus.exists || flowStatus.empty) {
+      counts.hidden = true;
+      mount(box, h('p', { class: 'notice' }, t('analysis.no_results')));
+      return;
+    }
     const q = new URLSearchParams({ status: status.value, offset, limit: pagination.query() });
     if (kind.value) q.set('kind', kind.value);
     const d = await get('/api/review?' + q);
@@ -65,7 +70,8 @@ export async function list(main, state, options = {}) {
   kind.addEventListener('change', changeFilters);
   mount(main, options.embedded ? null : [
     h('h1', { class: 'sr-only' }, t('review.title')), stepGuide(2, flowStatus), h('p', { class: 'intro' }, t('review.intro')), notice, counts],
-    population, h('div', { class: 'filters' }, field('review.filter_status', status), field('review.filter_kind', kind), start), box,
+    population, h('div', { class: 'filters' }, field('review.filter_status', status), field('review.filter_kind', kind), start,
+      button('logs.clear', () => { status.value = 'pending'; kind.value = ''; changeFilters(); })), box,
     options.embedded ? null : [h('h2', {}, t('review.write_title')), h('p', { class: 'hint' }, t('review.write_help'))],
     !options.embedded && flowStatus.exists && h('div', { class: 'actions' }, button('review.write_plan', async (event) => {
       event.currentTarget.disabled = true;
@@ -124,9 +130,9 @@ function mediaView(reviewId, f) {
   } };
 }
 
-function candidateList(cands) {
+function candidateList(cands, fieldName) {
   if (!cands || !cands.length) return h('span', { class: 'missing' }, t('review.missing'));
-  return h('ul', { class: 'cands' }, cands.map((c) => h('li', {}, h('code', {}, wallDate(c.value) + (c.offset ? ' ' + c.offset : '')), ' ',
+  return h('ul', { class: 'cands' }, cands.map((c) => h('li', {}, h('code', {}, (fieldName === 'dimensions' ? fmt.dimensions(c.value) : wallDate(c.value)) + (c.offset ? ' ' + c.offset : '')), ' ',
     h('span', { class: 'muted small' }, c.tag + ' · ' + (c.source === 'file' ? t('review.source_file') : c.source) + (c.semantic === 'utc' ? ' · ' + t('review.utc') : '')))));
 }
 
@@ -190,7 +196,7 @@ export async function item(main, state, [id]) {
         selectedProposalField = row.field;
       } }, t('review.use_proposal')) : null));
     return h('tr', { class: row.present ? '' : 'is-missing' }, h('th', { scope: 'row' }, t('field.' + row.field)),
-      h('td', {}, candidateList(row.candidates), row.fill ? h('div', { class: 'small' }, badge(t('review.auto_fill'), 'ok'), ' ', h('code', {}, String(row.fill.value)), ' ← ', row.fill.from) : null, proposals),
+      h('td', {}, candidateList(row.candidates, row.field), row.fill ? h('div', { class: 'small' }, badge(t('review.auto_fill'), 'ok'), ' ', h('code', {}, String(row.fill.value)), ' ← ', row.fill.from) : null, proposals),
       h('td', {}, editor || (row.present ? h('span', { class: 'muted small' }, t('review.present_readonly')) : h('span', { class: 'muted small' }, t('review.not_writable')))));
   });
   dateChoice.addEventListener('change', () => {
@@ -268,6 +274,6 @@ export async function item(main, state, [id]) {
       h('aside', { class: 'review-preview' },
         media ? media.el : h('div', { class: 'media' }, h('p', { class: 'muted' }, t('review.no_file'))),
         f ? h('p', { class: 'preview-caption' }, h('code', {}, f.name), ' ',
-          r.fields?.find((row) => row.field === 'dimensions')?.candidates?.map((candidate) => candidate.value).join(' · ')) : null)));
+          r.fields?.find((row) => row.field === 'dimensions')?.candidates?.map((candidate) => fmt.dimensions(candidate.value)).join(' · ')) : null)));
   return { destroy: () => { document.querySelector('.preview-dialog')?.close(); if (media) { media.stop(); media.destroy(); } } };
 }

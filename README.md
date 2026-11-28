@@ -64,6 +64,19 @@ docker compose logs app | grep SETUP_TOKEN        # one-time setup token
 
 Open **http://<host>:7777** and follow the wizard.
 
+## Is TwinCheck running?
+
+You do not need to manage Docker or the server to check. In a browser, open
+**http://<server>:7777/health**, replacing `<server>` with the same server name
+or address you use for TwinCheck. A healthy answer is `{"status": "ok"}`.
+This means the web application is responding; it does not verify the library or database.
+
+If it does not answer, wait a minute after an update, reload, and try another browser.
+If it still fails, report to whoever manages the server:
+the time (including timezone), what you were doing, the `/health` result
+(or that it did not answer), and the exact error shown by the browser.
+Do not send passwords, keys or photos.
+
 On a server with **Portainer** you do not need the source code: use the published image
 `ghcr.io/axreds/twincheck` and the stack file `docker/portainer-stack.yml`, as described in
 [docker/README.md](docker/README.md#deploy-with-portainer).
@@ -177,11 +190,34 @@ Review items, Logs, Duplicates and Jobs default to 50 rows per page and offer
 10 / 50 / 100 / All. The browser remembers each user's choice separately for each table.
 Loading All above 1,000 rows requires confirmation, including after returning to the page.
 
-### Upgrade to 1.0.1-rc.12
+### Upgrade to 1.0.1-rc.13
 
-From rc.11, no schema migration is required: schema remains 6 and an already-current
+From rc.12, no schema migration is required: schema remains 6 and an already-current
 database emits no `DB_MIGRATED`. User decisions are not changed.
-Deploy `ghcr.io/axreds/twincheck:1.0.1-rc.12` (or the moving `rc` alias) only after publication.
+Deploy `ghcr.io/axreds/twincheck:1.0.1-rc.13` (or the moving `rc` alias) only after publication.
+
+Sign-in banners have an accessible close button inside the top corner. Keyboard controls
+retain visible focus rings; navigation focus does not outline the whole content area.
+Counted texts use each language's plural forms, and review dimensions use `width × height`.
+History & Undo describes performed operations, undo and final verification; Undone is numeric.
+Without a completed Analyze library run, Duplicates, Metadata, Organize and Home show
+**No results yet: run Analyze library**, not zero-result claims. Older-version notices explain
+that analysis only reads files. History remains accessible independently.
+
+All filter selects are compact. Dropdowns, checkboxes, searchable selections and date pickers
+apply immediately; free-text and numbers apply only with Enter or **Apply**. Pending text
+highlights Apply and is not committed by changing a dropdown. Pages without text/number
+filters have no Apply button. **Clear filters** remains available. Security dates are inclusive UTC dates.
+Users and Groups have name/state filters (Users also has Role).
+
+**Settings → General → Scan → Excluded names** is a managed list with optional descriptions,
+built-in explanations and Edit/Remove. Add/Edit validates unique, non-empty, basename-only
+shell patterns, blocks patterns excluding all names, and **Test a name** reports matching
+patterns using the scanner's case-sensitive rules. Remove and Restore defaults ask for
+confirmation; Save previews Added/Removed/Edited names and asks for confirmation.
+Changes apply from the next analysis and never touch files. Existing pattern values keep
+their meaning, descriptions are stored in the vault, and no migration is needed.
+This setting has no server/environment override. Internal `.twincheck-*` names always stay excluded.
 
 The version is shown below the logo with a build-date tooltip. Diagnostics and Security Log
 are in the user menu; administrative Settings opens General. Filters stay in the page URL

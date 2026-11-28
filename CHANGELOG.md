@@ -4,6 +4,66 @@ All notable changes are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.1-rc.13] - 2026-11-28
+
+Pre-release only. Publish only exact `1.0.1-rc.13` and `rc` images for amd64/arm64 after
+all original CI jobs and the complete release gate pass. Stable aliases, main and draft
+PR #27 stay unchanged; tag `1` stays absent.
+
+### Owner verification
+
+- Owner-verified on rc.12 and closed with `verified`: #97, #98, #99, #101, #103,
+  #104, #105, #106, #107, #108 and #109.
+- #100 remains open for observation: 30 admin reloads/navigations left home and health
+  immediately responsive; the original hang did not recur, but its root cause remains unknown.
+- #102 remains open: tab naming and operation counts were verified; the owner has not
+  yet tested the post-move operation link. #59, #60 and #110 remain untouched.
+
+### Fixed and improved
+
+- P1 (#111): sign-in close control inside the first-line top corner with a localized
+  accessible label. Navigation retains main focus without a container outline and without
+  stealing focus from a control already being used; keyboard controls keep visible focus rings.
+- P2 (#112): all counted messages provide every CLDR form in all ten locales. Independent
+  summary counters have independent plural fragments, including singular sign-in failures,
+  files, items, rows and events. Numeric export labels remain localized.
+- P3 (#113): review field table and photo caption show dimensions as `width × height`.
+- P4 (#114): Home and History & Undo descriptions cover performed operations, undo and
+  final verification; Undone cells contain numbers only.
+- P5 (#115): legacy analysis is explained without job jargon. Missing valid analysis
+  shows "No results yet: run Analyze library" on Duplicates, Metadata, Organize and Home,
+  not fabricated zero/no-duplicate results or legacy review totals. History remains independent.
+- P6 (#116): compact natural-width filter selects, including Duplicates Scope, wrap
+  and align safely on desktop and mobile.
+- U48 (#117): excluded-name list with localized built-in explanations, optional descriptions,
+  Add/Edit dialogs, scanner-matched name testing, validation of shell patterns, duplicate
+  and exclude-all rejection, confirmed removal/default restoration, and confirmed
+  Added/Removed/Edited save summary. Changes apply only to the next analysis and never touch files.
+  Existing case-sensitive basename patterns remain compatible; descriptions live in the vault.
+  There is no server configuration override for this setting.
+- U49 (#118): selections, checkboxes, searchable selects and UTC date pickers apply immediately;
+  text/number fields apply on Enter/Apply. Pending Apply highlighting, last-applied text retention,
+  Clear, URL/F5 persistence and navigation defaults are consistent. Users and Groups have
+  name/state filters; Users also has Role. Per-user rows-per-page preferences are unchanged.
+- D1 (#119): plain-language browser health instructions with the exact healthy answer,
+  wait/reload/other-browser guidance and the information to report to the server administrator.
+  Technical Docker `/healthz` checks are preserved.
+
+### Upgrade and validation
+
+- No migration from rc.12: schema remains 6 and no `DB_MIGRATED` is emitted for a current database.
+  Existing decisions and metadata values remain unchanged. Older schemas retain the
+  backed-up, administrator-confirmed migration.
+- Full SQLite and isolated MariaDB suites: 136 tests passed in each run. All ten locales
+  and endpoint/parameter documentation tests passed. Light/Dark × 1600/1280/900/375 px:
+  568 DOM/CSS scenarios, including every count at 0/1/2 in every locale and
+  immediate/deferred filter behaviour.
+- Native browser regressions retain original select/polling/reload checks and add real
+  keyboard focus, per-page filter selection/Enter/Apply/F5/Clear and safe exclusion dialogs.
+  All eight combinations passed, including 30 real reloads/navigations each; health/home
+  answered below two seconds on the isolated synthetic instance.
+- No new application dependency, runtime Internet call, environment parameter or schema change.
+
 ## [1.0.1-rc.12] - 2026-11-28
 
 Pre-release only; publication requires green original CI jobs and the full owner-specified

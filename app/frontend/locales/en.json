@@ -15,25 +15,43 @@
     "common.rows_storage_unavailable": "Browser storage is unavailable: rows per page cannot be remembered.",
     "common.rows_per_page": "Rows per page",
     "common.all_rows": "All",
-    "common.confirm_all_rows": "Load all {count} rows? This may take a while.",
+    "common.confirm_all_rows": {
+      "one": "Load {count} row? This may take a while.",
+      "other": "Load {count} rows? This may take a while."
+    },
     "review.postponed_on": "Postponed on {date} · still to review",
     "logs.only_present": "Only events present",
-    "logs.export_filtered": "Export filtered ({count})",
-    "logs.export_all": "Export all ({count})",
+    "logs.export_filtered": {
+      "one": "Export filtered ({count})",
+      "other": "Export filtered ({count})"
+    },
+    "logs.export_all": {
+      "one": "Export all ({count})",
+      "other": "Export all ({count})"
+    },
     "logs.export_own_note": "Only your own events are included.",
     "logs.export_all_note": "Export all includes events of all users.",
     "logs.export_user_note": "Export filtered includes events of {user}.",
-    "meta.latest_population": "{analysed} analysed · {unreadable} unreadable · {total} flagged · {pending} to review · {decided} decided",
-    "meta.current_population": "Current files: {current} = dated outside review: {reliable} + in review: {review_files} + other: {other}. The queue covers all assigned folders; analysis covers the latest selected folder. Unreadable files may also be in review.",
+    "meta.latest_population": "{analysed} · {unreadable} · {total} · {pending} · {decided}",
+    "meta.current_population": "{current} = {reliable} + {review_files} + {other}. The queue covers all assigned folders; analysis covers the latest selected folder. Unreadable files may also be in review.",
     "settings.show_version_on_login": "Show version on login page",
     "review.date_format": "yyyy-mm-dd hh:mm:ss (24-hour)",
     "common.back_to": "Back to {page}",
-    "meta.empty_fills": "No automatic completions: no missing field has a reliable source. Awaiting a review choice: {count}.",
+    "meta.empty_fills": {
+      "one": "No automatic completions: no missing field has a reliable source. Awaiting a review choice: {count}.",
+      "other": "No automatic completions: no missing field has a reliable source. Awaiting a review choice: {count}."
+    },
     "plan.empty": "Nothing to change in this preview. No files will be modified.",
-    "review.live_counts": "{total} flagged · {pending} to review · {decided} decided",
-    "review.recheck_count": "{count} need re-check",
-    "job.library_result": "Files found: {found} · New or changed: {changed} · Unchanged (reused): {unchanged} · Hashed: {hashed}",
-    "job.unreadable": "{count} unreadable",
+    "review.live_counts": "{total} · {pending} · {decided}",
+    "review.recheck_count": {
+      "one": "Needs re-check: {count} item",
+      "other": "Needs re-check: {count} items"
+    },
+    "job.library_result": "{found} · {changed} · {unchanged} · {hashed}",
+    "job.unreadable": {
+      "one": "Unreadable: {count} file",
+      "other": "Unreadable: {count} files"
+    },
     "analysis.history": "History in Jobs",
     "settings.library_timezone": "Library timezone",
     "settings.library_timezone_hint": "IANA name, e.g. Europe/Rome. Used for organizing dates, not for changing original EXIF.",
@@ -90,7 +108,7 @@
     "header.host": "Host",
     "header.os": "System",
     "header.cpu": "CPU",
-    "header.cpu_value": "{cores} cores · {pct}",
+    "header.cpu_value": "{cores} · {pct}",
     "header.load": "load {load}",
     "header.memory": "Memory",
     "header.disk_value": "{used} / {total} ({pct})",
@@ -196,7 +214,7 @@
     "home.step_metadata": "Complete missing metadata only from reliable sources.",
     "home.step_review": "Decide on doubtful files.",
     "home.step_organize": "Move files into Year/Month/Day folders.",
-    "home.step_report": "Check the report, verify, undo if needed.",
+    "home.step_report": "See what was done, verify, and undo if needed.",
     "home.summary": "Summary",
     "home.files": "Indexed files",
     "home.files_value": {
@@ -222,8 +240,8 @@
       "other": "{count} items"
     },
     "job.phase": "phase {phase}",
-    "job.scan_result": "{indexed} indexed · {hashed} hashed · {reused} hashes reused · {unhashed} without a hash",
-    "job.scan_result_legacy": "{indexed} indexed · {hashed} hashed; unchanged files reuse hashes (not counted in older scans).",
+    "job.scan_result": "{indexed} · {hashed} · {reused} · {unhashed}",
+    "job.scan_result_legacy": "{indexed} · {hashed}; unchanged files reuse hashes (not counted in older scans).",
     "job.needs_confirmation": "This job writes or moves files: it resumes only when you click Resume.",
     "job.started": "Job #{id} started.",
     "job.status.queued": "queued",
@@ -331,8 +349,8 @@
     "plan.col_to": "To / changes",
     "plan.col_status": "Status",
     "plan.summary": {
-      "one": "{count} item: {planned} to do, {done} done, {blocked} blocked or skipped",
-      "other": "{count} items: {planned} to do, {done} done, {blocked} blocked or skipped"
+      "one": "{count} item: {planned} · {done} · {blocked}",
+      "other": "{count} items: {planned} · {done} · {blocked}"
     },
     "plan.renamed": "suffix added",
     "plan.from": "from {tag} ({source})",
@@ -377,7 +395,7 @@
     "plan.note.recovered": "recovered after interruption",
     "review.title": "Review",
     "review.intro": "Files that need a decision. Decisions are saved immediately: you can stop and resume at any time.",
-    "review.counts": "{pending} pending · {saved} saved · {skipped} skipped · {kept} left as they are",
+    "review.counts": "{pending} · {saved} · {skipped} · {kept}",
     "review.filter_status": "Status",
     "review.filter_kind": "Reason",
     "review.all_kinds": "All reasons",
@@ -470,7 +488,7 @@
     "manifest.action.metadata": "metadata written",
     "manifest.action.restore": "moved back",
     "report.title": "History & Undo",
-    "report.intro": "Summary of the current database, manifest, undo and final verification.",
+    "report.intro": "Operations performed, their undo, and final verification.",
     "report.files": "Files",
     "report.col_status": "Status",
     "report.col_kind": "Type",
@@ -803,8 +821,11 @@
     "dup.filesystem_date": "File system date: {date}",
     "dup.unknown_date": "unknown",
     "dup.no_analysis": "No duplicate analysis results are available yet.",
-    "meta.summary": "Files analysed: {analysed} · Metadata completions proposed: {fills} · Flagged: {review}",
-    "meta.review_items": "Review items ({count})",
+    "meta.summary": "{analysed} · {fills} · {review}",
+    "meta.review_items": {
+      "one": "Review queue: {count} item",
+      "other": "Review queue: {count} items"
+    },
     "meta.no_analysis": "No metadata analysis results are available yet.",
     "review.preview_error": "Preview could not be loaded (HTTP {status}).",
     "review.detail_values": {
@@ -821,13 +842,13 @@
     "analysis.update": "Update analysis",
     "analysis.empty": "Analyze this library before reviewing or acting on files.",
     "analysis.stale": "Files changed or analysis was interrupted. Update the analysis before continuing.",
-    "analysis.changes": "Files changed since analysis: {new} new · {changed} changed · {removed} removed. Update analysis before continuing.",
+    "analysis.changes": "{new} · {changed} · {removed}",
     "analysis.incomplete": "The latest analysis was interrupted and is incomplete.",
     "job.already_running": "Job #{id} is already running.",
     "review.status.decided": "Decided",
     "review.status.all": "All",
-    "meta.review_population": "Review queue · Items: {items} · Current files: {files} across all assigned folders. Analysis counts above describe the latest selected-folder run.",
-    "meta.analysis_summary": "Latest analysis · Files analysed: {analysed} · Metadata completions proposed: {fills}",
+    "meta.review_population": "{items} · {files}. Analysis counts above describe the latest selected-folder run.",
+    "meta.analysis_summary": "{analysed} · {fills}",
     "db.update_required": "Database update required. Contact an administrator.",
     "settings.timezone_search": "Search timezones",
     "settings.timezone_offset_hint": "Current offsets are shown. The offset changes with daylight saving time. Used for organizing dates; original EXIF is unchanged.",
@@ -869,14 +890,17 @@
     "logs.security_admin_note": "See the Security Log",
     "logs.security_own_note": "See the Security Log",
     "security.activity": "Security Log",
-    "meta.compact_summary": "{analysed} files analysed · {unreadable} unreadable · {reliable} with a reliable date · {total} flagged · {pending} to review · {decided} decided",
+    "meta.compact_summary": "{analysed} · {unreadable} · {reliable} · {total} · {pending} · {decided}",
     "meta.start_review": "Start review →",
     "meta.how_completion_works": "How metadata completion works",
     "review.skipped_compact": "Skipped · {date}",
     "review.enlarge": "Enlarge preview",
     "security.source_ip": "Source IP",
     "security.last_login": "Last sign-in: {date} from {ip}",
-    "security.failed_since": "{count} failed sign-in attempts since your last sign-in.",
+    "security.failed_since": {
+      "one": "{count} failed sign-in attempt since your last sign-in.",
+      "other": "{count} failed sign-in attempts since your last sign-in."
+    },
     "security.trial": "Trial: activity is stored for this instance, independently of the database.",
     "review.example_date": "e.g. 2007-08-26 20:36:42",
     "review.example_offset": "e.g. +01:00",
@@ -887,9 +911,12 @@
     "review.example_title": "e.g. Holiday",
     "review.example_description": "e.g. Family photo",
     "analysis.reason.never_analyzed": "This library has never been analyzed.",
-    "analysis.reason.older_version": "Only legacy scan or metadata jobs are available, not a completed Analyze library run. Run Analyze library to update the results.",
+    "analysis.reason.older_version": "Your library was analysed with an older version of TwinCheck. Run Analyze library to see the current results. It only reads your files: nothing is moved or changed.",
     "analysis.changed_since": "Files changed on disk since the analysis of {date}.",
-    "org.last_preview": "Last preview #{id} of {date} · {count} items",
+    "org.last_preview": {
+      "one": "Last preview #{id} of {date} · {count} item",
+      "other": "Last preview #{id} of {date} · {count} items"
+    },
     "org.recompute": "Recompute",
     "org.discard": "Discard Preview",
     "org.stale.scope": "Library assignments or settings changed. Recompute before executing.",
@@ -902,15 +929,246 @@
     "report.operation.move": "Organize Run",
     "report.operation.dup_move": "Duplicates Move",
     "report.operation.metadata": "Metadata Changes",
-    "report.operation_undone": "{count} undone",
+    "report.operation_undone": {
+      "one": "{count}",
+      "other": "{count}"
+    },
     "report.global_undo_note": "Per-operation undo is not yet available. Use the global undo previews below; inspect every file before confirming.",
-    "report.moved_link": "{count} files moved · View in History & Undo →",
-    "logs.not_visible": "{count} of these events are not visible to {user} because they reference files outside {user}'s library.",
+    "report.moved_link": {
+      "one": "Moved: {count} file · View in History & Undo →",
+      "other": "Moved: {count} files · View in History & Undo →"
+    },
+    "logs.not_visible": {
+      "one": "Not visible to {user}: {count} event. They reference files outside {user}'s library.",
+      "other": "Not visible to {user}: {count} events. They reference files outside {user}'s library."
+    },
     "logs.no_job_events": "No events for job {id}.",
     "security.review": "Review",
     "security.see_log": "See the Security Log",
     "header.version_build": "{version} · Build date: {date}",
     "error.preview_stale": "This preview is stale or discarded. Recompute it before executing.",
-    "error.server_busy": "The server is busy. Retry shortly."
+    "error.server_busy": "The server is busy. Retry shortly.",
+    "security.close_banner": "Dismiss sign-in information",
+    "analysis.no_results": "No results yet: run Analyze library.",
+    "filters.pending": "Apply pending text filters",
+    "filters.search": "Search",
+    "filters.since": "From date (UTC)",
+    "filters.until": "To date (UTC)",
+    "exclusions.pattern": "Pattern",
+    "exclusions.description": "Description (optional)",
+    "exclusions.default": "Default",
+    "exclusions.add": "Add pattern",
+    "exclusions.restore": "Restore defaults",
+    "exclusions.test_name": "Test a name",
+    "exclusions.test_hint": "Enter a file or folder name to test it.",
+    "exclusions.matches": "Excluded by: {patterns}",
+    "exclusions.no_match": "This name would not be excluded.",
+    "exclusions.pattern_hint": "Shell patterns match a name, not a path. * matches any text, ? one character, [abc] a character from the list. Matching is case-sensitive.",
+    "exclusions.remove_confirm": "Remove {pattern} from the excluded names?",
+    "exclusions.restore_confirm": "Restore the built-in patterns and clear custom descriptions?",
+    "exclusions.next_analysis": "Changes apply from the next analysis. They never move or change your files.",
+    "exclusions.internal": "TwinCheck's internal .twincheck-* names are always excluded. This list is managed here, not by server configuration.",
+    "exclusions.empty": "No optional excluded names.",
+    "exclusions.save_title": "Confirm excluded-name changes",
+    "exclusions.added": "Added: {patterns}",
+    "exclusions.removed": "Removed: {patterns}",
+    "exclusions.edited": "Edited: {patterns}",
+    "error.exclusion_empty": "Enter a non-empty pattern.",
+    "error.exclusion_duplicate": "This pattern is already in the list.",
+    "error.exclusion_invalid": "Use a valid shell pattern for a name (no path, at most 100 characters).",
+    "error.exclusion_all": "This pattern would exclude every name. Use a more specific pattern.",
+    "error.exclusion_limit": "Use at most 100 patterns.",
+    "error.exclusion_name": "Enter a name, not a path.",
+    "exclusions.default.hidden": "Hidden files and folders",
+    "exclusions.default.synology_thumbnails": "Synology thumbnails",
+    "exclusions.default.synology_recycle": "Synology recycle bin",
+    "exclusions.default.windows_recycle": "Windows recycle bin",
+    "exclusions.default.linux_recovery": "Linux recovery folder",
+    "exclusions.default.windows_thumbnails": "Windows thumbnail cache",
+    "exclusions.default.windows_settings": "Windows folder settings",
+    "meta.latest_population.analysed": {
+      "one": "Analysed: {count} file",
+      "other": "Analysed: {count} files"
+    },
+    "meta.latest_population.unreadable": {
+      "one": "Unreadable: {count} file",
+      "other": "Unreadable: {count} files"
+    },
+    "meta.latest_population.total": {
+      "one": "Flagged: {count} item",
+      "other": "Flagged: {count} items"
+    },
+    "meta.latest_population.pending": {
+      "one": "To review: {count} item",
+      "other": "To review: {count} items"
+    },
+    "meta.latest_population.decided": {
+      "one": "Decided: {count} item",
+      "other": "Decided: {count} items"
+    },
+    "meta.compact_summary.analysed": {
+      "one": "Analysed: {count} file",
+      "other": "Analysed: {count} files"
+    },
+    "meta.compact_summary.unreadable": {
+      "one": "Unreadable: {count} file",
+      "other": "Unreadable: {count} files"
+    },
+    "meta.compact_summary.reliable": {
+      "one": "Reliable date: {count} file",
+      "other": "Reliable date: {count} files"
+    },
+    "meta.compact_summary.total": {
+      "one": "Flagged: {count} item",
+      "other": "Flagged: {count} items"
+    },
+    "meta.compact_summary.pending": {
+      "one": "To review: {count} item",
+      "other": "To review: {count} items"
+    },
+    "meta.compact_summary.decided": {
+      "one": "Decided: {count} item",
+      "other": "Decided: {count} items"
+    },
+    "review.live_counts.total": {
+      "one": "Flagged: {count} item",
+      "other": "Flagged: {count} items"
+    },
+    "review.live_counts.pending": {
+      "one": "To review: {count} item",
+      "other": "To review: {count} items"
+    },
+    "review.live_counts.decided": {
+      "one": "Decided: {count} item",
+      "other": "Decided: {count} items"
+    },
+    "job.library_result.found": {
+      "one": "Found: {count} file",
+      "other": "Found: {count} files"
+    },
+    "job.library_result.changed": {
+      "one": "New or changed: {count} file",
+      "other": "New or changed: {count} files"
+    },
+    "job.library_result.unchanged": {
+      "one": "Unchanged (reused): {count} file",
+      "other": "Unchanged (reused): {count} files"
+    },
+    "job.library_result.hashed": {
+      "one": "Hashed: {count} file",
+      "other": "Hashed: {count} files"
+    },
+    "job.scan_result.indexed": {
+      "one": "Indexed: {count} file",
+      "other": "Indexed: {count} files"
+    },
+    "job.scan_result.hashed": {
+      "one": "Hashed: {count} file",
+      "other": "Hashed: {count} files"
+    },
+    "job.scan_result.reused": {
+      "one": "Reused hashes: {count} hash",
+      "other": "Reused hashes: {count} hashes"
+    },
+    "job.scan_result.unhashed": {
+      "one": "Without hash: {count} file",
+      "other": "Without hash: {count} files"
+    },
+    "job.scan_result_legacy.indexed": {
+      "one": "Indexed: {count} file",
+      "other": "Indexed: {count} files"
+    },
+    "job.scan_result_legacy.hashed": {
+      "one": "Hashed: {count} file",
+      "other": "Hashed: {count} files"
+    },
+    "review.counts.pending": {
+      "one": "To review: {count} item",
+      "other": "To review: {count} items"
+    },
+    "review.counts.saved": {
+      "one": "Saved: {count} item",
+      "other": "Saved: {count} items"
+    },
+    "review.counts.skipped": {
+      "one": "Postponed: {count} item",
+      "other": "Postponed: {count} items"
+    },
+    "review.counts.kept": {
+      "one": "Left unchanged: {count} item",
+      "other": "Left unchanged: {count} items"
+    },
+    "meta.summary.analysed": {
+      "one": "Analysed: {count} file",
+      "other": "Analysed: {count} files"
+    },
+    "meta.summary.fills": {
+      "one": "Proposed completions: {count} field",
+      "other": "Proposed completions: {count} fields"
+    },
+    "meta.summary.review": {
+      "one": "Flagged: {count} item",
+      "other": "Flagged: {count} items"
+    },
+    "meta.analysis_summary.analysed": {
+      "one": "Analysed: {count} file",
+      "other": "Analysed: {count} files"
+    },
+    "meta.analysis_summary.fills": {
+      "one": "Proposed completions: {count} field",
+      "other": "Proposed completions: {count} fields"
+    },
+    "meta.review_population.items": {
+      "one": "Review queue: {count} item",
+      "other": "Review queue: {count} items"
+    },
+    "meta.review_population.files": {
+      "one": "Current: {count} file",
+      "other": "Current: {count} files"
+    },
+    "analysis.changes.new": {
+      "one": "New since analysis: {count} file",
+      "other": "New since analysis: {count} files"
+    },
+    "analysis.changes.changed": {
+      "one": "Changed since analysis: {count} file",
+      "other": "Changed since analysis: {count} files"
+    },
+    "analysis.changes.removed": {
+      "one": "Removed since analysis: {count} file",
+      "other": "Removed since analysis: {count} files"
+    },
+    "meta.current_population.current": {
+      "one": "Current: {count} file",
+      "other": "Current: {count} files"
+    },
+    "meta.current_population.reliable": {
+      "one": "Reliable date: {count} file",
+      "other": "Reliable date: {count} files"
+    },
+    "meta.current_population.review_files": {
+      "one": "In review: {count} file",
+      "other": "In review: {count} files"
+    },
+    "meta.current_population.other": {
+      "one": "Other: {count} file",
+      "other": "Other: {count} files"
+    },
+    "plan.summary.planned": {
+      "one": "To do: {count} item",
+      "other": "To do: {count} items"
+    },
+    "plan.summary.done": {
+      "one": "Done: {count} item",
+      "other": "Done: {count} items"
+    },
+    "plan.summary.blocked": {
+      "one": "Blocked or skipped: {count} item",
+      "other": "Blocked or skipped: {count} items"
+    },
+    "header.cpu_value.cores": {
+      "one": "{count} core",
+      "other": "{count} cores"
+    }
   }
 }

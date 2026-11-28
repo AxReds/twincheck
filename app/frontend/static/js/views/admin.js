@@ -2,10 +2,11 @@
 import { h, mount, button, field, table, modal, toast, badge, instant } from '../dom.js';
 import { t, fmt } from '../i18n.js';
 import { get, post, patch, del } from '../api.js';
-import { folderBrowser, kv, pager, comboBox } from '../components.js';
+import { folderBrowser, kv, pager, comboBox, filterControls } from '../components.js';
 import { testResult } from './setup.js';
 import { icon } from '../icons.js';
 import { securityActivity } from './tool.js';
+import { excludedNames } from '../exclusions.js';
 
 export function adminNav(state, active) {
   const items = [['settings', 'admin.settings', 'sliders-horizontal'], ['users', 'admin.users', 'users-round'], ['groups', 'admin.groups', 'users-round'], ['database', 'admin.database', 'database']];
@@ -97,13 +98,29 @@ export async function users(main, state) {
       users(main, state);
     } catch (e) { toast(e.message, 'error'); }
   };
+  const search = h('input', { type: 'search' });
+  const filterRole = h('select', {}, h('option', { value: '' }, t('review.status.all')),
+    ['admin', 'administrator', 'user'].map((role) => h('option', { value: role }, t('role.' + role))));
+  const active = h('select', {}, h('option', { value: '' }, t('review.status.all')),
+    h('option', { value: '1' }, t('admin.active')), h('option', { value: '0' }, t('admin.inactive')));
+  const list = h('div', {});
+  const load = () => mount(list, table(['admin.col_user', 'admin.col_role', 'admin.col_state', 'admin.col_groups', 'admin.col_sources', ''],
+    rows.filter((row, index) => {
+      const u = d.users[index];
+      return (!filters.get('search') || u.username.toLowerCase().includes(filters.get('search').toLowerCase())) &&
+        (!filters.get('role') || u.role === filters.get('role')) &&
+        (!filters.get('active') || String(Number(u.active)) === filters.get('active'));
+    })));
+  const filters = filterControls({ search, role: filterRole, active }, load);
   shell(main, state, 'users', 'admin.users',
-    table(['admin.col_user', 'admin.col_role', 'admin.col_state', 'admin.col_groups', 'admin.col_sources', ''], rows),
+    h('div', { class: 'filters' }, field('filters.search', search), field('admin.role', filterRole),
+      field('admin.col_state', active), filters.apply, filters.clear), list,
     h('details', { class: 'panel' }, h('summary', {}, t('admin.new_user')),
       h('div', { class: 'form' }, field('admin.username', uname, 'admin.username_rules'), field('admin.role', role), field('admin.password', pw, 'setup.password_rules'),
         d.groups.length ? field('admin.groups', groupsBox) : null, h('h3', {}, t('admin.sources')), src.el,
         h('div', { class: 'actions' }, button('admin.create', create, 'primary')))),
     state.perms.reassign_owner ? await ownersPanel() : null);
+  load();
 }
 
 async function ownersPanel() {
@@ -135,9 +152,21 @@ export async function groups(main, state) {
         button('common.delete', async () => { if (await modal({ titleKey: 'admin.delete_group', body: h('p', {}, t('admin.delete_group_confirm', { name: g.name })), danger: true, confirmKey: 'common.delete' })) { try { await del('/api/admin/groups/' + g.id); reload(); } catch (e) { toast(e.message, 'error'); } } }, 'danger-outline')));
   });
   const name = h('input', { type: 'text' });
+  const search = h('input', { type: 'search' });
+  const active = h('select', {}, h('option', { value: '' }, t('review.status.all')),
+    h('option', { value: '1' }, t('admin.active')), h('option', { value: '0' }, t('admin.inactive')));
+  const list = h('div', {});
+  const load = () => mount(list, d.groups.length ? table(['admin.col_group', 'admin.col_state', 'admin.col_members', ''],
+    rows.filter((row, index) => {
+      const g = d.groups[index];
+      return (!filters.get('search') || g.name.toLowerCase().includes(filters.get('search').toLowerCase())) &&
+        (!filters.get('active') || String(Number(g.active)) === filters.get('active'));
+    })) : h('p', { class: 'muted' }, t('admin.no_groups')));
+  const filters = filterControls({ search, active }, load);
   shell(main, state, 'groups', 'admin.groups', h('p', { class: 'hint' }, t('admin.groups_help')),
-    d.groups.length ? table(['admin.col_group', 'admin.col_state', 'admin.col_members', ''], rows) : h('p', { class: 'muted' }, t('admin.no_groups')),
+    h('div', { class: 'filters' }, field('filters.search', search), field('admin.col_state', active), filters.apply, filters.clear), list,
     h('div', { class: 'form inline' }, field('admin.group_name', name), button('admin.create', async () => { try { await post('/api/admin/groups', { name: name.value }); reload(); } catch (e) { toast(e.message, 'error'); } }, 'primary')));
+  load();
 }
 
 // --- settings ----------------------------------------------------------------------------------------
@@ -146,7 +175,7 @@ export async function settings(main, state) {
   const s = d.settings;
   const noDate = h('input', { type: 'text', value: s.organize.no_date_folder });
   const dupDir = h('input', { type: 'text', value: s.organize.duplicates_folder });
-  const exclude = h('textarea', { rows: '5' }); exclude.value = s.scan.exclude.join('\n');
+  const exclude = excludedNames(s.scan, d.scan_exclude_defaults || []);
   const fields = h('div', { class: 'checks' }, ['datetime_original', 'create_date', 'offset', 'gps', 'make', 'model', 'orientation', 'title', 'description']
     .map((f) => h('label', {}, h('input', { type: 'checkbox', value: f, checked: s.metadata.fields.includes(f) }), ' ', t('field.' + f))));
   const height = h('input', { type: 'number', min: '240', max: '2160', value: String(s.previews.transcode_height) });
@@ -168,19 +197,24 @@ export async function settings(main, state) {
   const loginVersion = state.user.role === 'admin' ? h('input', { type: 'checkbox', checked: s.show_version_on_login }) : null;
   const save = async () => {
     if (timezone && !timezone.valid()) return;
-    const body = { organize: { no_date_folder: noDate.value, duplicates_folder: dupDir.value }, scan: { exclude: exclude.value.split('\n').map((x) => x.trim()).filter(Boolean) },
+    try {
+    const changes = await exclude.changes();
+    if (changes === false) return;
+    const body = { organize: { no_date_folder: noDate.value, duplicates_folder: dupDir.value },
       metadata: { fields: [...fields.querySelectorAll('input:checked')].map((i) => i.value) }, previews: { transcode_height: Number(height.value), crf: Number(crf.value) } };
+    if (changes) body.scan = changes;
     if (state.perms.security_settings) body.default_lang = lang.value;
     if (timezone) body.library_timezone = timezone.value();
     if (loginVersion) body.show_version_on_login = loginVersion.checked;
-    try { await patch('/api/admin/settings', body); toast(t('common.saved'), 'ok'); } catch (e) { toast(e.message, 'error'); }
+    await patch('/api/admin/settings', body); exclude.saved(); toast(t('common.saved'), 'ok');
+    } catch (e) { toast(e.message, 'error'); }
   };
   const sec = d.security;
   const secInputs = sec ? Object.fromEntries(Object.entries(sec).map(([k, v]) => [k, h('input', { type: 'number', value: String(v) })])) : null;
   shell(main, state, 'settings', 'admin.settings',
     h('div', { class: 'form' },
       h('h3', {}, t('settings.organize')), field('settings.no_date_folder', noDate), field('settings.duplicates_folder', dupDir),
-      h('h3', {}, t('settings.scan')), field('settings.exclude', exclude, 'settings.exclude_hint'),
+      h('h3', {}, t('settings.scan')), h('h4', {}, t('settings.exclude')), exclude.el,
       h('h3', {}, t('settings.metadata')), field('settings.fields', fields),
       h('h3', {}, t('settings.previews')), field('settings.preview_height', height), field('settings.preview_crf', crf),
       h('h3', {}, t('settings.instance')), field('settings.default_lang', lang, 'settings.default_lang_hint'),

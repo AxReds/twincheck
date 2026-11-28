@@ -14,25 +14,49 @@
     "common.rows_storage_unavailable": "Armazenamento do navegador indisponível: não é possível lembrar as linhas por página.",
     "common.rows_per_page": "Linhas por página",
     "common.all_rows": "Todas",
-    "common.confirm_all_rows": "Carregar todas as {count} linhas? Isso pode demorar.",
+    "common.confirm_all_rows": {
+      "many": "Carregar {count} linhas? Isso pode demorar.",
+      "one": "Carregar {count} linha? Isso pode demorar.",
+      "other": "Carregar {count} linhas? Isso pode demorar."
+    },
     "review.postponed_on": "Adiado em {date} · ainda a revisar",
     "logs.only_present": "Somente eventos presentes",
-    "logs.export_filtered": "Exportar filtrados ({count})",
-    "logs.export_all": "Exportar todos ({count})",
+    "logs.export_filtered": {
+      "many": "Exportar filtrados ({count})",
+      "one": "Exportar filtrados ({count})",
+      "other": "Exportar filtrados ({count})"
+    },
+    "logs.export_all": {
+      "many": "Exportar todos ({count})",
+      "one": "Exportar todos ({count})",
+      "other": "Exportar todos ({count})"
+    },
     "logs.export_own_note": "Somente seus próprios eventos são incluídos.",
     "logs.export_all_note": "Exportar todos inclui eventos de todos os usuários.",
     "logs.export_user_note": "Exportar filtrados inclui eventos de {user}.",
-    "meta.latest_population": "{analysed} analisados · {unreadable} ilegíveis · {total} sinalizados · {pending} a revisar · {decided} decididos",
-    "meta.current_population": "Arquivos atuais: {current} = datados fora da revisão: {reliable} + em revisão: {review_files} + outros: {other}. A fila cobre todas as pastas atribuídas; a análise cobre a última pasta selecionada. Arquivos ilegíveis também podem estar em revisão.",
+    "meta.latest_population": "{analysed} · {unreadable} · {total} · {pending} · {decided}",
+    "meta.current_population": "{current} = {reliable} + {review_files} + {other}. A fila cobre todas as pastas atribuídas; a análise cobre a última pasta selecionada. Arquivos ilegíveis também podem estar em revisão.",
     "settings.show_version_on_login": "Mostrar versão na página de login",
     "review.date_format": "aaaa-mm-dd hh:mm:ss (24 horas)",
     "common.back_to": "Voltar para {page}",
-    "meta.empty_fills": "Sem complementos automáticos: nenhum campo ausente tem fonte confiável. Aguardando uma escolha na revisão: {count}.",
+    "meta.empty_fills": {
+      "many": "Sem complementos automáticos: nenhum campo ausente tem fonte confiável. Aguardando uma escolha na revisão: {count}.",
+      "one": "Sem complementos automáticos: nenhum campo ausente tem fonte confiável. Aguardando uma escolha na revisão: {count}.",
+      "other": "Sem complementos automáticos: nenhum campo ausente tem fonte confiável. Aguardando uma escolha na revisão: {count}."
+    },
     "plan.empty": "Nada a alterar nesta prévia. Nenhum arquivo será modificado.",
-    "review.live_counts": "{total} sinalizados · {pending} a revisar · {decided} decididos",
-    "review.recheck_count": "{count} requerem nova revisão",
-    "job.library_result": "Arquivos encontrados: {found} · Novos ou alterados: {changed} · Inalterados (reutilizados): {unchanged} · Com hash: {hashed}",
-    "job.unreadable": "{count} ilegíveis",
+    "review.live_counts": "{total} · {pending} · {decided}",
+    "review.recheck_count": {
+      "many": "A verificar novamente: {count} itens",
+      "one": "A verificar novamente: {count} item",
+      "other": "A verificar novamente: {count} itens"
+    },
+    "job.library_result": "{found} · {changed} · {unchanged} · {hashed}",
+    "job.unreadable": {
+      "many": "Ilegíveis: {count} arquivos",
+      "one": "Ilegíveis: {count} arquivo",
+      "other": "Ilegíveis: {count} arquivos"
+    },
     "analysis.history": "Histórico em Tarefas",
     "settings.library_timezone": "Fuso horário da biblioteca",
     "settings.library_timezone_hint": "Nome IANA, p. ex. America/Sao_Paulo. Para organizar, sem alterar os EXIF originais.",
@@ -89,7 +113,7 @@
     "header.host": "Host",
     "header.os": "Sistema",
     "header.cpu": "CPU",
-    "header.cpu_value": "{cores} núcleos · {pct}",
+    "header.cpu_value": "{cores} · {pct}",
     "header.load": "carga {load}",
     "header.memory": "Memória",
     "header.disk_value": "{used} / {total} ({pct})",
@@ -197,7 +221,7 @@
     "home.step_metadata": "Complete metadados ausentes somente a partir de fontes confiáveis.",
     "home.step_review": "Decida sobre os arquivos duvidosos.",
     "home.step_organize": "Mova os arquivos para pastas Ano/Mês/Dia.",
-    "home.step_report": "Confira o relatório, verifique e desfaça se necessário.",
+    "home.step_report": "Veja o que foi feito, verifique e desfaça se necessário.",
     "home.summary": "Resumo",
     "home.files": "Arquivos indexados",
     "home.files_value": {
@@ -226,8 +250,8 @@
       "other": "{count} itens"
     },
     "job.phase": "fase {phase}",
-    "job.scan_result": "{indexed} indexados · {hashed} calculados · {reused} hashes reutilizados · {unhashed} sem hash",
-    "job.scan_result_legacy": "{indexed} indexados · {hashed} calculados; arquivos inalterados reutilizam hashes (não contados nas verificações anteriores).",
+    "job.scan_result": "{indexed} · {hashed} · {reused} · {unhashed}",
+    "job.scan_result_legacy": "{indexed} · {hashed}; arquivos inalterados reutilizam hashes (não contados nas verificações anteriores).",
     "job.needs_confirmation": "Esta tarefa grava ou move arquivos: ela só é retomada quando você clicar em Retomar.",
     "job.started": "Tarefa #{id} iniciada.",
     "job.status.queued": "na fila",
@@ -337,9 +361,9 @@
     "plan.col_to": "Para / alterações",
     "plan.col_status": "Status",
     "plan.summary": {
-      "one": "{count} item: {planned} a fazer, {done} feitos, {blocked} bloqueados ou ignorados",
-      "many": "{count} de itens: {planned} a fazer, {done} feitos, {blocked} bloqueados ou ignorados",
-      "other": "{count} itens: {planned} a fazer, {done} feitos, {blocked} bloqueados ou ignorados"
+      "many": "{count} itens: {planned} · {done} · {blocked}",
+      "one": "{count} item: {planned} · {done} · {blocked}",
+      "other": "{count} itens: {planned} · {done} · {blocked}"
     },
     "plan.renamed": "sufixo adicionado",
     "plan.from": "de {tag} ({source})",
@@ -385,7 +409,7 @@
     "plan.note.recovered": "recuperado após interrupção",
     "review.title": "Revisão",
     "review.intro": "Arquivos que precisam de uma decisão. As decisões são salvas imediatamente: você pode parar e retomar a qualquer momento.",
-    "review.counts": "{pending} pendentes · {saved} salvos · {skipped} ignorados · {kept} deixados como estão",
+    "review.counts": "{pending} · {saved} · {skipped} · {kept}",
     "review.filter_status": "Status",
     "review.filter_kind": "Motivo",
     "review.all_kinds": "Todos os motivos",
@@ -479,7 +503,7 @@
     "manifest.action.metadata": "metadados gravados",
     "manifest.action.restore": "movido de volta",
     "report.title": "Histórico e desfazer",
-    "report.intro": "Resumo do banco de dados atual, manifesto, desfazer e verificação final.",
+    "report.intro": "Operações realizadas, sua reversão e a verificação final.",
     "report.files": "Arquivos",
     "report.col_status": "Status",
     "report.col_kind": "Tipo",
@@ -815,8 +839,12 @@
     "dup.filesystem_date": "File system date: {date}",
     "dup.unknown_date": "unknown",
     "dup.no_analysis": "No duplicate analysis results are available yet.",
-    "meta.summary": "Arquivos analisados: {analysed} · Complementos de metadados propostos: {fills} · Sinalizados: {review}",
-    "meta.review_items": "Review items ({count})",
+    "meta.summary": "{analysed} · {fills} · {review}",
+    "meta.review_items": {
+      "many": "Fila de revisão: {count} itens",
+      "one": "Fila de revisão: {count} item",
+      "other": "Fila de revisão: {count} itens"
+    },
     "meta.no_analysis": "No metadata analysis results are available yet.",
     "review.preview_error": "Preview could not be loaded (HTTP {status}).",
     "review.detail_values": {
@@ -834,13 +862,13 @@
     "analysis.update": "Update analysis",
     "analysis.empty": "Analyze this library before reviewing or acting on files.",
     "analysis.stale": "Files changed or analysis was interrupted. Update the analysis before continuing.",
-    "analysis.changes": "Alterações desde a análise: {new} novos · {changed} alterados · {removed} removidos. Atualize a análise antes de continuar.",
+    "analysis.changes": "{new} · {changed} · {removed}",
     "analysis.incomplete": "A última análise foi interrompida e está incompleta.",
     "job.already_running": "Job #{id} is already running.",
     "review.status.decided": "Decididos",
     "review.status.all": "Todos",
-    "meta.review_population": "Fila de revisão · Itens: {items} · Arquivos atuais: {files} em todas as pastas atribuídas. A análise corresponde à última pasta selecionada.",
-    "meta.analysis_summary": "Última análise · Arquivos analisados: {analysed} · Complementos de metadados propostos: {fills}",
+    "meta.review_population": "{items} · {files}. A análise corresponde à última pasta selecionada.",
+    "meta.analysis_summary": "{analysed} · {fills}",
     "db.update_required": "Atualização do banco de dados necessária. Contate um administrador.",
     "settings.timezone_search": "Pesquisar fusos horários",
     "settings.timezone_offset_hint": "Os desvios atuais são mostrados e mudam com o horário de verão. Usado para organizar datas; o EXIF original não muda.",
@@ -883,14 +911,18 @@
     "logs.security_admin_note": "Ver o registro de segurança",
     "logs.security_own_note": "Ver o registro de segurança",
     "security.activity": "Registro de segurança",
-    "meta.compact_summary": "{analysed} arquivos analisados · {unreadable} ilegíveis · {reliable} com data confiável · {total} sinalizados · {pending} a revisar · {decided} decididos",
+    "meta.compact_summary": "{analysed} · {unreadable} · {reliable} · {total} · {pending} · {decided}",
     "meta.start_review": "Iniciar revisão →",
     "meta.how_completion_works": "Como funciona o preenchimento de metadados",
     "review.skipped_compact": "Adiado · {date}",
     "review.enlarge": "Ampliar prévia",
     "security.source_ip": "IP de origem",
     "security.last_login": "Último acesso: {date} de {ip}",
-    "security.failed_since": "{count} tentativas de acesso falhas desde seu último acesso.",
+    "security.failed_since": {
+      "many": "{count} tentativas de acesso falhas desde seu último acesso.",
+      "one": "{count} tentativa de acesso falha desde seu último acesso.",
+      "other": "{count} tentativas de acesso falhas desde seu último acesso."
+    },
     "security.trial": "Teste: atividade armazenada nesta instância, independente do banco.",
     "review.example_date": "ex.: 2007-08-26 20:36:42",
     "review.example_offset": "ex.: +01:00",
@@ -901,9 +933,13 @@
     "review.example_title": "ex.: Férias",
     "review.example_description": "ex.: Foto de família",
     "analysis.reason.never_analyzed": "Esta biblioteca nunca foi analisada.",
-    "analysis.reason.older_version": "Há apenas trabalhos antigos de varredura ou metadados, sem uma análise completa da biblioteca. Analise a biblioteca para atualizar os resultados.",
+    "analysis.reason.older_version": "Sua biblioteca foi analisada com uma versão anterior do TwinCheck. Execute Analisar biblioteca para ver os resultados atuais. Apenas lê seus arquivos: nada é movido ou alterado.",
     "analysis.changed_since": "Os arquivos no disco mudaram desde a análise de {date}.",
-    "org.last_preview": "Última prévia #{id} de {date} · {count} itens",
+    "org.last_preview": {
+      "many": "Última prévia #{id} de {date} · {count} itens",
+      "one": "Última prévia #{id} de {date} · {count} item",
+      "other": "Última prévia #{id} de {date} · {count} itens"
+    },
     "org.recompute": "Recalcular",
     "org.discard": "Descartar prévia",
     "org.stale.scope": "As atribuições ou configurações da biblioteca mudaram. Recalcule antes de executar.",
@@ -916,15 +952,295 @@
     "report.operation.move": "Organização",
     "report.operation.dup_move": "Movimentação de duplicatas",
     "report.operation.metadata": "Alterações de metadados",
-    "report.operation_undone": "{count} desfeitos",
+    "report.operation_undone": {
+      "many": "{count}",
+      "one": "{count}",
+      "other": "{count}"
+    },
     "report.global_undo_note": "Desfazer por operação ainda não está disponível. Use as prévias globais abaixo e confira cada arquivo antes de confirmar.",
-    "report.moved_link": "{count} arquivos movidos · Ver Histórico e desfazer →",
-    "logs.not_visible": "{count} destes eventos não são visíveis para {user} porque se referem a arquivos fora da biblioteca de {user}.",
+    "report.moved_link": {
+      "many": "Movidos: {count} arquivos · Ver Histórico e desfazer →",
+      "one": "Movidos: {count} arquivo · Ver Histórico e desfazer →",
+      "other": "Movidos: {count} arquivos · Ver Histórico e desfazer →"
+    },
+    "logs.not_visible": {
+      "many": "Não visíveis para {user}: {count} eventos. Referem-se a arquivos fora da biblioteca de {user}.",
+      "one": "Não visíveis para {user}: {count} evento. Referem-se a arquivos fora da biblioteca de {user}.",
+      "other": "Não visíveis para {user}: {count} eventos. Referem-se a arquivos fora da biblioteca de {user}."
+    },
     "logs.no_job_events": "Nenhum evento para o trabalho {id}.",
     "security.review": "Revisar",
     "security.see_log": "Ver o registro de segurança",
     "header.version_build": "{version} · Data da compilação: {date}",
     "error.preview_stale": "Esta prévia está desatualizada ou descartada. Recalcule antes de executar.",
-    "error.server_busy": "O servidor está ocupado. Tente novamente em breve."
+    "error.server_busy": "O servidor está ocupado. Tente novamente em breve.",
+    "security.close_banner": "Fechar informações de acesso",
+    "analysis.no_results": "Ainda não há resultados: execute Analisar biblioteca.",
+    "filters.pending": "Aplicar filtros de texto pendentes",
+    "filters.search": "Buscar",
+    "filters.since": "Desde a data (UTC)",
+    "filters.until": "Até a data (UTC)",
+    "exclusions.pattern": "Padrão",
+    "exclusions.description": "Descrição (opcional)",
+    "exclusions.default": "Padrão original",
+    "exclusions.add": "Adicionar padrão",
+    "exclusions.restore": "Restaurar padrões",
+    "exclusions.test_name": "Testar um nome",
+    "exclusions.test_hint": "Digite o nome de um arquivo ou pasta para testá-lo.",
+    "exclusions.matches": "Excluído por: {patterns}",
+    "exclusions.no_match": "Este nome não seria excluído.",
+    "exclusions.pattern_hint": "Padrões shell correspondem a um nome, não a um caminho. * corresponde a qualquer texto, ? a um caractere, [abc] a um caractere da lista. Diferencia maiúsculas e minúsculas.",
+    "exclusions.remove_confirm": "Remover {pattern} dos nomes excluídos?",
+    "exclusions.restore_confirm": "Restaurar os padrões originais e limpar as descrições personalizadas?",
+    "exclusions.next_analysis": "As alterações valem a partir da próxima análise. Nunca movem nem alteram seus arquivos.",
+    "exclusions.internal": "Os nomes internos .twincheck-* são sempre excluídos. Esta lista é gerenciada aqui, não pela configuração do servidor.",
+    "exclusions.empty": "Nenhum nome excluído opcional.",
+    "exclusions.save_title": "Confirmar alterações dos nomes excluídos",
+    "exclusions.added": "Adicionados: {patterns}",
+    "exclusions.removed": "Removidos: {patterns}",
+    "exclusions.edited": "Editados: {patterns}",
+    "error.exclusion_empty": "Digite um padrão não vazio.",
+    "error.exclusion_duplicate": "Este padrão já está na lista.",
+    "error.exclusion_invalid": "Use um padrão shell válido para um nome (sem caminho, no máximo 100 caracteres).",
+    "error.exclusion_all": "Este padrão excluiria todos os nomes. Use um padrão mais específico.",
+    "error.exclusion_limit": "Use no máximo 100 padrões.",
+    "error.exclusion_name": "Digite um nome, não um caminho.",
+    "exclusions.default.hidden": "Arquivos e pastas ocultos",
+    "exclusions.default.synology_thumbnails": "Miniaturas do Synology",
+    "exclusions.default.synology_recycle": "Lixeira do Synology",
+    "exclusions.default.windows_recycle": "Lixeira do Windows",
+    "exclusions.default.linux_recovery": "Pasta de recuperação do Linux",
+    "exclusions.default.windows_thumbnails": "Cache de miniaturas do Windows",
+    "exclusions.default.windows_settings": "Configurações de pastas do Windows",
+    "meta.latest_population.analysed": {
+      "many": "Analisados: {count} arquivos",
+      "one": "Analisados: {count} arquivo",
+      "other": "Analisados: {count} arquivos"
+    },
+    "meta.latest_population.unreadable": {
+      "many": "Ilegíveis: {count} arquivos",
+      "one": "Ilegíveis: {count} arquivo",
+      "other": "Ilegíveis: {count} arquivos"
+    },
+    "meta.latest_population.total": {
+      "many": "Sinalizados: {count} itens",
+      "one": "Sinalizados: {count} item",
+      "other": "Sinalizados: {count} itens"
+    },
+    "meta.latest_population.pending": {
+      "many": "A revisar: {count} itens",
+      "one": "A revisar: {count} item",
+      "other": "A revisar: {count} itens"
+    },
+    "meta.latest_population.decided": {
+      "many": "Decididos: {count} itens",
+      "one": "Decididos: {count} item",
+      "other": "Decididos: {count} itens"
+    },
+    "meta.compact_summary.analysed": {
+      "many": "Analisados: {count} arquivos",
+      "one": "Analisados: {count} arquivo",
+      "other": "Analisados: {count} arquivos"
+    },
+    "meta.compact_summary.unreadable": {
+      "many": "Ilegíveis: {count} arquivos",
+      "one": "Ilegíveis: {count} arquivo",
+      "other": "Ilegíveis: {count} arquivos"
+    },
+    "meta.compact_summary.reliable": {
+      "many": "Data confiável: {count} arquivos",
+      "one": "Data confiável: {count} arquivo",
+      "other": "Data confiável: {count} arquivos"
+    },
+    "meta.compact_summary.total": {
+      "many": "Sinalizados: {count} itens",
+      "one": "Sinalizados: {count} item",
+      "other": "Sinalizados: {count} itens"
+    },
+    "meta.compact_summary.pending": {
+      "many": "A revisar: {count} itens",
+      "one": "A revisar: {count} item",
+      "other": "A revisar: {count} itens"
+    },
+    "meta.compact_summary.decided": {
+      "many": "Decididos: {count} itens",
+      "one": "Decididos: {count} item",
+      "other": "Decididos: {count} itens"
+    },
+    "review.live_counts.total": {
+      "many": "Sinalizados: {count} itens",
+      "one": "Sinalizados: {count} item",
+      "other": "Sinalizados: {count} itens"
+    },
+    "review.live_counts.pending": {
+      "many": "A revisar: {count} itens",
+      "one": "A revisar: {count} item",
+      "other": "A revisar: {count} itens"
+    },
+    "review.live_counts.decided": {
+      "many": "Decididos: {count} itens",
+      "one": "Decididos: {count} item",
+      "other": "Decididos: {count} itens"
+    },
+    "job.library_result.found": {
+      "many": "Encontrados: {count} arquivos",
+      "one": "Encontrados: {count} arquivo",
+      "other": "Encontrados: {count} arquivos"
+    },
+    "job.library_result.changed": {
+      "many": "Novos ou alterados: {count} arquivos",
+      "one": "Novos ou alterados: {count} arquivo",
+      "other": "Novos ou alterados: {count} arquivos"
+    },
+    "job.library_result.unchanged": {
+      "many": "Inalterados (reutilizados): {count} arquivos",
+      "one": "Inalterados (reutilizados): {count} arquivo",
+      "other": "Inalterados (reutilizados): {count} arquivos"
+    },
+    "job.library_result.hashed": {
+      "many": "Com hash: {count} arquivos",
+      "one": "Com hash: {count} arquivo",
+      "other": "Com hash: {count} arquivos"
+    },
+    "job.scan_result.indexed": {
+      "many": "Indexados: {count} arquivos",
+      "one": "Indexados: {count} arquivo",
+      "other": "Indexados: {count} arquivos"
+    },
+    "job.scan_result.hashed": {
+      "many": "Com hash: {count} arquivos",
+      "one": "Com hash: {count} arquivo",
+      "other": "Com hash: {count} arquivos"
+    },
+    "job.scan_result.reused": {
+      "many": "Hashes reutilizados: {count} hashes",
+      "one": "Hashes reutilizados: {count} hash",
+      "other": "Hashes reutilizados: {count} hashes"
+    },
+    "job.scan_result.unhashed": {
+      "many": "Sem hash: {count} arquivos",
+      "one": "Sem hash: {count} arquivo",
+      "other": "Sem hash: {count} arquivos"
+    },
+    "job.scan_result_legacy.indexed": {
+      "many": "Indexados: {count} arquivos",
+      "one": "Indexados: {count} arquivo",
+      "other": "Indexados: {count} arquivos"
+    },
+    "job.scan_result_legacy.hashed": {
+      "many": "Com hash: {count} arquivos",
+      "one": "Com hash: {count} arquivo",
+      "other": "Com hash: {count} arquivos"
+    },
+    "review.counts.pending": {
+      "many": "A revisar: {count} itens",
+      "one": "A revisar: {count} item",
+      "other": "A revisar: {count} itens"
+    },
+    "review.counts.saved": {
+      "many": "Salvos: {count} itens",
+      "one": "Salvos: {count} item",
+      "other": "Salvos: {count} itens"
+    },
+    "review.counts.skipped": {
+      "many": "Adiados: {count} itens",
+      "one": "Adiados: {count} item",
+      "other": "Adiados: {count} itens"
+    },
+    "review.counts.kept": {
+      "many": "Mantidos sem alterações: {count} itens",
+      "one": "Mantidos sem alterações: {count} item",
+      "other": "Mantidos sem alterações: {count} itens"
+    },
+    "meta.summary.analysed": {
+      "many": "Analisados: {count} arquivos",
+      "one": "Analisados: {count} arquivo",
+      "other": "Analisados: {count} arquivos"
+    },
+    "meta.summary.fills": {
+      "many": "Complementos propostos: {count} campos",
+      "one": "Complementos propostos: {count} campo",
+      "other": "Complementos propostos: {count} campos"
+    },
+    "meta.summary.review": {
+      "many": "Sinalizados: {count} itens",
+      "one": "Sinalizados: {count} item",
+      "other": "Sinalizados: {count} itens"
+    },
+    "meta.analysis_summary.analysed": {
+      "many": "Analisados: {count} arquivos",
+      "one": "Analisados: {count} arquivo",
+      "other": "Analisados: {count} arquivos"
+    },
+    "meta.analysis_summary.fills": {
+      "many": "Complementos propostos: {count} campos",
+      "one": "Complementos propostos: {count} campo",
+      "other": "Complementos propostos: {count} campos"
+    },
+    "meta.review_population.items": {
+      "many": "Fila de revisão: {count} itens",
+      "one": "Fila de revisão: {count} item",
+      "other": "Fila de revisão: {count} itens"
+    },
+    "meta.review_population.files": {
+      "many": "Atuais: {count} arquivos",
+      "one": "Atuais: {count} arquivo",
+      "other": "Atuais: {count} arquivos"
+    },
+    "analysis.changes.new": {
+      "many": "Novos desde a análise: {count} arquivos",
+      "one": "Novos desde a análise: {count} arquivo",
+      "other": "Novos desde a análise: {count} arquivos"
+    },
+    "analysis.changes.changed": {
+      "many": "Alterados desde a análise: {count} arquivos",
+      "one": "Alterados desde a análise: {count} arquivo",
+      "other": "Alterados desde a análise: {count} arquivos"
+    },
+    "analysis.changes.removed": {
+      "many": "Removidos desde a análise: {count} arquivos",
+      "one": "Removidos desde a análise: {count} arquivo",
+      "other": "Removidos desde a análise: {count} arquivos"
+    },
+    "meta.current_population.current": {
+      "many": "Atuais: {count} arquivos",
+      "one": "Atuais: {count} arquivo",
+      "other": "Atuais: {count} arquivos"
+    },
+    "meta.current_population.reliable": {
+      "many": "Data confiável: {count} arquivos",
+      "one": "Data confiável: {count} arquivo",
+      "other": "Data confiável: {count} arquivos"
+    },
+    "meta.current_population.review_files": {
+      "many": "Em revisão: {count} arquivos",
+      "one": "Em revisão: {count} arquivo",
+      "other": "Em revisão: {count} arquivos"
+    },
+    "meta.current_population.other": {
+      "many": "Outros: {count} arquivos",
+      "one": "Outros: {count} arquivo",
+      "other": "Outros: {count} arquivos"
+    },
+    "plan.summary.planned": {
+      "many": "A fazer: {count} itens",
+      "one": "A fazer: {count} item",
+      "other": "A fazer: {count} itens"
+    },
+    "plan.summary.done": {
+      "many": "Feitos: {count} itens",
+      "one": "Feitos: {count} item",
+      "other": "Feitos: {count} itens"
+    },
+    "plan.summary.blocked": {
+      "many": "Bloqueados ou ignorados: {count} itens",
+      "one": "Bloqueados ou ignorados: {count} item",
+      "other": "Bloqueados ou ignorados: {count} itens"
+    },
+    "header.cpu_value.cores": {
+      "many": "{count} núcleos",
+      "one": "{count} núcleo",
+      "other": "{count} núcleos"
+    }
   }
 }

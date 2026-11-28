@@ -69,6 +69,8 @@ export function t(key, params = {}) {
   return String(v).replace(/\{(\w+)\}/g, (m, k) => {
     if (!(k in params)) return m;
     const p = params[k];
+    // Composite summaries give each independent counter its own plural message.
+    if (typeof p === 'number' && has(key + '.' + k)) return t(key + '.' + k, { count: p });
     return typeof p === 'number' ? fmt.number(p) : String(p);
   });
 }
@@ -112,6 +114,9 @@ export const fmt = {
     if (!iso) return t('common.na');
     const shown = fmt.localDate(iso.slice(0, 19));
     return offset ? `${shown} ${offset}` : shown;
+  },
+  dimensions(value) {
+    return String(value).replace(/^(\d+)\s*(?:[x×]|\s)\s*(\d+)$/, '$1 × $2');
   },
   duration(sec) {
     if (sec === null || sec === undefined) return t('common.na');

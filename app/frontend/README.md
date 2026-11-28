@@ -11,6 +11,7 @@ static/js/i18n.js          minimal i18n: t(key, params), Intl.PluralRules, Intl 
 static/js/api.js           JSON client with CSRF header and translated errors
 static/js/dom.js           DOM helpers (text nodes only, never innerHTML)
 static/js/components.js    job cards, polling (paused when the tab is hidden), folder browser
+static/js/exclusions.js    validated managed scan-exclusion list and server-matched name test
 static/js/icons.js         bundled inline SVG menu icons (Lucide ISC / Feather MIT)
 static/js/views/*.js       setup, login, tool pages, review, administration, export & migration
 static/img/logo.svg        logo (folder + photo + calendar), readable on light and dark backgrounds
@@ -89,6 +90,21 @@ Analyze → Review (Duplicates, Metadata, Review) → Organize → History & Und
 Only Scan exposes an analysis action. The other pages show the last analysis time,
 an empty/stale notice linking to Scan, and their read/action controls.
 Job-trigger buttons are disabled while a request or the resulting job is active.
+
+Without a valid completed analysis, Home, Duplicates, Metadata and Organize show a localized
+no-results notice rather than zero-result claims. History remains independent of analysis.
+The sign-in notice close button is positioned inside its first-line corner. Navigation focuses
+the main container without a container ring; keyboard controls retain `:focus-visible` outlines.
+Review dimensions are formatted as `width × height` in the field table and caption.
+
+Filter selects have compact natural widths and wrap inside the viewport. `filterControls`
+keeps applied values separate from pending text/number edits: discrete selections and dates
+commit immediately, Enter/Apply commits text, and Clear restores page defaults.
+Apply is present only for text/number filters, with a pending indicator. URL reconstruction
+keeps applied filters; navigation resets them and table-size preferences stay per user.
+Security date ranges are inclusive UTC dates, consistent with the API instants.
+Excluded-name matching/validation is server-side using the scanner's actual basename-only,
+case-sensitive shell semantics; custom descriptions stay in the vault, without a migration.
 
 Operational timestamps use the browser timezone. EXIF wall-clock dates use a
 timezone-free formatter, with a supplied EXIF offset appended rather than

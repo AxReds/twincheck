@@ -18,9 +18,9 @@ const root = document.getElementById('app');
 const ROUTES = [
   [/^#\/?$/, () => tool.home], [/^#\/home$/, () => tool.home], [/^#\/analyze$/, () => tool.scan],
   [/^#\/duplicates(?:\?.*)?$/, () => tool.duplicates], [/^#\/metadata(?:\/(review))?(?:\?.*)?$/, () => tool.metadata],
-  [/^#\/metadata\/review\/(\d+)$/, () => review.item], [/^#\/organize$/, () => tool.organize], [/^#\/plans\/(\d+)$/, () => tool.plan],
+  [/^#\/metadata\/review\/(\d+)$/, () => review.item], [/^#\/organize$/, () => tool.organize], [/^#\/plans\/(\d+)(?:\?.*)?$/, () => tool.plan],
   [/^#\/report(?:\?.*)?$/, () => tool.report], [/^#\/jobs(?:\?.*)?$/, () => tool.jobs], [/^#\/logs(?:\?.*)?$/, () => tool.logs], [/^#\/me$/, () => tool.me],
-  [/^#\/admin\/users$/, () => admin.users], [/^#\/admin\/groups$/, () => admin.groups], [/^#\/admin\/settings$/, () => admin.settings],
+  [/^#\/admin\/users(?:\?.*)?$/, () => admin.users], [/^#\/admin\/groups(?:\?.*)?$/, () => admin.groups], [/^#\/admin\/settings$/, () => admin.settings],
   [/^#\/admin\/database$/, () => admin.database], [/^#\/admin\/transfer$/, () => transferView.transfer],
   [/^#\/admin\/security$/, () => admin.security], [/^#\/admin$/, () => admin.settings],
   [/^#\/security-activity(?:\?.*)?$/, () => (main, state) => tool.securityActivity(main, state)],
@@ -105,13 +105,13 @@ async function renderShell() {
   shell = { header, nav, main, metrics, databaseBanner, updateMetrics: dataView(metrics) };
   const security = state.boot.security_banner;
   const securityBanner = security && !security.dismissed && (security.last || security.failed)
-    ? h('div', { class: 'content notice' + (security.failed ? ' warn' : ''), role: 'status' },
+    ? h('div', { class: 'content notice security-banner' + (security.failed ? ' warn' : ''), role: 'status' },
       security.last ? h('p', {}, t('security.last_login', { date: fmt.date(security.last.ts), ip: security.last.ip })) : null,
       security.failed ? h('p', {}, t('security.failed_since', { count: security.failed }), ' ',
         h('a', { href: '#/security-activity?' + new URLSearchParams({
           event: 'LOGIN_FAILED', ...(security.since ? { since: security.since } : {}), until: security.until,
         }) }, t('security.review'))) : null,
-      h('button', { type: 'button', class: 'link banner-close', 'aria-label': t('common.close'), onclick: async () => {
+      h('button', { type: 'button', class: 'link banner-close', 'aria-label': t('security.close_banner'), onclick: async () => {
         try {
           await post('/api/me/security-banner/dismiss');
           security.dismissed = true;
@@ -276,6 +276,7 @@ export async function route() {
     if (generation !== routeGeneration || shell !== activeShell) { if (view?.destroy) view.destroy(); return; }
     state.view = view;
     highlightSection((state.view && state.view.section) || hash);
+    if (!main.contains(document.activeElement)) main.focus({ preventScroll: true });
   } catch (e) {
     if (generation === routeGeneration && shell === activeShell) mount(main, h('p', { class: 'notice error' }, e.message || t('error.generic', { code: '' })));
   }

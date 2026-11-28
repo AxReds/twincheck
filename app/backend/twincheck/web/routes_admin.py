@@ -17,7 +17,8 @@ from ..db.schema import CURRENT_VERSION, DATA_TABLES, get_meta
 from ..fsutil import PathError
 from ..passwords import check_strength, generate_password, hash_password
 from ..services import access
-from ..vault import audit, utcnow
+from ..services.scan import validate_exclusions
+from ..vault import audit, utcnow, default_settings
 from . import common
 from .app import db_params_from, inspect_params, router
 from .common import fail, need_db, require, user_public
@@ -242,6 +243,7 @@ def get_settings(req: Request):
            "library_timezone" not in d["settings"] and core.settings.library_timezone_notice,
            "security": d["security"] if access.can(req.user, "security_settings") else None,
            "locales": i18n.listing(core.settings.locales_dir, core.settings.state_locales_dir)}
+    out["scan_exclude_defaults"] = default_settings()["scan"]["exclude"]
     if req.user["role"] == "admin":
         now = datetime.now(timezone.utc)
         zones = []
@@ -254,11 +256,47 @@ def get_settings(req: Request):
     return JSONResponse(out)
 
 
+@router.post("/api/admin/settings/exclusions/test")
+def test_exclusions(req: Request):
+    require(req, "tool_settings")
+    body = req.json()
+    patterns = body.get("exclude")
+    try:
+        validate_exclusions(patterns)
+    except ValueError as exc:
+        fail(400, str(exc))
+    name = body.get("name", "")
+    if not isinstance(name, str) or "/" in name or "\0" in name:
+        fail(400, "exclusion_name")
+    import fnmatch
+    matches = [pattern for pattern in patterns if fnmatch.fnmatchcase(name, pattern)]
+    if name.startswith(".twincheck-") and ".twincheck-*" not in matches:
+        matches.append(".twincheck-*")
+    return JSONResponse({"matches": matches})
+
+
 @router.patch("/api/admin/settings")
 def set_settings(req: Request):
     require(req, "tool_settings")
     core = common.app()
     body = req.json()
+    sc = body.get("scan")
+    if sc is not None:
+        if not isinstance(sc, dict):
+            fail(400, "invalid_value", field="scan")
+        try:
+            validate_exclusions(sc.get("exclude"))
+        except ValueError as exc:
+            fail(400, str(exc))
+        descriptions = sc.get("exclude_descriptions", {})
+        if not isinstance(descriptions, dict) or any(
+                key not in sc["exclude"] or not isinstance(value, str) or len(value) > 300
+                for key, value in descriptions.items()):
+            fail(400, "invalid_value", field="exclude_descriptions")
+        previous = core.settings_section("scan")
+        if (sc["exclude"] != previous.get("exclude", []) or
+                descriptions != previous.get("exclude_descriptions", {})) and sc.get("confirm") is not True:
+            fail(400, "confirmation_required")
     if "show_version_on_login" in body:
         if req.user["role"] != "admin":
             fail(403, "forbidden")
@@ -291,9 +329,9 @@ def set_settings(req: Request):
                     if "/" in v or v.startswith(".") or len(v) > 60:
                         fail(400, "invalid_folder_name")
                     s["organize"][k] = v
-        sc = body.get("scan")
-        if sc and isinstance(sc.get("exclude"), list):
-            s["scan"]["exclude"] = [str(x)[:100] for x in sc["exclude"] if str(x).strip()][:100]
+        if sc is not None:
+            s["scan"]["exclude"] = sc["exclude"]
+            s["scan"]["exclude_descriptions"] = descriptions
         md = body.get("metadata")
         if md and isinstance(md.get("fields"), list):
             from ..services.metadata import WRITABLE

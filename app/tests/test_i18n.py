@@ -20,6 +20,28 @@ REQUIRED = ["en", "it", "es", "fr", "de", "pt-BR", "zh-Hans", "ja", "ru", "ar"]
 
 
 class Catalogue(unittest.TestCase):
+    def test_every_count_message_has_all_required_plural_forms(self):
+        for code in REQUIRED:
+            messages = json.loads((LOCALES / f"{code}.json").read_text())["messages"]
+            required = check_locales.plural_categories(code)
+            for key, value in messages.items():
+                if "{count}" not in str(value):
+                    continue
+                with self.subTest(locale=code, key=key):
+                    self.assertIsInstance(value, dict)
+                    self.assertEqual(set(value), required)
+                    self.assertTrue(all(value.values()))
+            for key in ("meta.compact_summary", "job.library_result", "analysis.changes", "plan.summary"):
+                for placeholder in check_locales.placeholders(messages[key]) - {"count"}:
+                    self.assertIsInstance(messages[f"{key}.{placeholder}"], dict, (code, key, placeholder))
+            damaged = json.loads((LOCALES / f"{code}.json").read_text())
+            damaged["messages"]["security.failed_since"].pop(next(iter(required)))
+            with tempfile.TemporaryDirectory() as tmp:
+                file = Path(tmp) / f"{code}.json"
+                file.write_text(json.dumps(damaged))
+                result = check_locales.check_file(file, json.loads((LOCALES / "en.json").read_text())["messages"], {})
+                self.assertTrue(any("security.failed_since: plural forms" in error for error in result["errors"]))
+
     def test_checker_passes_for_repository(self):
         rep = check_locales.run()
         errors = [(l["code"], e) for l in rep["languages"] for e in l["errors"]] + rep["frontend"]

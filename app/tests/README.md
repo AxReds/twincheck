@@ -108,6 +108,18 @@ The rc.6 regressions cover stale per-user records outside current source scope,
 capture-date reading before keeper selection, the resumable five-stage library
 analysis, duplicate date columns, readable metadata summaries, persistent
 ExifTool process recovery and preview cache hit/invalidation/scope checks.
+
+rc.13 adds `test_rc13.py` for validated, confirmed exclusion-list persistence, scanner-matched
+name tests, unchanged file bytes and no job submission on SQLite/MariaDB. The catalogue test
+requires all plural categories for every counted message and rejects a deliberately removed
+form. The frontend fixture renders 0/1/2 in all ten languages and tests banner geometry/focus,
+both dimension displays, exact History wording, missing/legacy-analysis states, compact
+selects, immediate versus deferred filters on every applicable page, and exclusion dialogs.
+Run Light/Dark × 1600/1280/900/375 px. `runRc13Regressions(page)` in `browser_live.mjs`
+adds real keyboard focus, selector/date/Enter/Apply/F5/Clear tests and a server-validated
+exclusion dialog with cancelled save. It requires the synthetic admin/pippo instance
+described above; never use it on real libraries. Documentation tests request both health
+endpoints and compare their exact response with the README instructions.
 rc.7 also interrupts the library job in hash and capture-date batches, restarts
 the job runner and verifies checkpoint resume plus `ANALYSIS_RESUMED`; concurrent
 same-scope submissions are tested atomically on SQLite and MariaDB.
