@@ -17,6 +17,7 @@ ENV_PARAMS: dict[str, tuple[str | None, bool, str]] = {
     "APP_MASTER_KEY": (None, True, "Master key (32 random bytes, hex or base64) or a long passphrase used to encrypt /state/vault.enc."),
     "APP_MASTER_KEY_FILE": (None, False, "Path of a file (e.g. a Docker secret) holding the master key; alternative to APP_MASTER_KEY."),
     "APP_LANG": ("en", False, "Language of console commands and initial default language of the instance."),
+    "TZ": (None, False, "Initial library timezone (IANA name); the admin setting in the vault takes precedence."),
     "HOST_LABEL": (None, False, "Host name shown in the header; falls back to the container host name."),
     "ALLOWED_NETWORKS": ("", False, "Comma-separated CIDR list allowed to reach the app. Empty = all. Loopback is always allowed."),
     "TRUSTED_PROXIES": ("", False, "Comma-separated CIDR list of reverse proxies whose X-Forwarded-For is trusted for login rate limiting only."),
@@ -75,6 +76,8 @@ class Settings:
     exiftool: str = "exiftool"
     ffmpeg: str = "ffmpeg"
     frontend_dir: Path = Path(__file__).resolve().parents[2] / "frontend"
+    library_timezone_default: str = "UTC"
+    library_timezone_notice: bool = True
 
     @property
     def vault_path(self) -> Path:
@@ -106,6 +109,12 @@ class Settings:
 
 
 def load_settings() -> Settings:
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+    tz = env("TZ")
+    try:
+        ZoneInfo(tz or "UTC")
+    except (ZoneInfoNotFoundError, ValueError):
+        raise ValueError("TZ must be an IANA timezone name") from None
     def as_int(name):
         return int(env(name))
 
@@ -126,6 +135,8 @@ def load_settings() -> Settings:
         log_level=(env("LOG_LEVEL") or "INFO").upper(),
         exiftool=env("EXIFTOOL_PATH"),
         ffmpeg=env("FFMPEG_PATH"),
+        library_timezone_default=tz or "UTC",
+        library_timezone_notice=not bool(tz),
     )
 
 

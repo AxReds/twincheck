@@ -9,6 +9,71 @@
     ]
   },
   "messages": {
+    "common.select_option": "Перед сохранением выберите допустимый вариант из списка.",
+    "common.no_options": "Нет подходящих вариантов.",
+    "common.rows_storage_unavailable": "Хранилище браузера недоступно: невозможно запомнить число строк на странице.",
+    "common.rows_per_page": "Строк на странице",
+    "common.all_rows": "Все",
+    "common.confirm_all_rows": {
+      "few": "Загрузить {count} строки? Это может занять время.",
+      "many": "Загрузить {count} строк? Это может занять время.",
+      "one": "Загрузить {count} строка? Это может занять время.",
+      "other": "Загрузить {count} строк? Это может занять время."
+    },
+    "review.postponed_on": "Отложено {date} · ещё к проверке",
+    "logs.only_present": "Только имеющиеся события",
+    "logs.export_filtered": {
+      "few": "Экспорт выбранных ({count})",
+      "many": "Экспорт выбранных ({count})",
+      "one": "Экспорт выбранных ({count})",
+      "other": "Экспорт выбранных ({count})"
+    },
+    "logs.export_all": {
+      "few": "Экспорт всех ({count})",
+      "many": "Экспорт всех ({count})",
+      "one": "Экспорт всех ({count})",
+      "other": "Экспорт всех ({count})"
+    },
+    "logs.export_own_note": "Включены только ваши собственные события.",
+    "logs.export_all_note": "Экспорт всех включает события всех пользователей.",
+    "logs.export_user_note": "Экспорт выбранных включает события пользователя {user}.",
+    "meta.latest_population": "{analysed} · {unreadable} · {total} · {pending} · {decided}",
+    "meta.current_population": "{current} = {reliable} + {review_files} + {other}. Очередь охватывает все назначенные папки; анализ — последнюю выбранную. Нечитаемые файлы также могут быть на проверке.",
+    "settings.show_version_on_login": "Показывать версию на странице входа",
+    "review.date_format": "гггг-мм-дд чч:мм:сс (24 часа)",
+    "common.back_to": "Назад к {page}",
+    "meta.empty_fills": {
+      "few": "Нет автоматических дополнений: для отсутствующих полей нет надёжного источника. Ожидают решения при проверке: {count}.",
+      "many": "Нет автоматических дополнений: для отсутствующих полей нет надёжного источника. Ожидают решения при проверке: {count}.",
+      "one": "Нет автоматических дополнений: для отсутствующих полей нет надёжного источника. Ожидают решения при проверке: {count}.",
+      "other": "Нет автоматических дополнений: для отсутствующих полей нет надёжного источника. Ожидают решения при проверке: {count}."
+    },
+    "plan.empty": "В этом плане нечего менять. Файлы не будут изменены.",
+    "review.live_counts": "{total} · {pending} · {decided}",
+    "review.recheck_count": {
+      "few": "К повторной проверке: {count} элемента",
+      "many": "К повторной проверке: {count} элементов",
+      "one": "К повторной проверке: {count} элемент",
+      "other": "К повторной проверке: {count} элементов"
+    },
+    "job.library_result": "{found} · {changed} · {unchanged} · {hashed}",
+    "job.unreadable": {
+      "few": "Нечитаемые: {count} файла",
+      "many": "Нечитаемые: {count} файлов",
+      "one": "Нечитаемые: {count} файл",
+      "other": "Нечитаемые: {count} файлов"
+    },
+    "analysis.history": "История в Заданиях",
+    "settings.library_timezone": "Часовой пояс библиотеки",
+    "settings.library_timezone_hint": "Имя IANA, например Europe/Moscow. Для организации, без изменения исходных EXIF.",
+    "settings.library_timezone_notice": "По умолчанию UTC. Настройте пояс перед выбором дат.",
+    "error.invalid_timezone": "Введите допустимое имя часового пояса IANA.",
+    "error.invalid_proposal": "Предложение изменилось. Перезагрузите элемент.",
+    "review.status.needs_recheck": "Нужна повторная проверка",
+    "review.recheck_notice": "Дата могла быть сохранена в UTC ({stored}). Дата файловой системы в {timezone}: {suggested}. Подтвердите или измените.",
+    "review.accept_converted": "Принять преобразованную дату",
+    "review.keep_stored": "Сохранить прежнюю дату",
+    "plan.note.needs_recheck": "Владелец должен проверить дату перед организацией.",
     "app.name": "TwinCheck",
     "common.na": "н/д",
     "common.next": "Далее",
@@ -23,20 +88,28 @@
     "common.delete": "Удалить",
     "common.remove": "Убрать",
     "common.language": "Язык",
+    "theme.label": "Тема",
+    "theme.auto": "Авто (как в системе)",
+    "theme.light": "Светлая",
+    "theme.dark": "Тёмная",
+    "theme.to_light": "Переключить на светлую тему",
+    "theme.to_dark": "Переключить на тёмную тему",
+    "theme.storage_unavailable": "Хранилище браузера недоступно: тема страницы входа не будет сохранена.",
+    "error.invalid_theme": "Выберите Авто, Светлая или Тёмная.",
     "common.yes": "Да",
     "common.no": "Нет",
     "common.page_range": "{from}–{to} из {total}",
     "nav.label": "Основная навигация",
     "nav.home": "Главная",
-    "nav.scan": "Сканирование",
+    "nav.scan": "Анализ",
     "nav.duplicates": "Дубликаты",
     "nav.metadata": "Метаданные",
     "nav.review": "Проверка",
     "nav.organize": "Упорядочивание",
-    "nav.report": "Отчёт и откат",
+    "nav.report": "История и отмена",
     "nav.jobs": "Задания",
-    "nav.logs": "Журналы",
-    "nav.admin": "Администрирование",
+    "nav.logs": "Диагностика",
+    "nav.admin": "Настройки",
     "role.admin": "Админ",
     "role.administrator": "Администратор",
     "role.user": "Обычный пользователь",
@@ -46,7 +119,7 @@
     "header.host": "Хост",
     "header.os": "Система",
     "header.cpu": "ЦП",
-    "header.cpu_value": "ядер: {cores} · {pct}",
+    "header.cpu_value": "{cores} · {pct}",
     "header.load": "нагрузка {load}",
     "header.memory": "Память",
     "header.disk_value": "{used} / {total} ({pct})",
@@ -156,7 +229,7 @@
     "home.step_metadata": "Дополните недостающие метаданные только из надёжных источников.",
     "home.step_review": "Примите решения по сомнительным файлам.",
     "home.step_organize": "Переместите файлы в папки Год/Месяц/День.",
-    "home.step_report": "Изучите отчёт, проверьте, при необходимости откатите.",
+    "home.step_report": "Посмотрите выполненные действия, проверьте и при необходимости отмените.",
     "home.summary": "Сводка",
     "home.files": "Проиндексированные файлы",
     "home.files_value": {
@@ -188,6 +261,8 @@
       "other": "{count} элемента"
     },
     "job.phase": "этап {phase}",
+    "job.scan_result": "{indexed} · {hashed} · {reused} · {unhashed}",
+    "job.scan_result_legacy": "{indexed} · {hashed}; неизменённые файлы используют прежние хеши (в старых сканированиях не подсчитаны).",
     "job.needs_confirmation": "Это задание записывает или перемещает файлы: оно возобновится только после нажатия «Возобновить».",
     "job.started": "Задание #{id} запущено.",
     "job.status.queued": "в очереди",
@@ -226,8 +301,8 @@
     "jobs.filter": "Показать",
     "sources.all": "Все мои источники",
     "browser.choose": "Выбрать эту папку",
-    "scan.title": "Сканирование",
-    "scan.intro": "Индексирует файлы источника и вычисляет SHA-256. Только чтение; после прерывания возобновляется автоматически. Хеш неизменённых файлов повторно не вычисляется.",
+    "scan.title": "Анализ",
+    "scan.intro": "Возобновляемый анализ без записи: сканирование, хеши, даты съёмки, точные дубликаты и предложения метаданных. Неизменённые хеши и даты используются повторно.",
     "scan.source": "Источник",
     "scan.no_sources": "Вам не назначена ни одна исходная папка. Обратитесь к администратору.",
     "scan.browse_data": "Обзор /data",
@@ -235,10 +310,17 @@
     "scan.start": "Начать сканирование",
     "scan.start_adhoc": "Сканировать выбранную папку",
     "scan.choose_folder": "Сначала выберите папку.",
-    "scan.jobs": "Сканирования",
+    "scan.jobs": "Задания анализа",
     "dup.title": "Дубликаты",
     "dup.intro": "Точные дубликаты во всех ваших папках. Дубликаты перемещаются в папку дубликатов и никогда не удаляются.",
-    "dup.rule": "Дубликат = тот же размер, тот же SHA-256 и побайтовое сравнение. Сохраняется файл с самой ранней датой (при равных датах — с самым аккуратным путём).",
+    "dup.rule": "Дубликат = тот же размер, SHA-256 и побайтовое сравнение. Известная внутренняя дата съёмки общая для копий, затем решает самый аккуратный путь. Без даты съёмки: самая ранняя дата изменения, затем путь.",
+    "dup.capture_date": "Дата съёмки группы: {date}",
+    "dup.date_unknown": "Дата съёмки группы неизвестна",
+    "dup.keeper_date": "Дата выбора сохраняемого файла: {date}",
+    "dup.keeper_rule.capture_date_tidy_path": "Правило: общая дата съёмки, затем самый аккуратный путь",
+    "dup.keeper_rule.mtime": "Правило: самая ранняя дата изменения",
+    "dup.keeper_rule.mtime_tidy_path": "Правило: одинаковые даты изменения, затем путь",
+    "dup.keeper_rule.manual": "Правило: ваш выбор сохраняемого файла",
     "dup.scope": "Охват",
     "dup.scope_user": "Мои источники",
     "dup.scope_global": "Глобально (все пользователи)",
@@ -292,10 +374,10 @@
     "plan.col_to": "Куда / изменения",
     "plan.col_status": "Статус",
     "plan.summary": {
-      "one": "{count} элемент: к выполнению {planned}, выполнено {done}, заблокировано или пропущено {blocked}",
-      "few": "{count} элемента: к выполнению {planned}, выполнено {done}, заблокировано или пропущено {blocked}",
-      "many": "{count} элементов: к выполнению {planned}, выполнено {done}, заблокировано или пропущено {blocked}",
-      "other": "{count} элемента: к выполнению {planned}, выполнено {done}, заблокировано или пропущено {blocked}"
+      "few": "{count} элемента: {planned} · {done} · {blocked}",
+      "many": "{count} элементов: {planned} · {done} · {blocked}",
+      "one": "{count} элемент: {planned} · {done} · {blocked}",
+      "other": "{count} элементов: {planned} · {done} · {blocked}"
     },
     "plan.renamed": "добавлен суффикс",
     "plan.from": "из {tag} ({source})",
@@ -342,7 +424,7 @@
     "plan.note.recovered": "восстановлено после прерывания",
     "review.title": "Проверка",
     "review.intro": "Файлы, по которым нужно принять решение. Решения сохраняются сразу: можно остановиться и продолжить в любой момент.",
-    "review.counts": "ожидают: {pending} · сохранено: {saved} · пропущено: {skipped} · оставлено как есть: {kept}",
+    "review.counts": "{pending} · {saved} · {skipped} · {kept}",
     "review.filter_status": "Статус",
     "review.filter_kind": "Причина",
     "review.all_kinds": "Все причины",
@@ -352,7 +434,7 @@
     "review.col_date": "Дата",
     "review.open": "Открыть",
     "review.empty": "Проверять нечего.",
-    "review.status.pending": "ожидает",
+    "review.status.pending": "К проверке",
     "review.status.saved": "сохранено",
     "review.status.skipped": "пропущено",
     "review.status.kept": "оставлено как есть",
@@ -376,11 +458,11 @@
     "review.missing": "отсутствует",
     "review.source_file": "файл",
     "review.utc": "UTC",
-    "review.proposal": "предложение",
+    "review.proposal": "Предложение",
     "review.use_proposal": "Использовать",
     "review.auto_fill": "будет заполнено",
     "review.origin.filename": "выведено из имени файла",
-    "review.origin.mtime_utc": "выведено из даты изменения (UTC)",
+    "review.origin.mtime_utc": "выведено из даты изменения файла",
     "review.present_readonly": "есть: никогда не перезаписывается",
     "review.not_writable": "недоступно для записи в этом формате",
     "review.col_field": "Поле",
@@ -396,10 +478,10 @@
     "review.date_keep": "оставить текущую",
     "review.apply_scope": "Применить к",
     "review.scope.item": "только этому файлу",
-    "review.scope.folder": "всем ожидающим файлам этой папки",
+    "review.scope.folder": "все файлы к проверке в этой папке",
     "review.scope.group": "всей группе (дубликаты, Live Photo)",
     "review.save_next": "Сохранить и далее",
-    "review.skip": "Пропустить",
+    "review.skip": "Отложить",
     "review.leave": "Оставить как есть",
     "review.reopen": "Открыть снова",
     "review.saved": {
@@ -411,7 +493,7 @@
     "review.empty_stays_empty": "Поля, оставленные пустыми, остаются пустыми.",
     "field.datetime_original": "Дата/время съёмки",
     "field.create_date": "Дата создания",
-    "field.modify_date": "Дата изменения",
+    "field.modify_date": "Дата изменения (EXIF)",
     "field.offset": "Смещение часового пояса",
     "field.gps": "GPS-координаты",
     "field.make": "Производитель камеры",
@@ -436,8 +518,8 @@
     "manifest.action.dup_move": "перемещён в дубликаты",
     "manifest.action.metadata": "метаданные записаны",
     "manifest.action.restore": "возвращён обратно",
-    "report.title": "Отчёт и откат",
-    "report.intro": "Сводка по текущей базе данных, манифест, откат и итоговая верификация.",
+    "report.title": "История и отмена",
+    "report.intro": "Выполненные операции, их отмена и итоговая проверка.",
     "report.files": "Файлы",
     "report.col_status": "Статус",
     "report.col_kind": "Тип",
@@ -460,7 +542,7 @@
     "report.verify": "Итоговая верификация",
     "report.verify_help": "Проверяет, что файлы и хеши соответствуют индексу и манифесту.",
     "report.verify_start": "Проверить",
-    "logs.title": "Журналы",
+    "logs.title": "Диагностика",
     "logs.intro": "Журнал выполнения текущей базы данных. Записи всегда на английском языке.",
     "logs.event": "Код события",
     "logs.level": "Уровень",
@@ -485,10 +567,10 @@
     "admin.http_warning": "Внимание: это приложение использует незашифрованный HTTP. Пароли и cookie сеанса передаются по сети без шифрования: используйте приложение только в доверенных сетях, ограничьте доступ с помощью BIND_ADDRESS и ALLOWED_NETWORKS или поставьте перед ним собственный обратный прокси HTTPS.",
     "admin.users": "Пользователи",
     "admin.groups": "Группы",
-    "admin.settings": "Настройки",
+    "admin.settings": "Общие",
     "admin.database": "База данных",
     "admin.transfer": "Экспорт и миграция",
-    "admin.audit": "Журнал аудита",
+    "admin.audit": "Журнал безопасности",
     "admin.security": "Безопасность",
     "admin.col_user": "Пользователь",
     "admin.col_role": "Роль",
@@ -759,6 +841,479 @@
     "cli.password_weak": "Пароль не соответствует требованиям (минимум {min_length} символов). Ничего не изменено.",
     "cli.generated_password_once": "Сгенерированный пароль (показывается только один раз):",
     "cli.change_at_first_login": "Его необходимо сменить при первом входе.",
-    "cli.password_reset_done": "Пароль пользователя {username} обновлён. Все его сеансы закрыты, блокировки входа сняты."
+    "cli.password_reset_done": "Пароль пользователя {username} обновлён. Все его сеансы закрыты, блокировки входа сняты.",
+    "job.kind.analyze_library": "Analyze library",
+    "job.pipeline_phase": "Phase {phase} of 5: {name}",
+    "job.analysis_phase.scan": "scan",
+    "job.analysis_phase.hash": "hash",
+    "job.analysis_phase.capture_dates": "capture dates",
+    "job.analysis_phase.duplicates": "duplicates",
+    "job.analysis_phase.metadata": "metadata proposals",
+    "job.analysis_phase.complete": "complete",
+    "analysis.results_from": "Results from {date}.",
+    "analysis.recheck_before_action": "Files changed since then are re-checked before any action.",
+    "analysis.go_scan": "Go to Scan",
+    "scan.analyze_library": "Analyze library",
+    "dup.exif_date": "Exif date: {date}",
+    "dup.filesystem_date": "File system date: {date}",
+    "dup.unknown_date": "unknown",
+    "dup.no_analysis": "No duplicate analysis results are available yet.",
+    "meta.summary": "{analysed} · {fills} · {review}",
+    "meta.review_items": {
+      "few": "Очередь проверки: {count} элемента",
+      "many": "Очередь проверки: {count} элементов",
+      "one": "Очередь проверки: {count} элемент",
+      "other": "Очередь проверки: {count} элементов"
+    },
+    "meta.no_analysis": "No metadata analysis results are available yet.",
+    "review.preview_error": "Preview could not be loaded (HTTP {status}).",
+    "review.detail_values": {
+      "one": "{count} значение",
+      "few": "{count} значения",
+      "many": "{count} значений",
+      "other": "{count} значения"
+    },
+    "review.detail_label": "Detail: {name}",
+    "analysis.steps": "Library steps",
+    "analysis.step_analyze": "1 Анализ",
+    "analysis.step_review": "2 Проверка (Дубликаты · Метаданные)",
+    "analysis.step_organize": "3 Organize",
+    "analysis.step_report": "4 История и отмена",
+    "analysis.step_done": "Done: {step}",
+    "analysis.update": "Update analysis",
+    "analysis.empty": "Analyze this library before reviewing or acting on files.",
+    "analysis.stale": "Files changed or analysis was interrupted. Update the analysis before continuing.",
+    "analysis.changes": "{new} · {changed} · {removed}",
+    "analysis.incomplete": "Последний анализ был прерван и не завершён.",
+    "job.already_running": "Job #{id} is already running.",
+    "review.status.decided": "Решено",
+    "review.status.all": "Все",
+    "meta.review_population": "{items} · {files}. Анализ относится к последней выбранной папке.",
+    "meta.analysis_summary": "{analysed} · {fills}",
+    "db.update_required": "Требуется обновление базы данных. Обратитесь к администратору.",
+    "settings.timezone_search": "Поиск часовых поясов",
+    "settings.timezone_offset_hint": "Показаны текущие смещения UTC, меняющиеся при переходе на летнее время. Используется для организации дат; исходный EXIF не меняется.",
+    "review.accept": "Принять",
+    "review.accept_next": "Принять и далее",
+    "review.keep_next": "Оставить и далее",
+    "review.postponed": {
+      "one": "Отложен {count} элемент.",
+      "few": "Отложено {count} элемента.",
+      "many": "Отложено {count} элементов.",
+      "other": "Отложено {count} элемента."
+    },
+    "settings.login_version_hint": "Показывать версию приложения на странице входа.",
+    "logs.all_events": "Все события",
+    "logs.clear": "Сбросить фильтры",
+    "logs.csv_scope": "Строки CSV",
+    "logs.csv_filtered": "Текущие отфильтрованные события",
+    "logs.csv_all": "Все доступные события",
+    "logs.all_users": "Все пользователи",
+    "logs.system": "Система",
+    "scan.change_folder": "Изменить папку",
+    "scan.all_analysis_jobs": "Все задания анализа в разделе Задания",
+    "logs.empty": "Нет событий, соответствующих этим фильтрам.",
+    "common.empty_list": "Нет записей для отображения.",
+    "review.short_date_help": "Выбор дат для организации хранится в базе; подробности в панели проверки.",
+    "review.col_decision": "Решение",
+    "review.decision.date": "Дата выбрана",
+    "review.decision.kept": "Оставлено как есть",
+    "review.decision.accepted": "Преобразование принято",
+    "review.decision.stored": "Сохранённая дата оставлена",
+    "review.decision.fields": "Метаданные сохранены",
+    "common.clear_search": "Очистить поиск",
+    "common.suggested": "Рекомендуемые",
+    "settings.all_timezones": "Все часовые пояса",
+    "settings.no_matching_timezone": "Нет подходящего часового пояса",
+    "logs.search_events": "Поиск событий",
+    "logs.no_matching_event": "Нет подходящего события",
+    "logs.present": "Присутствуют",
+    "logs.not_present": "Отсутствуют",
+    "logs.no_code_events": "Пока нет событий {code}.",
+    "logs.security_admin_note": "Открыть журнал безопасности",
+    "logs.security_own_note": "Открыть журнал безопасности",
+    "security.activity": "Журнал безопасности",
+    "meta.compact_summary": "{analysed} · {unreadable} · {reliable} · {total} · {pending} · {decided}",
+    "meta.start_review": "Начать проверку →",
+    "meta.how_completion_works": "Как дополняются метаданные",
+    "review.skipped_compact": "Отложено · {date}",
+    "review.enlarge": "Увеличить предпросмотр",
+    "security.source_ip": "Исходный IP",
+    "security.last_login": "Последний вход: {date} с {ip}",
+    "security.failed_since": {
+      "few": "{count} неудачные попытки входа после последнего входа.",
+      "many": "{count} неудачных попыток входа после последнего входа.",
+      "one": "{count} неудачная попытка входа после последнего входа.",
+      "other": "{count} неудачных попыток входа после последнего входа."
+    },
+    "security.trial": "Пробная версия: активность хранится в экземпляре независимо от базы.",
+    "review.example_date": "например, 2007-08-26 20:36:42",
+    "review.example_offset": "например, +01:00",
+    "review.example_gps": "например, 45.4642, 9.1900",
+    "review.example_make": "например, Canon",
+    "review.example_model": "например, EOS 80D",
+    "review.example_orientation": "например, 1",
+    "review.example_title": "например, Отпуск",
+    "review.example_description": "например, Семейное фото",
+    "analysis.reason.never_analyzed": "Эта библиотека ещё не анализировалась.",
+    "analysis.reason.older_version": "Библиотека была проанализирована старой версией TwinCheck. Запустите анализ библиотеки для получения актуальных результатов. Файлы только читаются: ничего не перемещается и не изменяется.",
+    "analysis.changed_since": "Файлы на диске изменились после анализа от {date}.",
+    "org.last_preview": {
+      "few": "Последний просмотр #{id} от {date} · {count} элемента",
+      "many": "Последний просмотр #{id} от {date} · {count} элементов",
+      "one": "Последний просмотр #{id} от {date} · {count} элемент",
+      "other": "Последний просмотр #{id} от {date} · {count} элементов"
+    },
+    "org.recompute": "Пересчитать",
+    "org.discard": "Отбросить просмотр",
+    "org.stale.scope": "Назначения или настройки библиотеки изменились. Пересчитайте перед выполнением.",
+    "org.stale.analysis": "Есть более новый анализ. Пересчитайте перед выполнением.",
+    "org.stale.decisions": "Решения проверки изменились. Пересчитайте перед выполнением.",
+    "org.stale.files": "Файлы на диске изменились. Пересчитайте перед выполнением.",
+    "org.stale.older_version": "Просмотр создан старой версией. Пересчитайте перед выполнением.",
+    "org.stale.discarded": "Этот просмотр отброшен и не может быть выполнен.",
+    "report.operations": "Операции",
+    "report.operation.move": "Организация",
+    "report.operation.dup_move": "Перемещение дубликатов",
+    "report.operation.metadata": "Изменения метаданных",
+    "report.operation_undone": {
+      "few": "{count}",
+      "many": "{count}",
+      "one": "{count}",
+      "other": "{count}"
+    },
+    "report.global_undo_note": "Отмена отдельных операций пока недоступна. Используйте общие просмотры ниже и проверьте каждый файл перед подтверждением.",
+    "report.moved_link": {
+      "few": "Перемещено: {count} файла · Открыть историю и отмену →",
+      "many": "Перемещено: {count} файлов · Открыть историю и отмену →",
+      "one": "Перемещено: {count} файл · Открыть историю и отмену →",
+      "other": "Перемещено: {count} файлов · Открыть историю и отмену →"
+    },
+    "logs.not_visible": {
+      "few": "Не видны пользователю {user}: {count} события. Они относятся к файлам вне библиотеки {user}.",
+      "many": "Не видны пользователю {user}: {count} событий. Они относятся к файлам вне библиотеки {user}.",
+      "one": "Не видны пользователю {user}: {count} событие. Они относятся к файлам вне библиотеки {user}.",
+      "other": "Не видны пользователю {user}: {count} событий. Они относятся к файлам вне библиотеки {user}."
+    },
+    "logs.no_job_events": "Нет событий для задания {id}.",
+    "security.review": "Проверить",
+    "security.see_log": "Открыть журнал безопасности",
+    "header.version_build": "{version} · Дата сборки: {date}",
+    "error.preview_stale": "Этот просмотр устарел или отброшен. Пересчитайте перед выполнением.",
+    "error.server_busy": "Сервер занят. Повторите попытку чуть позже.",
+    "security.close_banner": "Закрыть сведения о входе",
+    "analysis.no_results": "Результатов пока нет: запустите анализ библиотеки.",
+    "filters.pending": "Применить ожидающие текстовые фильтры",
+    "filters.search": "Поиск",
+    "filters.since": "С даты (UTC)",
+    "filters.until": "До даты (UTC)",
+    "exclusions.pattern": "Шаблон",
+    "exclusions.description": "Описание (необязательно)",
+    "exclusions.default": "По умолчанию",
+    "exclusions.add": "Добавить шаблон",
+    "exclusions.restore": "Восстановить стандартные",
+    "exclusions.test_name": "Проверить имя",
+    "exclusions.test_hint": "Введите имя файла или папки для проверки.",
+    "exclusions.matches": "Исключается шаблонами: {patterns}",
+    "exclusions.no_match": "Это имя не будет исключено.",
+    "exclusions.pattern_hint": "Шаблоны shell применяются к имени, не к пути. * означает любой текст, ? один символ, [abc] символ из списка. Регистр учитывается.",
+    "exclusions.remove_confirm": "Удалить {pattern} из исключённых имён?",
+    "exclusions.restore_confirm": "Восстановить встроенные шаблоны и очистить пользовательские описания?",
+    "exclusions.next_analysis": "Изменения действуют со следующего анализа. Они никогда не перемещают и не изменяют файлы.",
+    "exclusions.internal": "Внутренние имена .twincheck-* всегда исключены. Список управляется здесь, не в настройках сервера.",
+    "exclusions.empty": "Нет дополнительных исключённых имён.",
+    "exclusions.save_title": "Подтвердить изменения исключённых имён",
+    "exclusions.added": "Добавлено: {patterns}",
+    "exclusions.removed": "Удалено: {patterns}",
+    "exclusions.edited": "Изменено: {patterns}",
+    "error.exclusion_empty": "Введите непустой шаблон.",
+    "error.exclusion_duplicate": "Этот шаблон уже есть в списке.",
+    "error.exclusion_invalid": "Используйте допустимый shell-шаблон имени (без пути, не более 100 символов).",
+    "error.exclusion_all": "Этот шаблон исключит все имена. Используйте более точный шаблон.",
+    "error.exclusion_limit": "Используйте не более 100 шаблонов.",
+    "error.exclusion_name": "Введите имя, а не путь.",
+    "exclusions.default.hidden": "Скрытые файлы и папки",
+    "exclusions.default.synology_thumbnails": "Миниатюры Synology",
+    "exclusions.default.synology_recycle": "Корзина Synology",
+    "exclusions.default.windows_recycle": "Корзина Windows",
+    "exclusions.default.linux_recovery": "Папка восстановления Linux",
+    "exclusions.default.windows_thumbnails": "Кэш миниатюр Windows",
+    "exclusions.default.windows_settings": "Настройки папок Windows",
+    "meta.latest_population.analysed": {
+      "few": "Проанализировано: {count} файла",
+      "many": "Проанализировано: {count} файлов",
+      "one": "Проанализировано: {count} файл",
+      "other": "Проанализировано: {count} файлов"
+    },
+    "meta.latest_population.unreadable": {
+      "few": "Нечитаемые: {count} файла",
+      "many": "Нечитаемые: {count} файлов",
+      "one": "Нечитаемые: {count} файл",
+      "other": "Нечитаемые: {count} файлов"
+    },
+    "meta.latest_population.total": {
+      "few": "Отмечено: {count} элемента",
+      "many": "Отмечено: {count} элементов",
+      "one": "Отмечено: {count} элемент",
+      "other": "Отмечено: {count} элементов"
+    },
+    "meta.latest_population.pending": {
+      "few": "К проверке: {count} элемента",
+      "many": "К проверке: {count} элементов",
+      "one": "К проверке: {count} элемент",
+      "other": "К проверке: {count} элементов"
+    },
+    "meta.latest_population.decided": {
+      "few": "Решено: {count} элемента",
+      "many": "Решено: {count} элементов",
+      "one": "Решено: {count} элемент",
+      "other": "Решено: {count} элементов"
+    },
+    "meta.compact_summary.analysed": {
+      "few": "Проанализировано: {count} файла",
+      "many": "Проанализировано: {count} файлов",
+      "one": "Проанализировано: {count} файл",
+      "other": "Проанализировано: {count} файлов"
+    },
+    "meta.compact_summary.unreadable": {
+      "few": "Нечитаемые: {count} файла",
+      "many": "Нечитаемые: {count} файлов",
+      "one": "Нечитаемые: {count} файл",
+      "other": "Нечитаемые: {count} файлов"
+    },
+    "meta.compact_summary.reliable": {
+      "few": "Надёжная дата: {count} файла",
+      "many": "Надёжная дата: {count} файлов",
+      "one": "Надёжная дата: {count} файл",
+      "other": "Надёжная дата: {count} файлов"
+    },
+    "meta.compact_summary.total": {
+      "few": "Отмечено: {count} элемента",
+      "many": "Отмечено: {count} элементов",
+      "one": "Отмечено: {count} элемент",
+      "other": "Отмечено: {count} элементов"
+    },
+    "meta.compact_summary.pending": {
+      "few": "К проверке: {count} элемента",
+      "many": "К проверке: {count} элементов",
+      "one": "К проверке: {count} элемент",
+      "other": "К проверке: {count} элементов"
+    },
+    "meta.compact_summary.decided": {
+      "few": "Решено: {count} элемента",
+      "many": "Решено: {count} элементов",
+      "one": "Решено: {count} элемент",
+      "other": "Решено: {count} элементов"
+    },
+    "review.live_counts.total": {
+      "few": "Отмечено: {count} элемента",
+      "many": "Отмечено: {count} элементов",
+      "one": "Отмечено: {count} элемент",
+      "other": "Отмечено: {count} элементов"
+    },
+    "review.live_counts.pending": {
+      "few": "К проверке: {count} элемента",
+      "many": "К проверке: {count} элементов",
+      "one": "К проверке: {count} элемент",
+      "other": "К проверке: {count} элементов"
+    },
+    "review.live_counts.decided": {
+      "few": "Решено: {count} элемента",
+      "many": "Решено: {count} элементов",
+      "one": "Решено: {count} элемент",
+      "other": "Решено: {count} элементов"
+    },
+    "job.library_result.found": {
+      "few": "Найдено: {count} файла",
+      "many": "Найдено: {count} файлов",
+      "one": "Найдено: {count} файл",
+      "other": "Найдено: {count} файлов"
+    },
+    "job.library_result.changed": {
+      "few": "Новые или изменённые: {count} файла",
+      "many": "Новые или изменённые: {count} файлов",
+      "one": "Новые или изменённые: {count} файл",
+      "other": "Новые или изменённые: {count} файлов"
+    },
+    "job.library_result.unchanged": {
+      "few": "Без изменений (использованы повторно): {count} файла",
+      "many": "Без изменений (использованы повторно): {count} файлов",
+      "one": "Без изменений (использованы повторно): {count} файл",
+      "other": "Без изменений (использованы повторно): {count} файлов"
+    },
+    "job.library_result.hashed": {
+      "few": "Хешировано: {count} файла",
+      "many": "Хешировано: {count} файлов",
+      "one": "Хешировано: {count} файл",
+      "other": "Хешировано: {count} файлов"
+    },
+    "job.scan_result.indexed": {
+      "few": "Индексировано: {count} файла",
+      "many": "Индексировано: {count} файлов",
+      "one": "Индексировано: {count} файл",
+      "other": "Индексировано: {count} файлов"
+    },
+    "job.scan_result.hashed": {
+      "few": "Хешировано: {count} файла",
+      "many": "Хешировано: {count} файлов",
+      "one": "Хешировано: {count} файл",
+      "other": "Хешировано: {count} файлов"
+    },
+    "job.scan_result.reused": {
+      "few": "Повторные хеши: {count} хеша",
+      "many": "Повторные хеши: {count} хешей",
+      "one": "Повторные хеши: {count} хеш",
+      "other": "Повторные хеши: {count} хешей"
+    },
+    "job.scan_result.unhashed": {
+      "few": "Без хеша: {count} файла",
+      "many": "Без хеша: {count} файлов",
+      "one": "Без хеша: {count} файл",
+      "other": "Без хеша: {count} файлов"
+    },
+    "job.scan_result_legacy.indexed": {
+      "few": "Индексировано: {count} файла",
+      "many": "Индексировано: {count} файлов",
+      "one": "Индексировано: {count} файл",
+      "other": "Индексировано: {count} файлов"
+    },
+    "job.scan_result_legacy.hashed": {
+      "few": "Хешировано: {count} файла",
+      "many": "Хешировано: {count} файлов",
+      "one": "Хешировано: {count} файл",
+      "other": "Хешировано: {count} файлов"
+    },
+    "review.counts.pending": {
+      "few": "К проверке: {count} элемента",
+      "many": "К проверке: {count} элементов",
+      "one": "К проверке: {count} элемент",
+      "other": "К проверке: {count} элементов"
+    },
+    "review.counts.saved": {
+      "few": "Сохранено: {count} элемента",
+      "many": "Сохранено: {count} элементов",
+      "one": "Сохранено: {count} элемент",
+      "other": "Сохранено: {count} элементов"
+    },
+    "review.counts.skipped": {
+      "few": "Отложено: {count} элемента",
+      "many": "Отложено: {count} элементов",
+      "one": "Отложено: {count} элемент",
+      "other": "Отложено: {count} элементов"
+    },
+    "review.counts.kept": {
+      "few": "Оставлено без изменений: {count} элемента",
+      "many": "Оставлено без изменений: {count} элементов",
+      "one": "Оставлено без изменений: {count} элемент",
+      "other": "Оставлено без изменений: {count} элементов"
+    },
+    "meta.summary.analysed": {
+      "few": "Проанализировано: {count} файла",
+      "many": "Проанализировано: {count} файлов",
+      "one": "Проанализировано: {count} файл",
+      "other": "Проанализировано: {count} файлов"
+    },
+    "meta.summary.fills": {
+      "few": "Предложенные дополнения: {count} поля",
+      "many": "Предложенные дополнения: {count} полей",
+      "one": "Предложенные дополнения: {count} поле",
+      "other": "Предложенные дополнения: {count} полей"
+    },
+    "meta.summary.review": {
+      "few": "Отмечено: {count} элемента",
+      "many": "Отмечено: {count} элементов",
+      "one": "Отмечено: {count} элемент",
+      "other": "Отмечено: {count} элементов"
+    },
+    "meta.analysis_summary.analysed": {
+      "few": "Проанализировано: {count} файла",
+      "many": "Проанализировано: {count} файлов",
+      "one": "Проанализировано: {count} файл",
+      "other": "Проанализировано: {count} файлов"
+    },
+    "meta.analysis_summary.fills": {
+      "few": "Предложенные дополнения: {count} поля",
+      "many": "Предложенные дополнения: {count} полей",
+      "one": "Предложенные дополнения: {count} поле",
+      "other": "Предложенные дополнения: {count} полей"
+    },
+    "meta.review_population.items": {
+      "few": "Очередь проверки: {count} элемента",
+      "many": "Очередь проверки: {count} элементов",
+      "one": "Очередь проверки: {count} элемент",
+      "other": "Очередь проверки: {count} элементов"
+    },
+    "meta.review_population.files": {
+      "few": "Текущие: {count} файла",
+      "many": "Текущие: {count} файлов",
+      "one": "Текущие: {count} файл",
+      "other": "Текущие: {count} файлов"
+    },
+    "analysis.changes.new": {
+      "few": "Новые после анализа: {count} файла",
+      "many": "Новые после анализа: {count} файлов",
+      "one": "Новые после анализа: {count} файл",
+      "other": "Новые после анализа: {count} файлов"
+    },
+    "analysis.changes.changed": {
+      "few": "Изменённые после анализа: {count} файла",
+      "many": "Изменённые после анализа: {count} файлов",
+      "one": "Изменённые после анализа: {count} файл",
+      "other": "Изменённые после анализа: {count} файлов"
+    },
+    "analysis.changes.removed": {
+      "few": "Удалённые после анализа: {count} файла",
+      "many": "Удалённые после анализа: {count} файлов",
+      "one": "Удалённые после анализа: {count} файл",
+      "other": "Удалённые после анализа: {count} файлов"
+    },
+    "meta.current_population.current": {
+      "few": "Текущие: {count} файла",
+      "many": "Текущие: {count} файлов",
+      "one": "Текущие: {count} файл",
+      "other": "Текущие: {count} файлов"
+    },
+    "meta.current_population.reliable": {
+      "few": "Надёжная дата: {count} файла",
+      "many": "Надёжная дата: {count} файлов",
+      "one": "Надёжная дата: {count} файл",
+      "other": "Надёжная дата: {count} файлов"
+    },
+    "meta.current_population.review_files": {
+      "few": "На проверке: {count} файла",
+      "many": "На проверке: {count} файлов",
+      "one": "На проверке: {count} файл",
+      "other": "На проверке: {count} файлов"
+    },
+    "meta.current_population.other": {
+      "few": "Прочие: {count} файла",
+      "many": "Прочие: {count} файлов",
+      "one": "Прочие: {count} файл",
+      "other": "Прочие: {count} файлов"
+    },
+    "plan.summary.planned": {
+      "few": "К выполнению: {count} элемента",
+      "many": "К выполнению: {count} элементов",
+      "one": "К выполнению: {count} элемент",
+      "other": "К выполнению: {count} элементов"
+    },
+    "plan.summary.done": {
+      "few": "Выполнено: {count} элемента",
+      "many": "Выполнено: {count} элементов",
+      "one": "Выполнено: {count} элемент",
+      "other": "Выполнено: {count} элементов"
+    },
+    "plan.summary.blocked": {
+      "few": "Заблокировано или пропущено: {count} элемента",
+      "many": "Заблокировано или пропущено: {count} элементов",
+      "one": "Заблокировано или пропущено: {count} элемент",
+      "other": "Заблокировано или пропущено: {count} элементов"
+    },
+    "header.cpu_value.cores": {
+      "few": "{count} ядра",
+      "many": "{count} ядер",
+      "one": "{count} ядро",
+      "other": "{count} ядер"
+    }
   }
 }

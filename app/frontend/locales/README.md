@@ -59,6 +59,15 @@ categories your language uses:
 
 Check with `node -e "console.log(new Intl.PluralRules('xx').resolvedOptions().pluralCategories)"`.
 
+Every count-bearing sentence, including numeric export-button labels, provides all required
+forms. Composite summaries use one plural message per independent counter:
+`meta.compact_summary` contains `{analysed}`, while `meta.compact_summary.analysed`
+contains forms such as `{"one": "Analysed: {count} file", "other": "Analysed: {count} files"}`.
+`t()` expands the sibling message when the parameter is numeric. Keep counts as numbers,
+not preformatted strings, so each counter chooses its own category.
+The browser fixture renders every counted message at 0, 1 and 2 in all ten languages;
+the catalogue test rejects missing forms even if English fallback would hide the defect.
+
 ## Not translated
 
 Paths, file names, metadata values, ExifTool tag names (shown next to the translated label) and

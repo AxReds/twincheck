@@ -1,0 +1,1898 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frontend regression tests (synthetic data only)</title>
+<link rel="stylesheet" href="../frontend/static/css/app.css">
+</head>
+<body>
+<div id="app"></div>
+<pre id="results"></pre>
+<script type="module">
+const realFetch = window.fetch.bind(window);
+const interactive = location.search.includes('interactive');
+const fixtureTheme = new URLSearchParams(location.search).get('theme');
+const fixtureUsers = {
+  'dark-user': { id: 'synthetic-dark', username: 'dark-user', role: 'user', theme: 'dark' },
+  'light-user': { id: 'synthetic-light', username: 'light-user', role: 'admin', theme: 'light' },
+};
+const user = { id: 'test-admin', username: 'admin', role: 'admin', lang: 'en', sources: [], groups: [], fixed: true, active: true,
+  theme: interactive ? (localStorage.getItem('fixture_theme') || 'auto') : (fixtureTheme || 'auto'),
+  ...(interactive ? fixtureUsers[localStorage.getItem('fixture_user')] : {}) };
+const permissions = { manage_users: true, see_all_sources: true };
+const requests = [];
+let browsePath = 'test-folder';
+let browseTree = null;
+let sourceData = { sources: [], can_browse: true, scan_selection: null };
+let duplicateGroups = [];
+let analysisStatus = { exists: true, empty: false, stale: false, analyzed_at: '2026-11-24T20:00:00Z', active_job: null };
+let planKind = 'review_plan';
+let planItemsFixture = [];
+let savedPreviewFixture = null;
+let operationsFixture = [];
+let dimensionsFixture = false;
+let exclusionsFixture = null;
+let groupsFixture = [];
+let recheckFixture = false;
+let reviewStateFixture = null;
+let jobFixture = [];
+let emptyLogs = false;
+let paginationCount = null;
+const populationFixture = () => ({
+  analysed: (paginationCount || 53) + 6, unreadable: 1, total: paginationCount || 53,
+  pending: paginationCount || 53, decided: 0, current: (paginationCount || 53) + 6,
+  reliable: 5, review_files: paginationCount || 53, other: 1,
+});
+let authenticated = interactive ? localStorage.getItem('fixture_signed_out') !== '1' : true;
+let rejectLogin = !interactive;
+let expiring = false;
+let expireMetrics;
+let expireJobs;
+let expireLate;
+const requiredPassword = location.search.includes('password-required');
+const metrics = {
+  host: 'test-host', os: 'Test Linux', kernel: 'test-kernel', arch: 'aarch64',
+  memory: { total: 1024, used: 512, percent: 50 }, cpu: { cores: 4, percent: 1, load: [0, 0, 0] },
+  volumes: { data: { total: 1024, used: 512, used_pct: 50 }, state: { total: 1024, used: 512, used_pct: 50 } },
+  uptime: { system: 100, container: 50 }, version: 'test', database: { type: 'sqlite', connected: true, schema_version: 3 },
+  jobs_running: 0, disks: [],
+};
+window.fetch = async (url, opts = {}) => {
+  const path = String(url).split('?')[0];
+  if (path.startsWith('/api/locales/')) return realFetch('../frontend/locales/' + path.split('/').pop() + '.json?rc6');
+  if (/^\/api\/review\/\d+\/preview$/.test(path)) {
+    requests.push({ url: String(url), at: performance.now() });
+    return new Response(new Blob(['synthetic-image'], { type: 'image/jpeg' }), {
+      headers: { 'Content-Type': 'image/jpeg' },
+    });
+  }
+  if (path === '/api/late-session-response') return new Promise((resolve) => {
+    expireLate = () => resolve(new Response(JSON.stringify({ error: 'unauthenticated' }), { status: 401 }));
+  });
+  if (/^\/api\/jobs\/\d+$/.test(path)) {
+    requests.push({ url: String(url), at: performance.now() });
+    return new Response(JSON.stringify({ id: Number(path.split('/').at(-1)), status: 'completed' }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  if (expiring && (path === '/api/sysinfo' || path === '/api/jobs')) {
+    requests.push({ url: String(url) });
+    return new Promise((resolve) => {
+      const expire = () => resolve(new Response(JSON.stringify({ error: 'unauthenticated' }), { status: 401 }));
+      if (path === '/api/sysinfo') expireMetrics = expire;
+      else expireJobs = expire;
+    });
+  }
+  if (path === '/api/login') {
+    if (rejectLogin) return new Response(JSON.stringify({ error: 'invalid_credentials' }), { status: 401 });
+    authenticated = true;
+    if (interactive) {
+      const username = JSON.parse(opts.body).username;
+      if (fixtureUsers[username]) {
+        Object.assign(user, fixtureUsers[username]);
+        localStorage.setItem('fixture_user', username);
+      }
+      localStorage.removeItem('fixture_signed_out');
+    }
+    return new Response('{}');
+  }
+  if (path === '/api/me/password') {
+    const body = JSON.parse(opts.body);
+    if (body.current === 'wrong') return new Response(JSON.stringify({ error: 'bad_current_password' }), { status: 400 });
+    if (body.password === 'weak') return new Response(JSON.stringify({ error: 'weak_password', params: { reasons: ['too_short'], min_length: 12 } }), { status: 400 });
+    user.must_change_password = false;
+    requests.push({ url: String(url), body });
+    return new Response(JSON.stringify({ ok: true }));
+  }
+  if (path === '/api/logout') {
+    authenticated = false;
+    if (interactive) localStorage.setItem('fixture_signed_out', '1');
+    return new Response('{}');
+  }
+  let data;
+  if (path === '/api/locales') data = [{ code: 'en', name: 'English' }, { code: 'it', name: 'Italiano' }];
+  else if (path === '/api/bootstrap') data = { authenticated, user: authenticated ? user : null, permissions, db: metrics.database,
+    version: '1.0.1-rc.12', build_date: '2026-11-28' };
+  else if (path === '/api/sysinfo') data = metrics;
+  else if (path === '/api/me/theme') {
+    user.theme = JSON.parse(opts.body).theme;
+    if (interactive) localStorage.setItem('fixture_theme', user.theme);
+    data = { ok: true, theme: user.theme };
+  }
+  else if (path === '/api/me/security-banner/dismiss') data = { ok: true };
+  else if (path === '/api/report') data = { files: [], review: [], duplicates: {}, manifest: [], operations: operationsFixture };
+  else if (path === '/api/organize/preview') data = { preview: savedPreviewFixture };
+  else if (/^\/api\/organize\/preview\/\d+\/discard$/.test(path)) { savedPreviewFixture = null; data = { ok: true }; }
+  else if (path === '/api/library/status') data = analysisStatus;
+  else if (path === '/api/metadata/results') data = {
+    analyzed_at: '2026-11-24T20:00:00Z', summary: { analysed: 54, fills: 0, review: 50 }, review_pending: 50,
+    review_counts: { total: 50, decided: 0, pending: 50, needs_recheck: 0 }, plan_job_id: 1,
+    review_file_count: 50,
+    population: { analysed: 54, unreadable: 0, total: 50, pending: 50, decided: 0,
+      current: 54, reliable: 4, review_files: 50, other: 0 },
+  };
+  else if (path === '/api/sources') data = sourceData;
+  else if (path === '/api/fs/browse') data = browseTree ?
+    browseTree[new URL(String(url), location.href).searchParams.get('path')] : { path: browsePath, dirs: [] };
+  else if (path === '/api/scan' && opts.method === 'POST') data = { job_id: 1 };
+  else if (path === '/api/library/analyze' && opts.method === 'POST') {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    data = { job_id: 1, existing: false };
+  }
+  else if (path === '/api/plans/1') data = {
+    job: { id: 1, kind: planKind, status: 'completed' }, summary: planItemsFixture.length ? [{ kind: 'organize', status: 'planned', n: planItemsFixture.length }] : [],
+    items: planItemsFixture, apply_jobs: [], can_confirm: false,
+  };
+  else if (reviewStateFixture && /^\/api\/review\/\d+$/.test(path) && opts.method === 'POST') {
+    const row = reviewStateFixture.find((r) => r.id === Number(path.split('/').at(-1)));
+    const body = JSON.parse(opts.body);
+    row.status = body.action === 'skip' ? 'skipped' : 'decided';
+    row.skipped_at = body.action === 'skip' ? '2026-01-15T20:51:02Z' : null;
+    row.decision_kind = body.action === 'skip' ? null : 'date';
+    row.decision = body.action === 'skip' ? null : { date: body.date };
+    data = { updated: 1, next_id: row.id === 1 ? 2 : null };
+  }
+  else if (reviewStateFixture && /^\/api\/review\/\d+$/.test(path)) {
+    data = reviewStateFixture.find((r) => r.id === Number(path.split('/').at(-1)));
+  }
+  else if (reviewStateFixture && path === '/api/review') {
+    const status = new URL(String(url), location.href).searchParams.get('status');
+    const items = reviewStateFixture.filter((r) => status === 'all' ||
+      (status === 'pending' ? ['pending', 'skipped', 'needs_recheck'].includes(r.status) : r.status === status));
+    data = { items, total: items.length, review_counts: {
+      total: 2, pending: reviewStateFixture.filter((r) => r.status !== 'decided').length,
+      decided: reviewStateFixture.filter((r) => r.status === 'decided').length, needs_recheck: 0,
+    } };
+  }
+  else if (path === '/api/review/1' && opts.method === 'POST') data = { updated: 1, next_id: null };
+  else if (/^\/api\/review\/\d+$/.test(path) && opts.method !== 'POST') data = {
+    file: dimensionsFixture ? { name: 'synthetic.jpg', media_kind: 'image', path: 'lib/synthetic.jpg' } : null,
+    fields: [...['datetime_original', 'create_date', 'title'].map((field) => ({ field, candidates: [], writable: true, present: false })),
+      ...(dimensionsFixture ? [{ field: 'dimensions', candidates: [{ value: '512 771', tag: 'Composite:ImageSize', source: 'file' }], present: true }] : [])],
+    proposals: [{ field: 'datetime_original', value: '2020-01-02T03:04:05', origin: 'mtime_utc',
+      source: 'filesystem_mtime', timezone: 'Europe/Rome' }],
+    status: 'pending', kind: 'no_date', details: {}, next_id: Number(path.split('/').at(-1)) + 1,
+    ...(recheckFixture ? { status: 'needs_recheck', decision: { date: '2007-08-29T19:51:02' },
+      recheck_reason: 'mtime_utc_match', library_timezone: 'Europe/Rome',
+      recheck_proposal: { value: '2007-08-29T21:51:02', source: 'filesystem_mtime', timezone: 'Europe/Rome' } } : {}),
+  };
+  else if (path === '/api/review') {
+    const q = new URL(String(url), location.href).searchParams;
+    const rows = Array.from({ length: 50 }, (_, n) => ({ id: n + 1, kind: 'no_date', status: 'pending', details: {},
+      file: { name: `synthetic-${n}.jpg`, folder: 'lib' } }));
+    data = { items: rows.slice(Number(q.get('offset') || 0), Number(q.get('offset') || 0) + Number(q.get('limit') || 50)),
+      total: 50, review_counts: { total: 50, pending: 50, decided: 0 },
+      population: { analysed: 54, unreadable: 0, total: 50, pending: 50, decided: 0, current: 54, reliable: 4, review_files: 50, other: 0 } };
+  }
+  else if (path === '/api/admin/users' && opts.method !== 'PATCH') data = { users: [user], groups: groupsFixture };
+  else if (path === '/api/admin/users/test-admin' && opts.method === 'PATCH') data = { ok: true };
+  else if (path === '/api/admin/archives') data = { exports: [], imports: [] };
+  else if (path === '/api/jobs') data = { items: jobFixture.slice(0, Number(new URL(String(url), location.href).searchParams.get('limit') || 50)), total: jobFixture.length };
+  else if (path === '/api/me/security-activity' || path === '/api/admin/audit') {
+    const rows = ['LOGIN_OK', 'LOGIN_FAILED'].map((event) => ({
+      ts: '2026-11-24T20:00:00Z', user: 'admin', actor: 'admin', ip: '127.0.0.1', event, message: 'Synthetic security activity',
+    }));
+    const q = new URL(String(url), location.href).searchParams;
+    const items = rows.filter((row) => !q.get('event') || row.event === q.get('event'));
+    data = { items, total: items.length, all_total: 2, event_counts: { LOGIN_OK: 1, LOGIN_FAILED: 1 }, users: ['admin', 'synthetic'] };
+  }
+  else if (path === '/api/logs' || path === '/api/admin/audit' || path === '/api/me/security-activity') data = { items: [{
+    ts: '2026-11-24T20:00:00Z', level: 'INFO', event: 'REVIEW_DECIDED',
+    message: 'Review decision saved for synthetic.jpg', actor: 'synthetic', user: 'synthetic', ip: '127.0.0.1', job_id: 1,
+  }].filter(() => !emptyLogs), total: emptyLogs ? 0 : 1, all_total: 1, event_counts: { REVIEW_DECIDED: 1, REVIEW_SKIPPED: 0, FILE_UNREADABLE: 0 },
+    users: path === '/api/logs' ? [{ id: 'synthetic', username: 'synthetic' }] : ['synthetic'] };
+  else if (path === '/api/admin/db') data = {
+    current: { type: 'sqlite', path: '/state/synthetic.sqlite3' }, status: { connected: true, schema_version: 6 },
+    info: { last_update: '2026-11-24T20:00:00Z', db_id: 'synthetic', files: 2, open_jobs: 0 }, previous: [],
+  };
+  else if (path === '/api/admin/settings/exclusions/test') {
+    const body = JSON.parse(opts.body);
+    const code = body.exclude.some((pattern) => !pattern.trim()) ? 'exclusion_empty' :
+      new Set(body.exclude).size !== body.exclude.length ? 'exclusion_duplicate' :
+      body.exclude.some((pattern) => ['*', '**', '?*', '*?*'].includes(pattern)) ? 'exclusion_all' :
+      body.exclude.includes('[abc') ? 'exclusion_invalid' : null;
+    if (code) return new Response(JSON.stringify({ error: code }), { status: 400 });
+    data = { matches: body.exclude.filter((pattern) => pattern === body.name || pattern === '.*' && body.name.startsWith('.')) };
+  }
+  else if (path === '/api/admin/settings' && opts.method === 'PATCH') {
+    const body = JSON.parse(opts.body);
+    if (body.scan) exclusionsFixture = body.scan;
+    data = { ok: true };
+  }
+  else if (path === '/api/admin/settings') data = {
+    settings: { organize: { no_date_folder: 'No_date', duplicates_folder: 'Duplicates' }, scan: exclusionsFixture || { exclude: [] },
+      metadata: { fields: [] }, previews: { transcode_height: 720, crf: 28 }, default_lang: 'en',
+      library_timezone: 'Europe/Rome', show_version_on_login: true },
+    scan_exclude_defaults: ['.*', '@eaDir', '#recycle', '$RECYCLE.BIN', 'lost+found', 'Thumbs.db', 'desktop.ini'],
+    locales: [{ code: 'en', name: 'English' }], timezones: [
+      { name: 'UTC', offset: '+00:00' }, { name: 'Europe/Rome', offset: '+01:00' },
+      { name: 'Asia/Kathmandu', offset: '+05:45' },
+    ],
+  };
+  else if (path === '/api/duplicates') data = { groups: duplicateGroups, total: duplicateGroups.length, recoverable: 12 };
+  else throw new Error('Unmocked request: ' + url);
+  if (paginationCount !== null) {
+    const q = new URL(String(url), location.href).searchParams;
+    const offset = Number(q.get('offset') || 0);
+    const limit = q.get('limit') === 'all' ? paginationCount : Number(q.get('limit') || 50);
+    const rows = Array.from({ length: paginationCount }, (_, n) => ({
+      id: n + 1, kind: path === '/api/jobs' ? 'scan' : 'no_date', status: path === '/api/jobs' ? 'completed' : 'pending',
+      details: {}, proposals: [], file: { name: `synthetic-${n}.jpg`, folder: 'lib' },
+      ts: '2026-01-15T20:51:02Z', level: 'INFO', event: 'REVIEW_DECIDED', message: 'Synthetic review event',
+      size: 12, sha256: 'synthetic', keeper_file_id: 1, keeper_rule: 'mtime', keeper_date: '2026-01-15T20:51:02Z', recoverable: 12,
+      members: [{ id: 1, path: 'lib/a.jpg', filesystem_date: '2026-01-15T20:51:02Z' },
+        { id: 2, path: 'lib/b.jpg', filesystem_date: '2026-01-15T20:51:02Z' }],
+    }));
+    if (['/api/jobs', '/api/review', '/api/logs', '/api/duplicates'].includes(path)) {
+      data[path === '/api/duplicates' ? 'groups' : 'items'] = rows.slice(offset, offset + limit);
+      data.total = paginationCount;
+      data.all_total = paginationCount + 3;
+      data.event_counts = { REVIEW_DECIDED: paginationCount, REVIEW_SKIPPED: 0, LOGIN_OK: 0 };
+      data.review_counts = { total: paginationCount, pending: paginationCount, decided: 0, needs_recheck: 0 };
+    }
+    if (['/api/metadata/results', '/api/review'].includes(path)) data.population = populationFixture();
+  }
+  requests.push({ url: String(url), body: opts.body && JSON.parse(opts.body), at: performance.now() });
+  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
+};
+if (!interactive) location.hash = '#/home';
+if (requiredPassword) user.must_change_password = true;
+window.fixtureRequests = requests;
+window.fixtureUser = user;
+const app = await import('../frontend/static/js/app.js');
+const { t, fmt } = await import('../frontend/static/js/i18n.js');
+const sleep = () => new Promise((resolve) => setTimeout(resolve, 30));
+for (let i = 0; i < 100 && !document.querySelector('.user-btn, .auth-card'); i++) await sleep();
+const assert = (ok, message) => { if (!ok) throw new Error(message); };
+const visible = (el) => getComputedStyle(el).display !== 'none';
+const contrast = (el) => {
+  const css = getComputedStyle(el);
+  let background = css.backgroundColor;
+  let parent = el.parentElement;
+  while (/rgba\([^)]*,\s*0\)$/.test(background) && parent) {
+    background = getComputedStyle(parent).backgroundColor;
+    parent = parent.parentElement;
+  }
+  const lum = (color) => {
+    const rgb = color.match(/[\d.]+/g).slice(0, 3).map((v) => {
+      const x = Number(v) / 255; return x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4;
+    });
+    return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
+  };
+  const colors = [lum(css.color), lum(background)].sort((a, b) => a - b);
+  return (colors[1] + .05) / (colors[0] + .05);
+};
+const go = async (hash) => {
+  location.hash = hash; await sleep(); await app.route(); await sleep();
+  assert(!/\b(?:AM|PM)\b/.test(document.querySelector('#app').textContent), 'AM/PM rendered on ' + hash);
+};
+const results = [];
+async function test(name, fn) {
+  try { await fn(); results.push({ name, passed: true }); }
+  catch (error) { results.push({ name, passed: false, error: error.message }); }
+  document.getElementById('results').textContent = JSON.stringify(results, null, 2);
+}
+if (!interactive) {
+await test('B1: menu dismisses, keeps ARIA in sync and survives shell rebuild', async () => {
+  for (let pass = 0; pass < 2; pass++) {
+    const btn = document.querySelector('.user-btn');
+    const panel = document.querySelector('.menu-panel');
+    assert(!visible(panel), 'menu is initially visible despite hidden');
+    btn.click();
+    assert(visible(panel) && btn.getAttribute('aria-expanded') === 'true', 'menu does not open');
+    panel.querySelector('select').click();
+    assert(visible(panel), 'inside click dismissed the menu');
+    document.querySelector('main').click();
+    assert(!visible(panel) && btn.getAttribute('aria-expanded') === 'false', 'outside click did not close');
+    btn.click();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert(!visible(panel) && document.activeElement === btn, 'Escape did not close and restore focus');
+    btn.click();
+    await go(pass ? '#/home' : '#/analyze');
+    assert(!visible(panel) && btn.getAttribute('aria-expanded') === 'false', 'navigation did not close');
+    const { setLanguage } = await import('../frontend/static/js/i18n.js');
+    await setLanguage(pass ? 'en' : 'it');
+    await new Promise((resolve) => setTimeout(resolve, 80));
+  }
+});
+await test('B2: metric boxes stay in one row with stable widths and ellipsis', async () => {
+  const box = document.querySelector('.metrics');
+  for (let i = 0; i < 100 && !box.children.length; i++) await sleep();
+  assert(box.children.length > 0, 'metric refresh did not complete');
+  if (!visible(box)) {
+    assert(visible(document.querySelector('.metrics-toggle')), 'narrow screen has no metrics toggle');
+    return;
+  }
+  const chips = [...box.children];
+  const brand = document.querySelector('.brand').getBoundingClientRect();
+  const rect = box.getBoundingClientRect();
+  assert(!visible(document.querySelector('.metrics-toggle')), 'compact toggle is visible on desktop');
+  assert(Math.abs(rect.y + rect.height / 2 - brand.y - brand.height / 2) < 2, 'metrics left the reserved desktop header row');
+  const before = chips.map((el) => el.getBoundingClientRect());
+  chips.forEach((el) => {
+    const value = el.querySelector('.chip-value');
+    if (value) value.textContent = 'Very long changing metric value '.repeat(8);
+  });
+  const after = chips.map((el) => el.getBoundingClientRect());
+  assert(after.every((rect) => Math.abs(rect.y - after[0].y) < 1), 'metric boxes wrapped');
+  assert(after.every((rect, i) => Math.abs(rect.width - before[i].width) < 1), 'metric widths changed with values');
+  const value = chips[0].querySelector('.chip-value');
+  assert(getComputedStyle(value).textOverflow === 'ellipsis' && value.scrollWidth > value.clientWidth, 'long values are not ellipsized');
+});
+await test('B3: user control has reserved space even with long usernames', async () => {
+  const btn = document.querySelector('.user-btn');
+  const old = btn.textContent;
+  btn.textContent = 'long-admin-name-'.repeat(12);
+  const userRect = btn.getBoundingClientRect();
+  const brandRect = document.querySelector('.brand').getBoundingClientRect();
+  const metricBox = document.querySelector('.metrics');
+  const metricRect = metricBox.getBoundingClientRect();
+  try {
+    assert(userRect.x >= 0 && userRect.x + userRect.width <= innerWidth, 'user control leaves the viewport');
+    assert(Math.abs(userRect.y + userRect.height / 2 - brandRect.y - brandRect.height / 2) < 2, 'user control wrapped below the brand');
+    if (visible(metricBox)) assert(metricRect.x + metricRect.width <= userRect.x, 'user control overlaps metrics');
+    assert(btn.scrollWidth > btn.clientWidth, 'long username is not constrained');
+  } finally { btn.textContent = old; }
+});
+await test('B4: scan selection survives page changes including the data root', async () => {
+  for (const path of ['test-folder', '']) {
+    browsePath = path;
+    await go('#/analyze');
+    const choose = [...document.querySelectorAll('main button')].find((el) => el.textContent === t('browser.choose'));
+    assert(choose, 'folder browser did not load');
+    choose.click();
+    await go('#/home');
+    await go('#/analyze');
+    const codes = [...document.querySelectorAll('main p code')];
+    assert(codes.some((el) => el.textContent === path), 'library-relative selected folder label was lost');
+    const before = requests.length;
+    [...document.querySelectorAll('main button')].find((el) => el.textContent === t('scan.analyze_library')).click();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    assert(requests.slice(before).some((r) => r.url === '/api/library/analyze' && (r.body.path === path || r.body.source_id)),
+      'visible selection was not submitted for analysis');
+  }
+  await go('#/home');
+});
+await test('B4: initial selection and browser markings match the submitted source/path', async () => {
+  const source = { id: 'source-test', label: 'Assigned', path: 'assigned', path_rel: 'assigned', same_as_source: true };
+  for (const selection of [{ path: 'previous', source_id: null }, { path: 'assigned', source_id: source.id }, null]) {
+    sourceData = { sources: [source], can_browse: true, scan_selection: selection };
+    app.state.scanPath = null;
+    browsePath = selection?.path || '';
+    await go('#/analyze');
+    const chosen = document.querySelector('main p code');
+    assert(chosen.textContent === (selection ? selection.path : ''), 'initial selected label is incorrect');
+    const choose = [...document.querySelectorAll('main button')].find((el) => el.textContent === t('browser.choose'));
+    assert(choose.getAttribute('aria-pressed') === String(Boolean(selection)), 'browser marks a folder that is not selected');
+    const before = requests.length;
+    [...document.querySelectorAll('main button')].find((el) => el.textContent === t('scan.analyze_library')).click();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const submitted = requests.slice(before).find((r) => r.url === '/api/library/analyze');
+    if (selection) {
+      assert(submitted && (selection.source_id ? submitted.body.source_id === selection.source_id : submitted.body.path === selection.path), 'label and initial scan submission disagree');
+    } else {
+      assert(!submitted && visible(document.querySelector('main p[role="status"]')), 'no selection must show an inline message, not submit a scan');
+    }
+  }
+  sourceData = { sources: [], can_browse: true, scan_selection: null };
+  app.state.scanPath = null;
+  await go('#/home');
+});
+await test('B5: direct plan links highlight their owning section', async () => {
+  const sections = { review_plan: 'metadata', metadata_analyze: 'metadata', dedupe_plan: 'duplicates',
+    organize_plan: 'organize', undo_moves_plan: 'report', undo_meta_plan: 'report' };
+  for (const [kind, section] of Object.entries(sections)) {
+    planKind = kind;
+    await go('#/plans/1');
+    const active = [...document.querySelectorAll('.mainnav a.active')];
+    assert(active.length === 1 && active[0].getAttribute('href') === '#/' + section, kind + ' has wrong active section');
+    assert(active[0].getAttribute('aria-current') === 'page', 'active section is not announced');
+    assert(contrast(active[0]) >= 4.5, 'active section contrast is below 4.5:1');
+  }
+  await go('#/home');
+});
+await test('B11: base-user tree stays within sources and submits the selected subfolder', async () => {
+  const perms = app.state.perms;
+  app.state.perms = {};
+  sourceData = { sources: [
+    { id: 'own', label: 'Mine', path: 'Mine', path_rel: 'mine', same_as_source: true },
+    { id: 'second', label: 'Other source', path: 'Other source', path_rel: 'second', same_as_source: true },
+  ], can_browse: true, scan_selection: { path: 'mine', source_id: 'own' } };
+  browseTree = {
+    mine: { path: 'mine', root: 'mine', display_path: 'Mine', dirs: ['child'] },
+    'mine/child': { path: 'mine/child', root: 'mine', display_path: 'Mine/child', dirs: [] },
+    second: { path: 'second', root: 'second', display_path: 'Other source', dirs: [] },
+  };
+  app.state.scanPath = null;
+  try {
+    await go('#/analyze');
+    assert(![...document.querySelectorAll('.browser button')].some((b) => b.textContent === '..'), 'source root exposes parent navigation');
+    [...document.querySelectorAll('.browser button')].find((b) => b.textContent === 'child/').click();
+    await sleep();
+    assert(document.querySelector('.browser-head code').textContent === 'Mine/child', 'subfolder was not browsed within source label');
+    [...document.querySelectorAll('.browser button')].find((b) => b.textContent === t('browser.choose')).click();
+    [...document.querySelectorAll('main button')].find((b) => b.textContent === t('scan.analyze_library')).click();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const submitted = requests.filter((r) => r.url === '/api/library/analyze').at(-1).body;
+    assert(submitted.source_id === 'own' && submitted.path === 'mine/child', 'selected subfolder was not submitted with its source');
+    assert(document.querySelector('main p code').textContent === 'mine/child', 'library-relative selected label does not match subfolder');
+    const select = document.querySelector('main select');
+    select.value = 'second';
+    select.dispatchEvent(new Event('change'));
+    await sleep();
+    assert(document.querySelector('.browser-head code').textContent === 'Other source', 'switching assigned sources did not switch browser');
+    assert(![...document.querySelectorAll('.browser button')].some((b) => b.textContent === '..'), 'second source exposes parent navigation');
+  } finally {
+    app.state.perms = perms;
+    sourceData = { sources: [], can_browse: true, scan_selection: null };
+    browseTree = null;
+    app.state.scanPath = null;
+    await go('#/home');
+  }
+});
+await test('B6: choosing an organizing date discards stale date edits only', async () => {
+  await go('#/metadata/review/1');
+  const dateInputs = [...document.querySelectorAll('input.date-input')];
+  dateInputs.forEach((el) => { el.value = '1999-01-01T01:02:03'; });
+  document.querySelector('input[aria-label="' + t('field.title') + '"]').value = 'Test title';
+  const choice = document.querySelector('main select');
+  choice.value = '2020-01-02T03:04:05';
+  choice.dispatchEvent(new Event('change'));
+  document.querySelector('input[aria-label="' + t('field.title') + '"]').dispatchEvent(new Event('input'));
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.save_next')).click();
+  await sleep();
+  const saved = requests.filter((r) => r.url === '/api/review/1' && r.body).at(-1).body;
+  assert(saved.date === choice.value, 'chosen organizing date was lost');
+  assert(!saved.fields.datetime_original && !saved.fields.create_date, 'stale manual dates were submitted for writing');
+  assert(saved.fields.title === 'Test title', 'unrelated manual edit was lost');
+  assert(saved.proposal?.source === 'filesystem_mtime', 'unrelated manual edit discarded organizing-date provenance');
+  await go('#/metadata/review/1');
+  document.querySelector('input.date-input').value = '1999-01-01T01:02:03';
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.save_next')).click();
+  await sleep();
+  const manual = requests.filter((r) => r.url === '/api/review/1' && r.body).at(-1).body;
+  assert(manual.fields.datetime_original === '1999-01-01T01:02:03', 'manual date without a new choice was lost');
+  await go('#/home');
+});
+await test('B7: completed scans explain new, reused and legacy hashes', async () => {
+  const { jobCard } = await import('../frontend/static/js/components.js');
+  for (const result of [
+    { indexed: 39, hashed: 0, missing: 0, reused: 39, unhashed: 0 },
+    { indexed: 35, hashed: 35, missing: 0, reused: 0, unhashed: 0 },
+    { indexed: 39, hashed: 0, missing: 0 },
+  ]) {
+    const card = jobCard({ id: 1, kind: 'scan', status: 'completed', phase: 'walk', progress_done: 39, result });
+    const text = card.querySelector('.job-meta').textContent;
+    assert(text === t(result.reused === undefined ? 'job.scan_result_legacy' : 'job.scan_result', result), 'scan summary is unclear');
+    assert(!text.includes('walk'), 'stale walk phase is shown for a completed scan');
+  }
+});
+await test('B7: completed library job shows real counts and filtered unreadable link', async () => {
+  const { jobCard } = await import('../frontend/static/js/components.js');
+  const scan = { found: 63, new: 3, changed: 1, unchanged: 59, hashed: 3, unreadable: 1 };
+  const card = jobCard({ id: 63, kind: 'analyze_library', status: 'completed', result: { scan } });
+  assert(card.textContent.includes(t('job.library_result', { ...scan, changed: 4 })), 'readable library counts missing');
+  assert(card.querySelector('a[href="#/logs?job_id=63&level=WARNING&event=FILE_UNREADABLE"]'), 'unreadable count lacks filtered log link');
+});
+await test('B8: admin can discover Administration and edit own source assignments', async () => {
+  browsePath = 'admin-library';
+  for (const hash of ['#/analyze', '#/organize']) {
+    await go(hash);
+    const link = document.querySelector('main a[href="#/admin/users"]');
+    assert(link, hash + ' has no actionable source-assignment link');
+  }
+  assert(!document.querySelector('.mainnav a[href="#/admin/users"]'), 'Administration must not be in main navigation');
+  const menuLink = document.querySelector('.menu-panel a[href="#/admin/settings"]');
+  assert(menuLink && menuLink.nextElementSibling.getAttribute('href') === '#/security-activity', 'Settings must precede Security Log in the user menu');
+  await go('#/admin/users');
+  assert(document.querySelector('.user-btn.active'), 'Administration does not highlight the user menu button');
+  assert(document.querySelectorAll('.active').length === 1, 'admin pages highlight more than one element');
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('admin.edit')).click();
+  await sleep();
+  const editor = document.querySelector('.modal .sources-editor');
+  assert(editor, 'admin cannot edit own sources');
+  [...editor.querySelectorAll('button')].find((el) => el.textContent === t('browser.choose')).click();
+  await sleep();
+  const save = [...document.querySelectorAll('.modal button')].find((el) => el.textContent === t('common.save'));
+  save.click();
+  await sleep();
+  const update = requests.filter((r) => r.url === '/api/admin/users/test-admin' && r.body).at(-1);
+  assert(update?.body.sources?.[0]?.path === browsePath, 'admin source assignment was not submitted');
+  await go('#/home');
+  const { setLanguage } = await import('../frontend/static/js/i18n.js');
+  const perms = app.state.perms;
+  app.state.perms = {};
+  await setLanguage('it');
+  await sleep();
+  assert(!document.querySelector('a[href^="#/admin"]'), 'base user sees an Administration link');
+  for (const hash of ['#/analyze', '#/organize']) {
+    await go(hash);
+    assert([...document.querySelectorAll('main .notice')].some((el) => el.textContent === t('scan.no_sources')),
+      'base user empty state is not clear');
+    assert(!document.querySelector('main a[href^="#/admin"]'), 'base user empty state links to Administration');
+  }
+  const beforeAdmin = requests.filter((r) => r.url.startsWith('/api/admin')).length;
+  await go('#/admin/users');
+  assert(location.hash === '#/home', 'direct admin URL must redirect a base user Home');
+  assert(requests.filter((r) => r.url.startsWith('/api/admin')).length === beforeAdmin, 'base user route called an admin API');
+  app.state.perms = perms;
+  await setLanguage('en');
+  await sleep();
+});
+await test('B9: duplicate groups explain shared dates, unknown dates and keeper rules', async () => {
+  duplicateGroups = [
+    { id: 1, size: 12, recoverable: 12, sha256: 'synthetic', keeper_file_id: 1, capture_date: '2007-07-31T10:00:00',
+      keeper_date: '2007-07-31T10:00:00', keeper_rule: 'capture_date_tidy_path',
+      members: [{ id: 1, path: 'one.jpg', date: '2007-07-31T10:00:00' }, { id: 2, path: 'two.jpg', date: '2007-07-31T10:00:00' }] },
+    { id: 2, size: 12, recoverable: 12, sha256: 'synthetic', keeper_file_id: 3, capture_date: null,
+      keeper_date: '2001-09-09T01:46:40', keeper_rule: 'mtime',
+      members: [{ id: 3, path: 'three.jpg', date: null }, { id: 4, path: 'four.jpg', date: null }] },
+  ];
+  for (const group of duplicateGroups) group.members.forEach((member, i) => {
+    member.exif_date = group.capture_date;
+    member.filesystem_date = i === 0 ? '2000-01-01T00:00:00' : '2001-09-09T01:46:40';
+  });
+  await test('B16: review item and preview start concurrently with next preview prefetched', async () => {
+    const before = requests.length;
+    await go('#/metadata/review/9');
+    const calls = requests.slice(before).filter((r) => r.url.startsWith('/api/review/'));
+    assert(calls.some((r) => r.url === '/api/review/9') && calls.some((r) => r.url === '/api/review/9/preview'),
+      'review item and preview were not requested together');
+    const itemCall = calls.find((r) => r.url === '/api/review/9');
+    const previewCall = calls.find((r) => r.url === '/api/review/9/preview');
+    assert(Math.abs((itemCall.at || performance.now()) - (previewCall.at || performance.now())) < 50,
+      'review preview request was delayed behind the item response');
+    assert(calls.some((r) => r.url === '/api/review/10/preview'), 'next review preview was not prefetched');
+    await go('#/home');
+  });
+  await go('#/duplicates');
+  const decisions = document.querySelectorAll('.keeper-decision');
+  assert(decisions.length === 2, 'duplicate decision explanations missing');
+  assert(decisions[0].textContent.includes(t('dup.keeper_rule.capture_date_tidy_path')), 'shared-date rule missing');
+  assert(decisions[1].textContent.includes(t('dup.date_unknown')) && decisions[1].textContent.includes(t('dup.keeper_rule.mtime')), 'unknown-date fallback unclear');
+  assert(document.querySelectorAll('.dup-date-exif').length === 4, 'EXIF dates are missing from duplicate rows');
+  assert(document.querySelectorAll('.dup-date-filesystem').length === 4, 'file-system dates are missing from duplicate rows');
+  assert(document.querySelectorAll('.dup-date-exif strong, strong.dup-date-exif').length > 0,
+    'the keeper deciding date is not highlighted');
+  const OriginalDateTimeFormat = Intl.DateTimeFormat;
+  const originalFileDate = duplicateGroups[0].members[0].filesystem_date;
+  try {
+    Intl.DateTimeFormat = function(locales, options) {
+      return new OriginalDateTimeFormat(locales, { ...options, timeZone: options?.timeZone || 'Europe/Rome' });
+    };
+    duplicateGroups[0].members[0].filesystem_date = '2026-11-24T22:47:50Z';
+    const expected = '2026-11-24 23:47:50';
+    assert(fmt.date(duplicateGroups[0].members[0].filesystem_date) === expected,
+      'UTC filesystem instant is not displayed in Europe/Rome');
+    const expectedExif = '2026-11-24 23:47:50';
+    assert(fmt.exifDate('2026-11-24T23:47:50') === expectedExif,
+      'naive EXIF capture date was converted to another timezone');
+  } finally {
+    duplicateGroups[0].members[0].filesystem_date = originalFileDate;
+    Intl.DateTimeFormat = OriginalDateTimeFormat;
+  }
+  duplicateGroups = [];
+  await go('#/home');
+});
+await test('U10/U11/U38: metadata has one readable summary, explained populations and immediate review', async () => {
+  await go('#/metadata');
+  assert(document.querySelector('main .summary').textContent.includes(t('meta.compact_summary', {
+    analysed: 54, unreadable: 0, reliable: 4, review_files: 50, total: 50, pending: 50, decided: 0 })),
+    'metadata result is not human-readable');
+  assert(document.querySelector('.analysis-population [role="note"]').title.includes('54'), 'population detail is not explained in the tooltip');
+  assert(document.querySelector('.start-review').getAttribute('href') === '#/metadata/review/1', 'Start review does not open first pending item');
+  assert(!document.querySelector('.metadata-help').open && document.querySelector('.review-queue'), 'rules are not collapsed after the direct list');
+  await go('#/home');
+});
+await test('B20/B21/B25: one results notice, no stale job cards or contradictory notice', async () => {
+  const saved = analysisStatus;
+  try {
+    for (const section of ['duplicates', 'metadata']) {
+      for (const stale of [false, true]) {
+        analysisStatus = { ...saved, stale, changes: { new: stale ? 2 : 0, changed: 0, removed: 0 }, incomplete: false };
+        await go('#/' + section);
+        const notices = [...document.querySelectorAll('main .notice')];
+        const results = notices.filter((el) => el.textContent.includes(t('analysis.results_from', { date: fmt.date(saved.analyzed_at) })));
+        assert(results.length === (stale ? 0 : 1), 'results notice is duplicated or contradicts stale status');
+        assert(!stale || notices.some((el) => el.textContent.includes(t('analysis.changes', { new: 2, changed: 0, removed: 0 }))),
+          'stale notice does not explain actual file counts');
+        assert(document.querySelectorAll('main .job-card').length === 0, 'per-step history card is still visible');
+        assert(document.querySelector('main a.history-link[href="#/jobs"]'), 'Jobs history link is missing');
+      }
+    }
+  } finally { analysisStatus = saved; await go('#/home'); }
+});
+await test('U13: Analyze redirect, accessible titles and guide-first layout', async () => {
+  await go('#/scan');
+  assert(location.hash === '#/analyze', 'legacy Scan route does not redirect');
+  for (const section of ['analyze', 'duplicates', 'metadata', 'organize', 'report', 'jobs']) {
+    await go('#/' + section);
+    assert(document.querySelector('main h1.sr-only'), 'accessible hidden heading is missing');
+    const children = [...document.querySelector('main').children];
+    assert(children[1].classList.contains('step-guide') && children[2].classList.contains('intro'), 'guide and description are not first');
+  }
+  await go('#/analyze');
+  assert(![...document.querySelectorAll('main .notice a')].some((el) => el.textContent === t('analysis.update')),
+    'Analyze has a self-referencing update link');
+  await go('#/home');
+});
+await test('U14/B24: Review is inside Metadata, with one entry and complete status filters', async () => {
+  assert(!document.querySelector('.mainnav a[href="#/review"]'), 'Review tab is still visible');
+  await go('#/review');
+  assert(location.hash === '#/metadata/review', 'Review route does not redirect into Metadata');
+  assert(!document.querySelector('main .review-entry') && document.querySelectorAll('main .start-review').length === 1, 'direct review entry is duplicated');
+  assert(document.querySelector('.mainnav a.active[href="#/metadata"]'), 'Metadata tab is not highlighted');
+  const options = [...document.querySelector('.review-queue select').options].map((el) => el.value);
+  assert(options.join(',') === 'all,pending,decided', 'review status filter must show All / To review / Decided');
+  assert(!document.querySelector('.automatic-fills'), 'automatic preview shown despite zero fills');
+  assert(document.querySelector('.analysis-population .summary').textContent.includes(t('meta.compact_summary', {
+    analysed: 54, unreadable: 0, reliable: 4, review_files: 50, total: 50, pending: 50, decided: 0 })),
+    'live review summary is inconsistent');
+  await go('#/review/1');
+  assert(location.hash === '#/metadata/review/1', 'review item legacy route does not redirect');
+  await go('#/home');
+});
+await test('U15: sub-pages have contextual back links and explain empty plans', async () => {
+  for (const kind of ['metadata_analyze', 'review_plan', 'dedupe_plan', 'organize_plan', 'undo_moves_plan']) {
+    planKind = kind;
+    await go('#/plans/1');
+    assert(document.querySelector('main .back-link'), 'preview back link missing');
+    assert(document.querySelector('main .empty-state'), 'empty plan explanation missing');
+    assert(!document.querySelector('main table'), 'unexplained empty table shown');
+  }
+  await go('#/metadata/review/1');
+  assert(document.querySelector('main .back-link[href="#/metadata/review"]'), 'review back link missing');
+  await go('#/home');
+});
+await test('U16: 24-hour inputs, Use copies proposal, sticky controls precede fields', async () => {
+  await go('#/metadata/review/1');
+  const controls = document.querySelector('.review-controls');
+  const table = document.querySelector('.review-side .table-wrap');
+  assert(controls && table && (controls.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING), 'controls are not above the field table');
+  assert(!document.querySelector('input[type="datetime-local"]'), 'locale-dependent AM/PM input remains');
+  assert(document.querySelector('.organizing-date').placeholder === 'e.g. 2007-08-26 20:36:42' &&
+    controls.textContent.includes(t('review.date_format')), 'short date example or full format hint missing');
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.use_proposal')).click();
+  assert(document.querySelector('input.date-input').value === '2020-01-02 03:04:05', 'Use does not copy 24-hour proposal');
+  const proposal = document.querySelector('.proposal').textContent;
+  assert(proposal.includes('Europe/Rome') && !proposal.includes('(UTC)'), 'converted proposal source is mislabeled UTC');
+  assert(getComputedStyle(innerWidth <= 1000 ? document.querySelector('.review-actions') : controls).position ===
+    (innerWidth <= 1000 ? 'fixed' : 'sticky'), 'review actions are not sticky/fixed');
+  for (let i = 0; i < 30; i++) table.querySelector('tbody').appendChild(table.querySelector('tbody tr').cloneNode(true));
+  window.scrollTo(0, 300); await sleep();
+  const rect = (innerWidth <= 1000 ? document.querySelector('.review-actions') : controls).getBoundingClientRect();
+  assert(document.documentElement.scrollWidth <= innerWidth, 'review controls introduce horizontal page overflow');
+  assert(innerWidth <= 1000 ? Math.abs(rect.bottom - innerHeight) < 2 :
+    Math.abs(rect.top - 5 * parseFloat(getComputedStyle(document.documentElement).fontSize)) < 2,
+    'actions leave their required viewport edge while scrolling');
+  window.scrollTo(0, 0);
+  assert([...document.querySelectorAll('.review-side input')].every((el) => el.value === '' || el.classList.contains('date-input')),
+    'placeholder example was inserted as editable data');
+  const title = document.querySelector('input[aria-label="' + t('field.title') + '"]');
+  title.value = 'Manual title after Use';
+  title.dispatchEvent(new Event('input'));
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.save_next')).click();
+  await sleep();
+  const saved = requests.filter((r) => r.url === '/api/review/1' && r.body).at(-1).body;
+  assert(saved.proposal?.source === 'filesystem_mtime', 'unrelated manual edit discarded Use provenance');
+  await go('#/home');
+});
+await test('B23: re-check notice preserves UTC date and exposes both confirmation paths', async () => {
+  recheckFixture = true;
+  try {
+    for (const converted of [true, false]) {
+      await go('#/metadata/review/1');
+      const notice = document.querySelector('.recheck-notice');
+      assert(notice?.textContent.includes('2007-08-29 19:51:02') && notice.textContent.includes('2007-08-29 21:51:02'),
+        'stored and converted dates are not explained');
+      [...notice.querySelectorAll('button')].find((el) => el.textContent === t(converted ? 'review.accept' : 'review.keep_stored')).click();
+      await sleep();
+      const saved = requests.filter((r) => r.url === '/api/review/1' && r.body).at(-1).body;
+      assert(saved.date === (converted ? '2007-08-29T21:51:02' : '2007-08-29T19:51:02'), 'confirmation changed the wrong date');
+      assert(converted ? saved.proposal.source === 'filesystem_mtime' : !saved.proposal, 'confirmation provenance is incorrect');
+    }
+  } finally { recheckFixture = false; await go('#/home'); }
+});
+await test('B28/B30: re-analysis retains skip and decisions in badge, filters and counts', async () => {
+  reviewStateFixture = [1, 2].map((id) => ({
+    id, file_id: id, kind: 'no_date', status: 'pending', fields: [], details: {}, proposals: [],
+    file: { name: 'synthetic-' + id + '.jpg', folder: 'lib', path: 'lib/synthetic-' + id + '.jpg', media_kind: 'image' },
+  }));
+  try {
+    const { post } = await import('../frontend/static/js/api.js');
+    await post('/api/review/1', { action: 'skip' });
+    await post('/api/review/2', { action: 'save', date: '2001-02-03T04:05:06' });
+    await post('/api/library/analyze', { source_id: 'synthetic' });
+    await post('/api/library/analyze', { source_id: 'synthetic' });
+    await go('#/metadata/review/1');
+    assert(document.querySelector('.review-head .muted').textContent.includes(t('review.postponed_on', { date: fmt.date('2026-01-15T20:51:02Z') })) &&
+      !document.querySelector('.review-head').textContent.includes(t('review.status.skipped')), 'postponement note is missing or a skipped badge remains');
+    await go('#/metadata/review/2');
+    assert(document.querySelector('.review-head').textContent.includes(t('review.status.decided')), 'decided item badge reset');
+    await go('#/metadata/review?status=pending');
+    assert(document.querySelector('main').textContent.includes('synthetic-1.jpg') &&
+      !document.querySelector('main').textContent.includes('synthetic-2.jpg'), 'pending list disagrees with badges');
+    const summary = document.querySelector('main .summary').textContent;
+    const select = document.querySelector('main select');
+    select.value = 'decided'; select.dispatchEvent(new Event('change')); await sleep();
+    assert(!document.querySelector('main').textContent.includes('synthetic-1.jpg') &&
+      document.querySelector('main').textContent.includes('synthetic-2.jpg'), 'decided list disagrees with badges');
+    assert(document.querySelector('main .summary').textContent === summary, 'status filter changes counts');
+    assert(document.querySelector('.review-decision')?.textContent.includes(t('review.decision.date')),
+      'Decided list lacks the Decision column');
+    select.value = 'all'; select.dispatchEvent(new Event('change')); await sleep();
+    const skipped = [...document.querySelectorAll('tbody tr')].find((row) => row.textContent.includes('synthetic-1.jpg'));
+    assert(skipped.querySelector('.badge') && skipped.querySelector('.review-decision .muted') &&
+      !skipped.querySelector('.review-decision').textContent.includes(t('review.decision.date')), 'skipped pending item appears as a decision');
+    assert(skipped.querySelector('.review-decision .muted').textContent === t('review.postponed_on', { date: fmt.date('2026-01-15T20:51:02Z') }),
+      'visible postponement text is missing or not 24-hour');
+    assert(document.documentElement.scrollWidth <= innerWidth, 'review status overflows viewport');
+  } finally { reviewStateFixture = null; await go('#/home'); }
+});
+await test('B27: all rendered pages use numeric 24-hour dates with instant offset tooltips', async () => {
+  assert(fmt.localDate('2001-02-03T04:05:06') === '2001-02-03 04:05:06', 'capture date shifted or localized');
+  assert(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(fmt.date('2026-11-24T20:00:00Z')), 'instant date not numeric 24-hour');
+  assert(/UTC[+-]\d{2}:\d{2}/.test(fmt.dateTooltip('2026-11-24T20:00:00Z')), 'local offset missing');
+  jobFixture = [{ id: 1, kind: 'analyze_library', status: 'completed', updated_at: '2026-11-24T20:00:00Z' }];
+  try {
+    for (const route of ['#/home', '#/analyze', '#/duplicates', '#/metadata', '#/metadata/review/1',
+      '#/report', '#/jobs', '#/logs', '#/admin/audit', '#/admin/database']) {
+      await go(route);
+      for (const time of document.querySelectorAll('main time')) {
+        assert(/UTC[+-]\d{2}:\d{2}/.test(time.title), 'instant hover offset missing on ' + route);
+        assert(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(time.textContent), 'instant format wrong on ' + route);
+      }
+    }
+  } finally { jobFixture = []; await go('#/home'); }
+});
+await test('U17: database-required banner explains the problem to every role', async () => {
+  const { databaseNotice } = await import('../frontend/static/js/components.js');
+  for (const admin of [false, true]) {
+    const notice = databaseNotice({ perms: { switch_database: admin } });
+    assert(notice.textContent === t('db.update_required'), 'database explanation differs by role');
+    assert(admin ? notice.querySelector('a')?.getAttribute('href') === '#/admin/database' :
+      !notice.querySelector('a'), 'database migration link permission is wrong');
+  }
+  const old = app.state.boot.db;
+  app.state.boot.db = { connected: false, error: 'needs_migration' };
+  try {
+    await go('#/home');
+    assert(document.querySelector('main .database-notice')?.textContent === t('db.update_required'),
+      'Home still has a vague database error');
+  } finally { app.state.boot.db = old; await go('#/home'); }
+});
+await test('U18/U27: timezone combobox preserves the saved zone, filters and supports keyboard selection', async () => {
+  await go('#/admin/settings');
+  const search = document.querySelector('.timezone-input');
+  const combo = search.closest('.combobox');
+  assert(search.value === 'Europe/Rome (UTC+01:00)', 'saved timezone and offset not shown');
+  assert(combo.querySelector('[aria-selected="true"] > span').textContent === search.value, 'saved zone is not highlighted');
+  assert(search.getAttribute('aria-expanded') === 'false', 'searchable select is not initially closed');
+  search.click();
+  const filter = combo.querySelector('input[type="search"]');
+  assert(search.getAttribute('aria-expanded') === 'true' && search.getAttribute('aria-controls') === combo.querySelector('[role="listbox"]').id,
+    'combobox ARIA relationship is missing');
+  filter.value = 'invalid timezone'; filter.dispatchEvent(new Event('input'));
+  const save = [...document.querySelectorAll('main button')].find((el) => el.textContent === t('common.save'));
+  assert(combo.querySelectorAll('[role="option"]').length === 0 && search.value === 'Europe/Rome (UTC+01:00)', 'free search text changed the committed selection');
+  filter.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert(search.value === 'Europe/Rome (UTC+01:00)' && !save.disabled, 'Escape does not restore the previous value');
+  search.click();
+  filter.value = 'KATHMANDU'; filter.dispatchEvent(new Event('input'));
+  filter.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+  assert(filter.getAttribute('aria-activedescendant'), 'keyboard active option is not announced');
+  filter.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  assert(search.value === 'Asia/Kathmandu (UTC+05:45)' && !save.disabled, 'keyboard selection did not choose the IANA zone');
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('common.save')).click();
+  await sleep();
+  assert(requests.filter((r) => r.url === '/api/admin/settings' && r.body).at(-1).body.library_timezone === 'Asia/Kathmandu',
+    'timezone save did not send the IANA name');
+  await go('#/home');
+});
+await test('U19: Save and Accept stay on the item; next controls are explicit', async () => {
+  reviewStateFixture = [1, 2].map((id) => ({
+    id, file_id: id, kind: 'no_date', status: 'pending', fields: [], details: {}, proposals: [],
+    file: { name: 'synthetic-' + id + '.jpg', folder: 'lib', path: 'lib/synthetic-' + id + '.jpg', media_kind: 'image' },
+  }));
+  try {
+    await go('#/metadata/review/1');
+    document.querySelector('.organizing-date').value = '2001-02-03 04:05:06';
+    [...document.querySelectorAll('main button')].find((el) => el.textContent === t('common.save')).click();
+    await sleep(); await sleep();
+    assert(location.hash === '#/metadata/review/1', 'plain Save navigates away');
+    assert(document.querySelector('.review-head').textContent.includes(t('review.status.decided')), 'Save result not shown');
+    [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.save_next')).click();
+    await sleep(); await sleep();
+    assert(location.hash === '#/metadata/review/2', 'Save and next does not advance');
+  } finally { reviewStateFixture = null; await go('#/home'); }
+});
+await test('U27: ArrowUp starts at the last match when the committed option is filtered out', async () => {
+  const { comboBox } = await import('../frontend/static/js/components.js');
+  const combo = comboBox({ value: 'UTC', options: [
+    { value: 'UTC', label: 'UTC (UTC+00:00)' },
+    { value: 'Europe/Rome', label: 'Europe/Rome (UTC+01:00)' },
+    { value: 'Europe/London', label: 'Europe/London (UTC+00:00)' },
+  ] });
+  document.querySelector('main').appendChild(combo.el);
+  try {
+    combo.input.click(); combo.search.value = 'Europe'; combo.search.dispatchEvent(new Event('input'));
+    combo.search.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+    combo.search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    assert(combo.value() === 'Europe/London', 'ArrowUp skips the last filtered option');
+    combo.input.click(); combo.search.value = 'invalid'; combo.search.dispatchEvent(new Event('input'));
+    combo.search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert(combo.value() === 'Europe/London', 'Escape does not preserve the last committed option');
+  } finally { combo.el.remove(); }
+});
+await test('U20: table body scrolls while its header remains visible', async () => {
+  const { h, table } = await import('../frontend/static/js/dom.js');
+  await go('#/home');
+  const wrap = table(['logs.col_event', 'logs.col_message'], Array.from({ length: 100 }, (_, n) =>
+    h('tr', {}, h('td', {}, 'REVIEW_SKIPPED'), h('td', {}, 'Synthetic row ' + n))));
+  document.querySelector('main').appendChild(wrap);
+  try {
+    assert(wrap.scrollHeight > wrap.clientHeight, 'table body is not bounded');
+    const header = wrap.querySelector('thead th');
+    const before = header.getBoundingClientRect().top;
+    wrap.scrollTop = 200; await sleep();
+    assert(Math.abs(header.getBoundingClientRect().top - before) < 2, 'header scrolls away with body');
+    assert(getComputedStyle(header).backgroundColor !== 'rgba(0, 0, 0, 0)', 'sticky header is transparent');
+    assert(document.documentElement.scrollWidth <= innerWidth, 'table creates horizontal page overflow');
+  } finally { wrap.remove(); await go('#/home'); }
+});
+await test('U21: checkbox and label share a left-aligned line, with help below', async () => {
+  await go('#/admin/settings');
+  const field = document.querySelector('.checkbox-field');
+  const input = field.querySelector('input');
+  const label = field.querySelector('label');
+  assert(label.firstElementChild === input, 'label is before the checkbox');
+  const range = document.createRange(); range.selectNodeContents(label.lastChild);
+  const textRect = range.getBoundingClientRect();
+  const inputRect = input.getBoundingClientRect();
+  assert(inputRect.right <= textRect.left && Math.abs((inputRect.top + inputRect.bottom - textRect.top - textRect.bottom) / 2) < 3,
+    'checkbox and label are not aligned');
+  assert(field.querySelector('.hint').getBoundingClientRect().top >= label.getBoundingClientRect().bottom,
+    'checkbox help is not underneath');
+  await go('#/home');
+});
+await test('U22/U22b: event combobox groups zero-count codes and filters can be cleared', async () => {
+  await go('#/logs?event=REVIEW_DECIDED&level=WARNING&job_id=1');
+  const select = document.querySelector('.log-event-filter');
+  const combo = select.closest('.combobox');
+  assert(![...combo.querySelectorAll('[role="option"]')].some((o) => o.textContent === 'REVIEW_SKIPPED (0)'), 'zero events shown by default');
+  const present = document.querySelector('.log-only-present');
+  present.checked = false; present.dispatchEvent(new Event('change'));
+  assert([...combo.querySelectorAll('[role="option"]')].some((o) => o.textContent === 'REVIEW_SKIPPED (0)' && o.classList.contains('muted')),
+    'zero-count event missing or not greyed');
+  assert(combo.querySelector('.combo-section'), 'zero-count section separator missing');
+  assert(select.value === 'REVIEW_DECIDED (1)', 'event filter URL selection lost');
+  [...document.querySelectorAll('main button')].find((el) => el.textContent === t('logs.clear')).click();
+  await sleep();
+  assert(select.value === t('logs.all_events') && location.hash === '#/logs', 'clear did not reset event/URL');
+  assert(getComputedStyle(document.querySelector('.event-code')).whiteSpace === 'nowrap', 'event codes can wrap');
+  await go('#/home');
+});
+await test('U23/U33: separate CSV controls export applied filters or all accessible events', async () => {
+  await go('#/logs?event=REVIEW_DECIDED&job_id=1');
+  const link = document.querySelector('.log-export');
+  let q = new URL(link.href).searchParams;
+  assert(q.get('event') === 'REVIEW_DECIDED' && q.get('job_id') === '1' && q.get('scope') === 'filtered',
+    'filtered CSV loses current filters');
+  assert(link.textContent === t('logs.export_filtered', { count: 1 }), 'filtered export count missing');
+  const all = document.querySelector('.log-export-all');
+  q = new URL(all.href).searchParams;
+  assert(q.get('scope') === 'all' && !q.has('event') && !q.has('job_id'), 'all CSV keeps filters');
+  assert(all.textContent === t('logs.export_all', { count: 1 }), 'all export count missing');
+  assert(!document.querySelector('.log-csv-scope'), 'obsolete CSV scope selector remains');
+  await go('#/home');
+});
+await test('U24: only administrative roles get the User log filter', async () => {
+  const old = app.state.user.role;
+  try {
+    for (const role of ['admin', 'administrator', 'user']) {
+      app.state.user.role = role;
+      await go('#/logs');
+      assert(Boolean(document.querySelector('.log-user-filter')) === (role !== 'user'), 'User filter role mismatch');
+    }
+  } finally { app.state.user.role = old; await go('#/home'); }
+});
+await test('U28/U32/U42: consistent History & Undo and singular/plural count wording', async () => {
+  const { setLanguage } = await import('../frontend/static/js/i18n.js');
+  for (const lang of ['en', 'it']) {
+    await setLanguage(lang);
+    assert(t('report.title') === t('nav.report') && t('analysis.step_report') === '4 ' + t('nav.report'),
+      'Report capitalization or translation differs between locations');
+  }
+  await setLanguage('en');
+  assert(t('review.detail_values', { count: 1 }) === '1 value' && t('review.detail_values', { count: 2 }) === '2 values', 'value pluralization failed');
+  assert(t('review.postponed', { count: 1 }) === '1 item postponed.' &&
+    t('review.postponed', { count: 2 }) === '2 items postponed.', 'postponement pluralization failed');
+  assert(t('job.progress_items', { count: 1 }) === '1 item' && t('job.progress_items', { count: 2 }) === '2 items', 'job count pluralization failed');
+  const text = t('job.library_result', { found: 1, changed: 0, unchanged: 1, hashed: 0 });
+  assert(text.includes('(reused)') && !text.includes('skipped') && !text.includes('1 files'), 'reuse or singular wording is wrong');
+  await go('#/report');
+  assert(document.querySelector('main h1').textContent === 'History & Undo', 'history page title is inconsistent');
+  await go('#/home');
+});
+await test('U29: rows per page paginate all four tables and persist per table and user', async () => {
+  paginationCount = 53;
+  const originalId = app.state.user.id;
+  try {
+    for (const [route, name, selector] of [['#/metadata/review', 'review', '.review-queue tbody tr'],
+      ['#/logs', 'logs', 'main tbody tr'], ['#/duplicates', 'duplicates', '.dup-group'], ['#/jobs', 'jobs', '.job-card']]) {
+      localStorage.removeItem(`tc-rows:${originalId}:${name}`);
+      await go(route);
+      let select = document.querySelector(`.rows-per-page[data-table="${name}"]`);
+      assert(select.value === '50' && document.querySelectorAll(selector).length === 50, name + ': default rows are not 50');
+      select.value = '10'; select.dispatchEvent(new Event('change')); await sleep();
+      assert(document.querySelectorAll(selector).length === 10, name + ': page size did not change');
+      const next = [...document.querySelectorAll('.pager button')].find((el) => el.textContent === t('common.next'));
+      next.click(); await sleep();
+      assert(document.querySelector('.pager').textContent.includes('11–20'), name + ': pagination range is wrong');
+      await go('#/home'); await go(route);
+      select = document.querySelector(`.rows-per-page[data-table="${name}"]`);
+      assert(select.value === '10', name + ': choice did not survive navigation');
+      app.state.user.id = 'other-synthetic-user';
+      await go('#/home'); await go(route);
+      assert(document.querySelector(`.rows-per-page[data-table="${name}"]`).value === '50', name + ': preference leaked to another user');
+      app.state.user.id = originalId;
+      localStorage.removeItem(`tc-rows:${originalId}:${name}`);
+      await go('#/home');
+    }
+  } finally { paginationCount = null; app.state.user.id = originalId; await go('#/home'); }
+});
+await test('U29: All confirms above 1000 before requesting rows, including a remembered choice', async () => {
+  paginationCount = 1001;
+  const key = `tc-rows:${app.state.user.id}:logs`;
+  try {
+    localStorage.removeItem(key);
+    await go('#/logs');
+    const before = requests.length;
+    let select = document.querySelector('.rows-per-page');
+    select.value = 'all'; select.dispatchEvent(new Event('change')); await sleep();
+    assert(document.querySelector('[role="dialog"]'), 'large All request does not ask for confirmation');
+    assert(!requests.slice(before).some((r) => r.url.includes('limit=all')), 'all rows requested before consent');
+    [...document.querySelectorAll('.modal button')].find((el) => el.textContent === t('common.cancel')).click(); await sleep();
+    assert(select.value === '50' && localStorage.getItem(key) !== 'all', 'cancel changes the stored preference');
+    select.value = 'all'; select.dispatchEvent(new Event('change')); await sleep();
+    [...document.querySelectorAll('.modal button')].find((el) => el.textContent === t('common.confirm')).click(); await sleep();
+    assert(document.querySelectorAll('main tbody tr').length === 1001, 'All was capped after confirmation');
+    assert(localStorage.getItem(key) === 'all', 'All was not remembered');
+    await go('#/home');
+    location.hash = '#/logs'; await sleep(); await sleep();
+    assert(document.querySelector('[role="dialog"]'), 'remembered All bypasses confirmation');
+    [...document.querySelectorAll('.modal button')].find((el) => el.textContent === t('common.cancel')).click(); await sleep();
+    assert(document.querySelectorAll('main tbody tr').length === 50, 'cancelled restore does not return to a bounded page');
+  } finally { paginationCount = null; localStorage.removeItem(key); document.querySelector('.modal-overlay')?.remove(); await go('#/home'); }
+});
+await test('U31b: export controls form a separate natural-width, left-aligned row at every width', async () => {
+  await go('#/logs');
+  const bottom = document.querySelector('.log-filters').getBoundingClientRect().bottom;
+  for (const button of document.querySelectorAll('.log-export, .log-export-all')) {
+    assert(button.getBoundingClientRect().top >= bottom && getComputedStyle(button).flexGrow === '0', 'export control is not on its own natural-width row');
+  }
+  const perms = app.state.perms;
+  app.state.perms = { ...perms, transfer_database: true, security_settings: true };
+  for (const route of ['#/home', '#/analyze', '#/duplicates', '#/metadata', '#/metadata/review', '#/metadata/review/1', '#/organize',
+    '#/report', '#/jobs', '#/plans/1', '#/admin/users', '#/admin/groups', '#/admin/settings', '#/admin/database',
+    '#/admin/audit', '#/admin/transfer', '#/admin/security', '#/me']) {
+    await go(route);
+    assert(document.documentElement.scrollWidth <= innerWidth, 'filter/action row overflows on ' + route);
+    for (const row of document.querySelectorAll('.filters, .actions, .form.inline')) {
+      assert(getComputedStyle(row).alignItems === (innerWidth <= 600 && row.classList.contains('log-filters') ? 'stretch' : 'end'),
+        'shared responsive alignment missing on ' + route);
+    }
+  }
+  app.state.perms = perms;
+  await go('#/home');
+});
+await test('U29: job polling cannot bypass or duplicate the All confirmation', async () => {
+  paginationCount = 1001;
+  const key = `tc-rows:${app.state.user.id}:jobs`;
+  localStorage.removeItem(key);
+  try {
+    await go('#/jobs');
+    const before = requests.length;
+    const select = document.querySelector('.rows-per-page');
+    select.value = 'all'; select.dispatchEvent(new Event('change'));
+    await new Promise((resolve) => setTimeout(resolve, 1700));
+    assert(document.querySelectorAll('[role="dialog"]').length === 1, 'polling duplicates the confirmation');
+    assert(!requests.slice(before).some((r) => r.url.includes('limit=all')), 'polling requested All before confirmation');
+    [...document.querySelectorAll('.modal button')].find((el) => el.textContent === t('common.cancel')).click(); await sleep();
+  } finally { paginationCount = null; localStorage.removeItem(key); document.querySelector('.modal-overlay')?.remove(); await go('#/home'); }
+});
+await test('U33/#64: live export counts, role notes and shared analysis population are visible', async () => {
+  paginationCount = 53;
+  const old = app.state.user.role;
+  try {
+    for (const role of ['admin', 'user']) {
+      app.state.user.role = role; await go('#/logs?owner=synthetic');
+      assert(document.querySelector('.log-export').textContent === t('logs.export_filtered', { count: 53 }), 'filtered count is not live');
+      assert(document.querySelector('.log-export-all').textContent === t('logs.export_all', { count: 56 }), 'accessible count is not live');
+      const note = document.querySelector('.log-export-note').textContent;
+      assert(role === 'admin' ? note.includes(t('logs.export_user_note', { user: 'synthetic' })) : note === t('logs.export_own_note'),
+        'export scope note does not reflect role/User filter');
+    }
+    app.state.user.role = old;
+    await go('#/metadata');
+    const text = document.querySelector('.analysis-population').textContent;
+    assert(text.includes(t('meta.compact_summary', populationFixture())) &&
+      document.querySelector('.analysis-population [role="note"]').title.includes(t('meta.current_population', populationFixture())), 'analysis populations are not explained');
+    await go('#/metadata/review');
+    assert(document.querySelector('.analysis-population').textContent === text, 'metadata/review summaries disagree');
+  } finally { paginationCount = null; app.state.user.role = old; await go('#/home'); }
+});
+await test('U26: Analyze limits history to three jobs, with Change folder and clean notice', async () => {
+  const oldPath = app.state.scanPath;
+  app.state.scanPath = 'synthetic';
+  jobFixture = Array.from({ length: 5 }, (_, n) => ({ id: n + 1, kind: 'analyze_library', status: 'completed' }));
+  try {
+    await go('#/analyze');
+    assert(document.querySelectorAll('main .job-card').length === 3, 'Analyze shows more than three jobs');
+    assert(document.querySelector('main details > summary').textContent === t('scan.change_folder'),
+      'selected folder expander still asks to choose first');
+    assert(!/\.\s*·/.test(document.querySelector('main .notice').textContent), 'orphan notice separator remains');
+    const link = document.querySelector('main a[href="#/jobs?kind=analyze_library"]');
+    assert(link?.textContent === t('scan.all_analysis_jobs'), 'all-analysis-jobs link missing');
+    await go(link.getAttribute('href'));
+    assert(document.querySelectorAll('main .job-card').length === 5, 'Jobs does not show full analysis history');
+  } finally { jobFixture = []; app.state.scanPath = oldPath; await go('#/home'); }
+});
+await test('U15: Logs explains no matches and all empty tables have a message', async () => {
+  emptyLogs = true;
+  try {
+    await go('#/logs');
+    const empty = document.querySelector('main .empty-state');
+    assert(empty?.textContent.includes(t('logs.empty')) && empty.querySelector('button')?.textContent === t('logs.clear'),
+      'Logs empty state lacks explanation/reset');
+    assert(!document.querySelector('main table'), 'Logs renders header-only table');
+    await go('#/report');
+    assert(document.querySelectorAll('main .empty-state').length >= 2 && !document.querySelector('main table'),
+      'Report still has header-only tables');
+  } finally { emptyLogs = false; await go('#/home'); }
+});
+await test('B19: login version ON/OFF uses public bootstrap only and fits both themes', async () => {
+  const { renderLogin } = await import('../frontend/static/js/views/login.js');
+  const root = document.createElement('div');
+  root.style.cssText = 'position:fixed;inset:0;overflow:auto;z-index:100';
+  document.body.appendChild(root);
+  const previousTheme = document.documentElement.dataset.theme;
+  try {
+    for (const theme of ['light', 'dark']) {
+      document.documentElement.dataset.theme = theme;
+      for (const show of [true, false]) {
+        renderLogin(root, { ...app.state, boot: show ? { login_version: 'synthetic-rc8' } : {} }, async () => {});
+        const footer = root.querySelector('.login-version');
+        assert(Boolean(footer) === show, 'version visibility does not respect bootstrap');
+        if (footer) {
+          const rect = footer.getBoundingClientRect();
+          assert(footer.textContent === 'TwinCheck synthetic-rc8' && rect.x >= 0 && rect.right <= innerWidth &&
+            rect.bottom <= innerHeight, 'version footer is unreadable or outside viewport');
+          assert(contrast(footer) >= 4.5, 'login version contrast is below 4.5:1');
+        }
+      }
+    }
+  } finally {
+    root.remove();
+    document.documentElement.dataset.theme = previousTheme;
+  }
+});
+await test('U12: pipeline button and five-phase progress are available', async () => {
+  await go('#/analyze');
+  const analyze = [...document.querySelectorAll('main button')].find((b) => b.textContent === t('scan.analyze_library'));
+  assert(analyze, 'Analyze library button is missing');
+  const choose = [...document.querySelectorAll('main button')].find((b) => b.textContent === t('browser.choose'));
+  if (choose) choose.click();
+  const analyzeRequests = () => requests.filter((r) => r.url === '/api/library/analyze').length;
+  const beforeAnalyze = analyzeRequests();
+  analyze.click();
+  assert(analyze.disabled, 'Analyze library button stays enabled during the request');
+  analyze.click();
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  assert(analyzeRequests() === beforeAnalyze + 1, 'double click submitted the same analysis twice');
+  assert(!document.querySelectorAll('main button').length || ![...document.querySelectorAll('main button')]
+    .some((b) => [t('scan.start'), t('scan.start_adhoc')].includes(b.textContent)), 'Scan page exposes a separate Scan action');
+  assert(document.querySelectorAll('.step-guide li').length === 4 && document.querySelector('.step-guide .current'),
+    'four-step guide is missing');
+  await go('#/duplicates');
+  assert(![...document.querySelectorAll('main button')].some((b) => b.textContent === t('dup.analyze')),
+    'Duplicates exposes a separate analysis button');
+  await go('#/metadata');
+  assert(![...document.querySelectorAll('main button')].some((b) => b.textContent === t('meta.analyze')),
+    'Metadata exposes a separate analysis button');
+  const { jobCard } = await import('../frontend/static/js/components.js');
+  const names = ['scan', 'hash', 'capture_dates', 'duplicates', 'metadata'];
+  for (let phase = 0; phase < 5; phase++) {
+    const card = jobCard({ id: phase + 1, kind: 'analyze_library', status: 'running', progress_done: phase + 1, progress_total: 5,
+      phase: `${phase + 1}/5 ${names[phase]}` });
+    assert(card.textContent.includes(t('job.pipeline_phase', { phase: phase + 1, name: t('job.analysis_phase.' + names[phase]) })),
+      'pipeline phase is not translated');
+  }
+  await go('#/home');
+});
+await test('U12: empty and stale states lead to Scan with one update action', async () => {
+  const saved = analysisStatus;
+  try {
+    analysisStatus = { exists: false, empty: true, stale: false, analyzed_at: null, active_job: null };
+    await go('#/duplicates');
+    assert(document.querySelectorAll('main .notice a[href="#/analyze"]').length === 1 &&
+      ![...document.querySelectorAll('main button')].some((b) => b.textContent === t('dup.plan')),
+      'empty Duplicates state does not offer only Analyze library');
+    analysisStatus = { exists: true, empty: false, stale: true, analyzed_at: saved.analyzed_at, active_job: null };
+    await go('#/metadata');
+    assert(document.querySelector('main .notice.warn a[href="#/analyze"]'), 'stale Metadata state lacks update link');
+  } finally {
+    analysisStatus = saved;
+    await go('#/home');
+  }
+});
+await test('B26: expired sessions stop polling and keep login typing/focus until successful sign-in', async () => {
+  await go('#/jobs');
+  const { get } = await import('../frontend/static/js/api.js');
+  const lateResponse = get('/api/late-session-response').catch((error) => error);
+  authenticated = false;
+  expiring = true;
+  document.dispatchEvent(new Event('visibilitychange'));
+  for (let i = 0; i < 100 && (!expireMetrics || !expireJobs); i++) await sleep();
+  assert(expireMetrics && expireJobs, 'both poll requests must be in flight');
+  expireMetrics();
+  for (let i = 0; i < 100 && !document.querySelector('input[autocomplete="username"]'); i++) await sleep();
+  const form = document.querySelector('.auth-card form');
+  assert(form, 'session expiry did not show login');
+  const pollCount = () => requests.filter((r) => r.url.startsWith('/api/jobs') || r.url === '/api/sysinfo').length;
+  const stopped = pollCount();
+  const username = form.querySelector('input[type="text"]');
+  const password = form.querySelector('input[type="password"]');
+  username.value = 'typing-user';
+  password.value = 'synthetic-only';
+  password.focus();
+  password.setSelectionRange(3, 3);
+  const loginBootstraps = requests.filter((r) => r.url === '/api/bootstrap').length;
+  expireJobs();
+  for (const char of '-typing') {
+    password.setRangeText(char, password.selectionStart, password.selectionEnd, 'end');
+    password.dispatchEvent(new Event('input', { bubbles: true }));
+    document.dispatchEvent(new Event('visibilitychange'));
+    await sleep();
+  }
+  const typed = password.value;
+  const caret = password.selectionStart;
+  await new Promise((resolve) => setTimeout(resolve, 5200));
+  assert(document.querySelector('.auth-card form') === form, 'a late 401 replaced the login form while typing');
+  assert(username.value === 'typing-user' && password.value === typed, 'typed login values were lost');
+  assert(document.activeElement === password && password.selectionStart === caret, 'typing focus/caret was lost');
+  assert(requests.filter((r) => r.url === '/api/bootstrap').length === loginBootstraps, 'late 401 restarted bootstrap');
+  assert(pollCount() === stopped, 'polling continued on the login screen');
+  expiring = false;
+  form.requestSubmit();
+  await sleep();
+  document.dispatchEvent(new Event('visibilitychange'));
+  await sleep();
+  assert(document.querySelector('.auth-card form') === form && password.value === typed && document.activeElement === password, 'failed login lost typing or focus');
+  assert(pollCount() === stopped, 'polling resumed before a successful login');
+  rejectLogin = false;
+  form.requestSubmit();
+  for (let i = 0; i < 100 && !document.querySelector('.topbar'); i++) await sleep();
+  await sleep();
+  assert(document.querySelector('.topbar'), 'successful login did not restore the shell');
+  const resumed = requests.slice(requests.findLastIndex((r) => r.url === '/api/bootstrap') + 1);
+  assert(resumed.some((r) => r.url === '/api/sysinfo') && resumed.some((r) => r.url.startsWith('/api/jobs')), 'polling did not resume after successful login');
+  expireLate();
+  const error = await lateResponse;
+  await sleep();
+  assert(error.status === 401 && document.querySelector('.topbar') && !document.querySelector('.auth-card'), 'an old-session 401 signed out the new session');
+});
+await test('B10/U7: theme controls change the whole palette and preserve section contrast', async () => {
+  for (const mode of ['light', 'dark', 'auto']) {
+    const selector = document.querySelector('.theme-select');
+    selector.value = mode;
+    selector.dispatchEvent(new Event('change'));
+    await sleep();
+    const expected = mode === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : mode;
+    assert(document.documentElement.dataset.theme === expected, 'theme mode is not applied');
+    assert(getComputedStyle(document.documentElement).colorScheme === expected, 'native control theme disagrees');
+    assert(getComputedStyle(document.querySelector('.topbar')).backgroundColor === (expected === 'dark' ? 'rgb(13, 17, 23)' : 'rgb(255, 255, 255)'), 'header did not switch with content');
+    assert(localStorage.getItem('tc_theme') === mode && user.theme === mode, 'theme was not remembered locally and per user');
+    await go('#/plans/1');
+    assert(contrast(document.querySelector('.mainnav .active')) >= 4.5, 'active tab contrast below 4.5:1');
+    await go('#/admin/users');
+    assert(document.querySelectorAll('.active').length === 1 && contrast(document.querySelector('.user-btn.active')) >= 4.5, 'active Administration contrast/count wrong');
+    const toggle = document.querySelector('.theme-toggle');
+    const rect = toggle.getBoundingClientRect();
+    assert(visible(toggle) && rect.left >= 0 && rect.right <= innerWidth, 'theme icon is not always visible');
+    toggle.click();
+    await sleep();
+    assert(document.documentElement.dataset.theme !== expected, 'sun/moon button did not switch theme');
+    await go('#/home');
+  }
+  document.querySelector('.theme-select').value = 'auto';
+  document.querySelector('.theme-select').dispatchEvent(new Event('change'));
+  await sleep();
+});
+async function interactiveFixture(run, signedOut = false, query = '') {
+  const themeCookie = document.cookie.match(/(?:^|; )tc_theme=([^;]+)/)?.[1];
+  document.cookie = 'tc_theme=; Path=/; Max-Age=0';
+  const saved = ['fixture_theme', 'fixture_signed_out', 'fixture_user', 'tc_theme'].map((key) => [key, localStorage.getItem(key)]);
+  saved.forEach(([key]) => localStorage.removeItem(key));
+  if (signedOut) localStorage.setItem('fixture_signed_out', '1');
+  const frame = document.createElement('iframe');
+  frame.hidden = true;
+  const loaded = () => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('theme persistence fixture did not load')), 8000);
+    frame.addEventListener('load', () => { clearTimeout(timer); resolve(); }, { once: true });
+  });
+  const firstLoad = loaded();
+  frame.src = 'frontend.html?interactive' + query;
+  document.body.appendChild(frame);
+  const ready = async (selector) => {
+    for (let i = 0; i < 100 && !frame.contentDocument.querySelector(selector); i++) await sleep();
+    assert(frame.contentDocument.querySelector(selector), 'theme fixture did not render ' + selector);
+  };
+  try {
+    await firstLoad;
+    await ready(signedOut ? '.auth-card' : (query.includes('password-required') ? '.password-required form' : '.user-btn'));
+    await run({ frame, loaded, ready });
+  } finally {
+    frame.remove();
+    document.cookie = themeCookie ? `tc_theme=${themeCookie}; Path=/; Max-Age=31536000; SameSite=Strict` : 'tc_theme=; Path=/; Max-Age=0';
+    saved.forEach(([key, value]) => value === null ? localStorage.removeItem(key) : localStorage.setItem(key, value));
+  }
+}
+await test('B10/U7: theme persists through real reload and logout/login', async () => {
+  await interactiveFixture(async ({ frame, loaded, ready }) => {
+    for (const mode of ['auto', 'light', 'dark']) {
+      let doc = frame.contentDocument;
+      const selector = doc.querySelector('.theme-select');
+      selector.value = mode;
+      selector.dispatchEvent(new frame.contentWindow.Event('change'));
+      await sleep();
+      const expected = mode === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : mode;
+      const reloaded = loaded();
+      frame.contentWindow.location.reload();
+      await reloaded;
+      await ready('.user-btn');
+      doc = frame.contentDocument;
+      assert(doc.documentElement.dataset.theme === expected && doc.querySelector('.theme-select').value === mode, 'theme preference lost after reload');
+      const loggedOut = loaded();
+      doc.querySelector('.menu-panel button').click();
+      await loggedOut;
+      await ready('.auth-card');
+      doc = frame.contentDocument;
+      assert(doc.querySelector('.auth-card') && doc.documentElement.dataset.theme === expected, 'login page lost remembered theme after logout');
+      const loginSelector = doc.querySelector('.theme-select');
+      loginSelector.value = expected === 'dark' ? 'light' : 'dark';
+      loginSelector.dispatchEvent(new frame.contentWindow.Event('change'));
+      await sleep();
+      const form = doc.querySelector('form');
+      form.querySelector('input[type="text"]').value = 'synthetic-user';
+      form.querySelector('input[type="password"]').value = 'synthetic-only';
+      form.requestSubmit();
+      for (let i = 0; i < 100 && !doc.querySelector('.topbar'); i++) await sleep();
+      assert(doc.querySelector('.topbar') && doc.documentElement.dataset.theme === expected &&
+        doc.querySelector('.theme-select').value === mode, 'authenticated per-user theme did not override login-page preference');
+    }
+  });
+});
+await test('B12: login remembers the last authenticated user, not the previous selector choice', async () => {
+  await interactiveFixture(async ({ frame, loaded, ready }) => {
+    assert(frame.contentDocument.querySelector('.theme-select').value === 'auto', 'first visit with no history must use Auto');
+    for (const username of ['dark-user', 'light-user', 'dark-user']) {
+      let doc = frame.contentDocument;
+      const form = doc.querySelector('form');
+      form.querySelector('input[type="text"]').value = username;
+      form.querySelector('input[type="password"]').value = 'synthetic-only';
+      form.requestSubmit();
+      await ready('.user-btn');
+      const expected = fixtureUsers[username].theme;
+      assert(doc.documentElement.dataset.theme === expected, 'authenticated user theme was not restored');
+      const loggedOut = loaded();
+      doc.querySelector('.menu-panel button').click();
+      await loggedOut;
+      await ready('.auth-card');
+      doc = frame.contentDocument;
+      assert(doc.documentElement.dataset.theme === expected && doc.querySelector('.theme-select').value === expected,
+        'logout login theme does not belong to the last user: ' + username);
+    }
+  }, true);
+});
+await test('B13: required password change is stable, private and resumes without reload', async () => {
+  await interactiveFixture(async ({ frame, ready }) => {
+    const doc = frame.contentDocument;
+    const win = frame.contentWindow;
+    await ready('.password-required form');
+    frame.hidden = false;
+    frame.style.width = innerWidth + 'px';
+    frame.style.height = '900px';
+    const form = doc.querySelector('.password-required form');
+    assert(form === doc.querySelector('main form'), 'password-change form was not rendered once');
+    assert(!doc.querySelector('.mainnav') && !doc.querySelector('.metrics') && !doc.querySelector('.metrics-toggle'),
+      'required password-change page exposes normal navigation or live metrics');
+    assert(doc.documentElement.scrollWidth <= win.innerWidth, 'password-change page overflows the viewport');
+    const started = win.fixtureRequests.filter((r) => r.url === '/api/sysinfo').length;
+    const inputs = form.querySelectorAll('input[type="password"]');
+    inputs[0].value = 'temporary';
+    inputs[1].value = 'New-Strong-Password-9';
+    inputs[2].value = inputs[1].value;
+    inputs[1].focus();
+    inputs[1].setSelectionRange(4, 4);
+    win.dispatchEvent(new win.CustomEvent('po:password-required'));
+    await sleep();
+    assert(doc.querySelector('.password-required form') === form, 'password-required event recreated the form');
+    assert(inputs[1].value === 'New-Strong-Password-9' && win.document.activeElement === inputs[1],
+      'password-change values or focus were lost');
+    await new Promise((resolve) => setTimeout(resolve, 5200));
+    assert(win.fixtureRequests.filter((r) => r.url === '/api/sysinfo').length === started,
+      'system polling continued while password change is required');
+
+    inputs[0].value = 'wrong';
+    form.requestSubmit();
+    await sleep();
+    assert(doc.querySelector('.password-required form') === form && inputs[0].value === 'wrong',
+      'wrong current password replaced the form or cleared its values');
+    inputs[0].value = 'temporary';
+    inputs[1].value = inputs[2].value = 'weak';
+    form.requestSubmit();
+    await sleep();
+    assert(doc.querySelector('.password-required form') === form && inputs[1].value === 'weak',
+      'weak password replaced the form or cleared its values');
+
+    inputs[1].value = inputs[2].value = 'New-Strong-Password-9';
+    form.requestSubmit();
+    for (let i = 0; i < 100 && !doc.querySelector('.mainnav'); i++) await sleep();
+    assert(doc.querySelector('.mainnav') && !doc.querySelector('.password-required'),
+      'successful password change did not resume normal use');
+    await sleep();
+    assert(win.fixtureRequests.some((r) => r.url === '/api/sysinfo'), 'system polling did not resume');
+  }, false, '&password-required');
+});
+await test('U9: offline menu icons retain visible labels, accessible names and contrast', async () => {
+  const perms = app.state.perms;
+  app.state.perms = { ...perms, transfer_database: true, security_settings: true };
+  try {
+    await go('#/admin/users');
+    document.querySelector('.user-btn').click();
+    const links = [...document.querySelectorAll('.mainnav a, .subnav a, .menu-panel a, .menu-panel button')];
+    assert(document.querySelectorAll('.subnav a').length === 6, 'Settings subpages missing or obsolete Audit tab remains');
+    for (const link of links) {
+      const svg = link.querySelector('svg.nav-icon');
+      const label = link.querySelector('.nav-label');
+      assert(svg?.namespaceURI === 'http://www.w3.org/2000/svg' && svg.children.length, 'menu icon is not an inline SVG');
+      assert(svg.getAttribute('aria-hidden') === 'true' && svg.getAttribute('focusable') === 'false', 'decorative icon is announced or focusable');
+      assert(!svg.querySelector('image, use, foreignObject'), 'icon has an external resource dependency');
+      assert(label?.textContent.trim() && visible(label) && label.getBoundingClientRect().width > 0, 'visible text label missing');
+      if (link.closest('nav')) assert(link.getAttribute('aria-label') === label.textContent && link.title === label.textContent, 'navigation accessible name/tooltip changed');
+      assert(getComputedStyle(svg).stroke === getComputedStyle(link).color && contrast(link) >= 4.5, 'icon/text contrast below 4.5:1');
+      const rect = link.getBoundingClientRect();
+      assert(rect.left >= 0 && rect.right <= innerWidth, 'menu icon or label overflows viewport');
+    }
+    for (const label of document.querySelectorAll('.menu-panel label.menu-row')) assert(label.querySelector('svg.nav-icon'), 'menu selector icon missing');
+    assert(document.documentElement.scrollWidth <= innerWidth, 'icons introduced horizontal page overflow');
+    document.querySelector('main').click();
+  } finally {
+    app.state.perms = perms;
+    await go('#/home');
+  }
+});
+await test('B33: Jobs controls, focus and scroll survive polling; choices remain usable', async () => {
+  paginationCount = 105;
+  const key = `tc-rows:${app.state.user.id}:jobs`;
+  localStorage.removeItem(key);
+  try {
+    await go('#/jobs');
+    const select = document.querySelector('.rows-per-page');
+    select.focus();
+    const before = requests.filter((row) => row.url.startsWith('/api/jobs?')).length;
+    await new Promise((resolve) => setTimeout(resolve, 1700));
+    assert(document.activeElement === select && select.isConnected, 'polling removed the focused select');
+    assert(requests.filter((row) => row.url.startsWith('/api/jobs?')).length === before, 'polling did not pause while a control had focus');
+    for (const value of ['10', '100', 'all']) {
+      select.value = value; select.dispatchEvent(new Event('change')); await sleep(); await sleep();
+      assert(document.querySelector('.rows-per-page') === select && document.activeElement === select, 'changing page size replaced the control');
+      assert(document.querySelectorAll('main .job-card').length === (value === 'all' ? 105 : Number(value)), 'page-size choice was ignored');
+    }
+    select.blur();
+    window.scrollTo(0, 200);
+    const scroll = scrollY;
+    await new Promise((resolve) => setTimeout(resolve, 1700));
+    assert(document.querySelector('.rows-per-page') === select && Math.abs(scrollY - scroll) <= 2, 'polling replaced controls or moved the page');
+  } finally { paginationCount = null; localStorage.removeItem(key); window.scrollTo(0, 0); await go('#/home'); }
+});
+await test('U27b/U36: searchable selects close safely and users see only their present codes', async () => {
+  const role = app.state.user.role;
+  try {
+    app.state.user.role = 'user'; await go('#/logs');
+    assert(!document.querySelector('.log-only-present'), 'base user can request the full catalogue');
+    const trigger = document.querySelector('.log-event-filter');
+    assert(trigger.getAttribute('aria-expanded') === 'false', 'select is initially open');
+    trigger.click();
+    const combo = trigger.closest('.combobox');
+    const search = combo.querySelector('input[type="search"]');
+    assert(document.activeElement === search, 'search input did not receive focus');
+    assert(![...combo.querySelectorAll('[role="option"]')].some((row) => row.textContent.includes('LOGIN_OK') || row.textContent.includes('REVIEW_SKIPPED')),
+      'user catalogue reveals inaccessible or absent codes');
+    search.value = 'does not match'; search.dispatchEvent(new Event('input'));
+    assert(combo.querySelector('[role="status"]').textContent === t('logs.no_matching_event'), 'no-match explanation is missing');
+    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert(trigger.value === t('logs.all_events') && trigger.getAttribute('aria-expanded') === 'false', 'Escape changed the selection or left popup open');
+    trigger.click();
+    document.querySelector('main h1').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    assert(trigger.getAttribute('aria-expanded') === 'false', 'outside pointer/touch did not dismiss');
+    emptyLogs = true;
+    await go('#/logs?event=FILE_UNREADABLE');
+    assert(document.querySelector('.empty-state').textContent.includes(t('logs.no_code_events', { code: 'FILE_UNREADABLE' })), 'zero-code empty state is vague');
+    assert(document.querySelector('.log-export').getAttribute('aria-disabled') === 'true' &&
+      !document.querySelector('.log-export').hasAttribute('href'), 'empty filtered export remains actionable');
+    assert(!visible(document.querySelector('.pager')), 'zero-result pager remains visible');
+  } finally { app.state.user.role = role; emptyLogs = false; await go('#/home'); }
+});
+await test('U39/U40: short examples fit; fields precede the sticky right preview in tab order', async () => {
+  reviewStateFixture = [{
+    id: 1, status: 'pending', kind: 'no_date', details: {}, proposals: [],
+    file: { name: 'synthetic.jpg', path: 'lib/synthetic.jpg', origin: 'lib/synthetic.jpg', media_kind: 'image' },
+    fields: ['datetime_original', 'offset', 'gps', 'make', 'model', 'orientation', 'title', 'description']
+      .map((field) => ({ field, writable: true, present: false, candidates: [] })),
+  }];
+  try {
+    await go('#/metadata/review/1'); await sleep();
+    assert(![...document.querySelectorAll('main button')].some((button) => button.textContent === t('review.reopen')), 'Reopen is shown on pending items');
+    for (const input of document.querySelectorAll('.review-side input')) {
+      const style = getComputedStyle(input);
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d'); context.font = style.font;
+      const available = input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      assert(input.placeholder && context.measureText(input.placeholder).width <= available, 'placeholder is truncated: ' + input.placeholder);
+      assert(input.value === '', 'an example was saved as a real value');
+    }
+    const side = document.querySelector('.review-side');
+    const preview = document.querySelector('.review-preview');
+    assert(side.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING, 'preview controls precede editable fields in DOM/tab order');
+    const left = side.getBoundingClientRect(), right = preview.getBoundingClientRect();
+    assert(innerWidth > 1000 ? left.right <= right.left && left.width > right.width :
+      right.bottom <= left.top, 'preview is not right on desktop/top on mobile');
+    assert(innerWidth <= 1000 || getComputedStyle(preview).position === 'sticky', 'desktop preview is not sticky');
+    const enlarge = [...preview.querySelectorAll('button')].find((button) => button.textContent === t('review.enlarge'));
+    assert(enlarge, 'preview enlargement control is missing');
+    enlarge.click();
+    assert(document.querySelector('dialog[open]'), 'enlarged preview did not open');
+    document.querySelector('dialog').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert(!document.querySelector('dialog[open]'), 'Escape did not close enlarged preview');
+  } finally { reviewStateFixture = null; await go('#/home'); }
+});
+await test('U35: last sign-in and failed-attempt banners work without an operational database', async () => {
+  const oldDb = app.state.boot.db;
+  const oldBanner = app.state.boot.security_banner;
+  try {
+    app.state.boot.db = { connected: false };
+    for (const failed of [0, 2]) {
+      app.state.boot.security_banner = { last: { ts: '2026-11-24T20:00:00Z', ip: '127.0.0.1' },
+        failed, since: '2026-11-24T20:00:00Z', until: '2026-11-25T20:00:00Z' };
+      window.dispatchEvent(new CustomEvent('po:password-changed')); await sleep(); await sleep();
+      const banner = [...document.querySelectorAll('#app > .notice')].find((node) => node.textContent.includes('127.0.0.1'));
+      assert(banner?.textContent.includes(t('security.last_login', { date: fmt.date('2026-11-24T20:00:00Z'), ip: '127.0.0.1' })),
+        'last sign-in banner is absent while database is unavailable');
+      const link = banner.querySelector('a');
+      assert(failed ? link?.getAttribute('href').includes('event=LOGIN_FAILED') && banner.classList.contains('warn') : !link,
+        'failed-attempt highlight/filter link is wrong');
+    }
+    await go('#/security-activity?event=LOGIN_FAILED');
+    assert(document.querySelector('main tbody tr')?.textContent.includes('LOGIN_FAILED') && document.querySelector('.back-link'), 'security page depends on the database or lacks Back');
+  } finally { app.state.boot.db = oldDb; app.state.boot.security_banner = oldBanner; window.dispatchEvent(new CustomEvent('po:password-changed')); await sleep(); await go('#/home'); }
+});
+await test('B35: Organize preview keeps table scroll and select identity across two refresh cycles', async () => {
+  planKind = 'organize_plan';
+  planItemsFixture = Array.from({ length: 100 }, (_, n) => ({
+    id: n + 1, kind: 'organize', src: 'synthetic/file-' + n + '.jpg', dst: 'synthetic/2001/02/03/file-' + n + '.jpg',
+    status: 'planned', companions: [], fills: {}, restore: [],
+  }));
+  try {
+    await go('#/plans/1');
+    const wrap = document.querySelector('main .table-wrap');
+    const filter = document.querySelector('main select');
+    wrap.scrollTop = 200;
+    const scroll = wrap.scrollTop;
+    assert(scroll > 0, 'preview fixture is not scrollable');
+    filter.focus();
+    const before = requests.filter((r) => r.url.startsWith('/api/plans/1')).length;
+    await new Promise((resolve) => setTimeout(resolve, 8300));
+    assert(requests.filter((r) => r.url.startsWith('/api/plans/1')).length >= before + 2, 'two refresh cycles did not occur');
+    assert(document.querySelector('main .table-wrap') === wrap && wrap.scrollTop === scroll, 'preview table was replaced or scrolled');
+    assert(document.querySelector('main select') === filter && document.activeElement === filter, 'select was replaced or lost focus');
+    planItemsFixture[0].note = 'file_changed';
+    await new Promise((resolve) => setTimeout(resolve, 4200));
+    assert(document.querySelector('main .table-wrap') === wrap && wrap.scrollTop === scroll &&
+      wrap.querySelector('tbody tr').textContent.includes(t('plan.note.file_changed')), 'changed preview data did not update in place: ' + JSON.stringify({
+        same: document.querySelector('main .table-wrap') === wrap, before: scroll, after: wrap.scrollTop,
+        text: wrap.querySelector('tbody tr').textContent,
+      }));
+  } finally { planItemsFixture = []; planKind = 'review_plan'; await go('#/home'); }
+});
+await test('B36: History does not gate global counts or undo on the admin private analysis', async () => {
+  const previous = analysisStatus;
+  analysisStatus = { exists: false, empty: true, reason: 'never_analyzed' };
+  try {
+    await go('#/report');
+    assert(!document.querySelector('main .notice.warn'), 'History shows an unrelated analysis-required banner');
+    assert([...document.querySelectorAll('main button')].some((button) => button.textContent === t('report.undo_moves')), 'global undo was hidden');
+  } finally { analysisStatus = previous; await go('#/home'); }
+});
+await test('U41/U42: reusable previews explain staleness and History lists linked operations', async () => {
+  savedPreviewFixture = { id: 73, date: '2026-11-27T20:00:00Z', count: 38, stale: true, reason: 'decisions' };
+  operationsFixture = [{ id: 74, type: 'move', date: '2026-11-27T20:00:00Z', count: 38, user: 'synthetic', undone: 0 }];
+  try {
+    await go('#/organize');
+    const banner = document.querySelector('.organize-preview-banner');
+    assert(banner.textContent.includes(t('org.last_preview', { id: 73, date: fmt.date(savedPreviewFixture.date), count: 38 })), 'saved preview missing');
+    assert(banner.textContent.includes(t('org.stale.decisions')) && banner.querySelector('a[href="#/plans/73"]'), 'preview reason or open link missing');
+    await go('#/report?operation=74');
+    assert(document.querySelector('#operation-74.operation-selected')?.textContent.includes('synthetic'), 'linked operation is not highlighted');
+    const { jobCard } = await import('../frontend/static/js/components.js');
+    const card = jobCard({ id: 74, kind: 'organize_apply', status: 'completed', result: { moved: 38 } });
+    assert(card.querySelector('a[href="#/report?operation=74"]').textContent === t('report.moved_link', { count: 38 }), 'completion link missing');
+  } finally { savedPreviewFixture = null; operationsFixture = []; await go('#/home'); }
+});
+await test('U43/U44: version under logo and role-aware menu naming/order replace old navigation', async () => {
+  assert(document.querySelector('.brand-version').textContent === 'v1.0.1-rc.12' &&
+    document.querySelector('.brand-version').title.includes('2026-11-28'), 'authenticated version or build tooltip missing');
+  assert(![...document.querySelectorAll('.metrics .chip-label')].some((node) => node.textContent === t('header.version')), 'Version box remains');
+  assert(!document.querySelector('.mainnav a[href="#/logs"]'), 'Diagnostics remains in main navigation');
+  const menu = [...document.querySelectorAll('.menu-panel a')].map((node) => node.getAttribute('href'));
+  assert(menu.join(',') === '#/admin/settings,#/security-activity,#/logs,#/me', 'user menu links/order mismatch');
+  await go('#/admin');
+  assert(document.querySelector('main h2').textContent === t('admin.settings'), 'Settings does not default to General');
+  assert(!document.querySelector('.subnav a[href="#/admin/audit"]'), 'separate Audit log subpage remains');
+  await go('#/security-activity');
+  assert(document.querySelector('main h1').textContent === t('security.activity') && document.querySelector('.log-filters select'),
+    'admin Security Log lacks unified name or User filter');
+  await go('#/home');
+});
+await test('U45: Jobs Metadata and Diagnostics filters survive route reconstruction but navigation resets them', async () => {
+  await go('#/jobs');
+  let select = document.querySelector('main select');
+  select.value = 'completed'; select.dispatchEvent(new Event('change')); await sleep();
+  assert(location.hash.includes('status=completed'), 'Jobs filter not in URL');
+  await app.route(); await sleep();
+  assert(document.querySelector('main select').value === 'completed', 'Jobs URL filter not restored');
+  await go('#/jobs');
+  assert(document.querySelector('main select').value === 'open', 'Jobs navigation did not reset filters');
+  await go('#/metadata?status=decided&kind=no_date');
+  assert(document.querySelector('.review-queue select').value === 'decided', 'Metadata URL status not restored');
+  await go('#/logs?job_id=99&level=WARNING&event=FILE_UNREADABLE');
+  assert(document.querySelector('.log-job-filter').value === '99', 'Diagnostics URL job not restored');
+  await go('#/home');
+});
+await test('U46/U39b: flagged counts exclude decisions from To review and examples are clearly hints', async () => {
+  const { reviewCounts } = await import('../frontend/static/js/views/review.js');
+  assert(reviewCounts({ total: 53, pending: 52, decided: 1 }) === 'Flagged: 53 items · To review: 52 items · Decided: 1 item', 'review counts are misleading');
+  await go('#/metadata');
+  assert([...document.querySelector('.review-queue select').options].map((option) => option.textContent).join('/') === 'All/To review/Decided', 'review status labels differ');
+  assert(document.querySelector('thead').textContent.includes(t('review.col_decision')), 'Decision column missing in default filter');
+  await go('#/metadata/review/1');
+  for (const input of document.querySelectorAll('.review-side input')) {
+    assert(input.placeholder.startsWith('e.g. ') && getComputedStyle(input, '::placeholder').fontStyle === 'italic' && input.value === '',
+      'example looks like a proposed value');
+  }
+  assert(document.querySelector('.proposal .badge') && [...document.querySelectorAll('.proposal button')].some((button) => button.textContent === t('review.use_proposal')),
+    'real proposal lost its badge/Use action');
+  await go('#/home');
+});
+await test('U47: sign-in banners persist across pages and dismissal lasts until next sign-in', async () => {
+  const previous = app.state.boot.security_banner;
+  try {
+    app.state.boot.security_banner = { last: { ts: '2026-11-24T20:00:00Z', ip: '127.0.0.1' }, failed: 2,
+      since: '2026-11-24T20:00:00Z', until: '2026-11-25T20:00:00Z' };
+    window.dispatchEvent(new CustomEvent('po:password-changed')); await sleep(); await sleep();
+    const banner = document.querySelector('#app > .notice .banner-close').parentElement;
+    for (const hash of ['#/jobs', '#/metadata', '#/home']) {
+      await go(hash);
+      assert(banner.isConnected && banner.querySelector('a').textContent === t('security.review'), 'sign-in banner disappeared or Review label wrong');
+    }
+    banner.querySelector('.banner-close').click(); await sleep();
+    assert(!banner.isConnected && app.state.boot.security_banner.dismissed, 'banner dismissal not retained');
+    window.dispatchEvent(new CustomEvent('po:password-changed')); await sleep(); await sleep();
+    assert(!document.querySelector('.banner-close'), 'dismissed banner returned after shell rebuild');
+  } finally { app.state.boot.security_banner = previous; window.dispatchEvent(new CustomEvent('po:password-changed')); await sleep(); await go('#/home'); }
+});
+await test('UI polish: timezone suggestions start UTC and preview buttons have a real gap', async () => {
+  await go('#/admin/settings');
+  document.querySelector('.combobox .combo-trigger').click();
+  const suggestions = [...document.querySelectorAll('.combo-list [role="option"]')];
+  assert(suggestions[0].textContent.startsWith('UTC') && suggestions[1].textContent.startsWith('Europe/Rome'), 'timezone suggestion order is wrong');
+  document.querySelector('.combo-search input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await go('#/logs');
+  const header = document.querySelector('thead th');
+  assert(getComputedStyle(header).backgroundColor !== 'rgba(0, 0, 0, 0)', 'sticky header is transparent');
+  emptyLogs = true;
+  await go('#/logs?job_id=99');
+  assert(document.querySelector('.empty-state').textContent.includes(t('logs.no_job_events', { id: 99 })), 'specific empty filter is not explained');
+  emptyLogs = false; await go('#/home');
+});
+await test('UI polish: sign-in ignores a second submit while the first is in flight', async () => {
+  const { renderLogin } = await import('../frontend/static/js/views/login.js');
+  const root = document.createElement('div');
+  document.body.appendChild(root);
+  let submitted = 0, release;
+  const original = window.fetch;
+  window.fetch = async (url, opts) => {
+    if (url === '/api/login') { submitted++; await new Promise((resolve) => { release = resolve; }); return new Response('{}'); }
+    return original(url, opts);
+  };
+  try {
+    renderLogin(root, app.state, async () => {});
+    const form = root.querySelector('form');
+    form.querySelector('[type="text"]').value = 'synthetic';
+    form.querySelector('[type="password"]').value = 'synthetic-only';
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    assert(submitted === 1 && form.querySelector('[type="submit"]').disabled, 'double submit was accepted');
+    release(); await sleep();
+  } finally { window.fetch = original; root.remove(); await go('#/home'); }
+});
+await test('P1: banner close is inside the first-line corner and main focus has no ring', async () => {
+  const previous = app.state.boot.security_banner;
+  try {
+    app.state.boot.security_banner = { last: { ts: '2026-11-24T20:00:00Z', ip: '127.0.0.1' }, failed: 1, until: '2026-11-25T20:00:00Z' };
+    window.dispatchEvent(new CustomEvent('po:password-changed')); await sleep(); await sleep();
+    const banner = document.querySelector('.security-banner');
+    const close = banner.querySelector('.banner-close');
+    const b = banner.getBoundingClientRect(), c = close.getBoundingClientRect(), p = banner.querySelector('p').getBoundingClientRect();
+    assert(c.left >= b.left && c.right <= b.right && c.top >= b.top && c.bottom <= b.bottom, 'close button lies outside banner');
+    assert(Math.abs(c.top - p.top) <= 2 && c.right > b.right - 40, 'close button is not in first-line top corner');
+    assert(close.getAttribute('aria-label') === t('security.close_banner'), 'close label does not describe the banner');
+    await go('#/jobs');
+    const main = document.querySelector('main');
+    assert(document.activeElement === main && getComputedStyle(main).outlineStyle === 'none', 'programmatic navigation focus shows a container ring');
+  } finally { app.state.boot.security_banner = previous; window.dispatchEvent(new CustomEvent('po:password-changed')); await sleep(); await go('#/home'); }
+});
+await test('P2: every counted string renders 0, 1 and 2 with complete plural forms in all ten locales', async () => {
+  const { setLanguage } = await import('../frontend/static/js/i18n.js');
+  const codes = ['en', 'it', 'de', 'fr', 'es', 'pt-BR', 'ru', 'ar', 'zh-Hans', 'ja'];
+  const base = await (await fetch('/api/locales/en')).json();
+  try {
+    for (const code of codes) {
+      await setLanguage(code); await sleep();
+      const data = await (await fetch('/api/locales/' + code)).json();
+      const required = new Intl.PluralRules(code).resolvedOptions().pluralCategories.sort().join(',');
+      for (const [key, value] of Object.entries(base.messages)) {
+        if (!JSON.stringify(value).includes('{count}')) continue;
+        assert(typeof data.messages[key] === 'object' && Object.keys(data.messages[key]).sort().join(',') === required,
+          code + ':' + key + ' missing plural form');
+        for (const count of [0, 1, 2]) {
+          const params = { count, size: '1 MB', recoverable: '1 MB', user: 'synthetic', id: '1', date: '2026-11-28',
+            planned: count, done: count, blocked: count };
+          const rendered = t(key, params);
+          assert(rendered && !/\{\w+\}|…/.test(rendered), code + ':' + key + ':' + count + ' did not render');
+        }
+      }
+      const mixed = t('meta.compact_summary', { analysed: 1, unreadable: 2, reliable: 0, total: 2, pending: 1, decided: 0 });
+      assert(!/\{\w+\}|…/.test(mixed), code + ': independent counters failed');
+      if (code === 'en') assert(t('security.failed_since', { count: 1 }).includes('1 failed sign-in attempt since') &&
+        t('security.failed_since', { count: 2 }).includes('2 failed sign-in attempts since'), 'English singular/plural regression');
+      if (code === 'it') assert(t('security.failed_since', { count: 1 }).startsWith('1 tentativo fallito') &&
+        t('security.failed_since', { count: 2 }).startsWith('2 tentativi falliti'), 'Italian singular/plural regression');
+    }
+  } finally { await setLanguage('en'); await sleep(); await go('#/home'); }
+});
+await test('P3/P4: review dimensions and History wording are exact', async () => {
+  dimensionsFixture = true;
+  try {
+    await go('#/metadata/review/1');
+    assert(document.querySelector('.preview-caption').textContent.includes('512 × 771'), 'caption lacks dimension separator');
+    assert([...document.querySelectorAll('tbody code')].some((node) => node.textContent === '512 × 771'), 'field table lacks dimension separator');
+    assert(fmt.dimensions('512x771') === '512 × 771' && fmt.dimensions('512 × 771') === '512 × 771', 'dimension formats are not preserved');
+    assert(t('home.step_report') === 'See what was done, verify, and undo if needed.', 'Home step wording wrong');
+    operationsFixture = [{ id: 33, date: '2026-11-28T12:00:00Z', type: 'dedupe_apply', count: 35, user: 'synthetic', undone: 0 }];
+    await go('#/report');
+    assert(document.querySelector('.intro').textContent === 'Operations performed, their undo, and final verification.', 'History description wrong');
+    assert(document.querySelector('#operation-33 td:last-child').textContent === '0', 'Undone includes redundant text');
+  } finally { dimensionsFixture = false; operationsFixture = []; await go('#/home'); }
+});
+await test('P5: absent and legacy analysis never show fabricated zero or historical queue results', async () => {
+  const previous = analysisStatus;
+  try {
+    for (const reason of ['never_analyzed', 'older_version']) {
+      analysisStatus = { exists: false, empty: true, reason };
+      for (const route of ['#/home', '#/duplicates', '#/metadata', '#/metadata/review', '#/organize']) {
+        await go(route);
+        const main = document.querySelector('main');
+        assert(main.innerText.includes(t('analysis.no_results')), 'no-results explanation missing on ' + route);
+        assert(!main.innerText.includes(t('dup.none')) && !main.innerText.includes(t('dup.summary', { count: 0, size: fmt.bytes(0) })), 'fake zero result on ' + route);
+        assert(!main.querySelector('.cards .card, .review-queue tbody, .start-review:not([hidden]), .automatic-fills'), 'historical analysis-dependent results remain on ' + route);
+      }
+    }
+    await go('#/report');
+    assert(!document.querySelector('main').innerText.includes(t('analysis.no_results')), 'History is incorrectly gated by analysis');
+  } finally { analysisStatus = previous; await go('#/home'); }
+});
+await test('P6/U49: immediate selectors are compact, clearable, URL-persistent and have no Apply', async () => {
+  const previous = app.state.perms;
+  app.state.perms = { ...previous, global_dedupe: true };
+  const cases = [
+    ['#/jobs', '.filters select', 'completed', 'status', 'open'],
+    ['#/duplicates', '.filters select', 'global', 'scope', 'user'],
+    ['#/metadata', '.filters select', 'decided', 'status', 'pending'],
+    ['#/plans/1', '.filters select', 'planned', 'status', ''],
+  ];
+  try {
+    for (const [route, selector, value, key, defaultValue] of cases) {
+      await go(route);
+      const select = document.querySelector(selector);
+      assert(!document.querySelector('.filter-apply'), 'Apply appears without deferred filters on ' + route);
+      select.value = value; select.dispatchEvent(new Event('change')); await sleep();
+      assert(new URLSearchParams(location.hash.split('?')[1]).get(key) === value, 'selector was not applied immediately on ' + route);
+      if (route === '#/metadata') {
+        const kind = document.querySelectorAll('.filters select')[1];
+        kind.value = 'no_date'; kind.dispatchEvent(new Event('change')); await sleep();
+        const params = new URLSearchParams(location.hash.split('?')[1]);
+        assert(params.get('status') === 'decided' && params.get('kind') === 'no_date', 'Metadata kind is not immediate or loses status');
+      }
+      assert(select.getBoundingClientRect().width < document.querySelector('main').getBoundingClientRect().width - 25, 'full-width select on ' + route);
+      await app.route(); await sleep();
+      assert(document.querySelector(selector).value === value, 'URL filter reconstruction failed on ' + route);
+      [...document.querySelectorAll('.filters button')].find((node) => node.textContent === t('logs.clear')).click(); await sleep();
+      assert(document.querySelector(selector).value === defaultValue, 'Clear failed on ' + route);
+    }
+    for (const route of ['#/logs', '#/security-activity', '#/admin/users', '#/admin/groups']) {
+      await go(route);
+      for (const select of document.querySelectorAll('.filters select')) assert(select.getBoundingClientRect().width < innerWidth - 25, 'filter select overflows on ' + route);
+      assert(document.documentElement.scrollWidth <= innerWidth, 'filters overflow viewport on ' + route);
+    }
+  } finally { app.state.perms = previous; await go('#/home'); }
+});
+await test('U49: Diagnostics number filter waits for Enter/Apply and immediate filters keep applied text', async () => {
+  await go('#/logs?job_id=1');
+  const job = document.querySelector('.log-job-filter');
+  const apply = document.querySelector('.filter-apply');
+  const last = () => new URL(requests.filter((row) => row.url.startsWith('/api/logs?')).at(-1).url, location.href).searchParams;
+  const before = requests.filter((row) => row.url.startsWith('/api/logs?')).length;
+  job.value = '99'; job.dispatchEvent(new Event('input')); await sleep();
+  assert(requests.filter((row) => row.url.startsWith('/api/logs?')).length === before && apply.classList.contains('pending'), 'typing applied or Apply not highlighted');
+  const level = document.querySelector('.log-filters select');
+  level.value = 'WARNING'; level.dispatchEvent(new Event('change')); await sleep();
+  assert(last().get('level') === 'WARNING' && last().get('job_id') === '1' && job.value === '99' && apply.classList.contains('pending'), 'dropdown silently applies or overwrites pending number');
+  const owner = document.querySelector('.log-user-filter');
+  owner.value = 'synthetic'; owner.dispatchEvent(new Event('change')); await sleep();
+  assert(last().get('owner') === 'synthetic' && last().get('job_id') === '1', 'User filter is not immediate or applies pending number');
+  const present = document.querySelector('.log-only-present');
+  present.checked = false; present.dispatchEvent(new Event('change')); await sleep();
+  assert(last().get('job_id') === '1' && new URLSearchParams(location.hash.split('?')[1]).get('only_present') === '0', 'checkbox applies pending text');
+  document.querySelector('.log-event-filter').click();
+  [...document.querySelectorAll('.combo-option')].find((node) => node.textContent.includes('FILE_UNREADABLE')).click(); await sleep();
+  assert(last().get('event') === 'FILE_UNREADABLE' && last().get('job_id') === '1', 'searchable selection is not immediate or commits pending number');
+  job.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await sleep();
+  assert(last().get('job_id') === '99' && !apply.classList.contains('pending'), 'Enter did not apply number');
+  job.value = '14'; job.dispatchEvent(new Event('input')); apply.click(); await sleep();
+  assert(last().get('job_id') === '14', 'Apply did not apply number');
+  await app.route(); await sleep();
+  assert(document.querySelector('.log-job-filter').value === '14', 'applied number did not survive URL reconstruction');
+  await go('#/home');
+});
+await test('U49: Security searchable select, User and UTC dates apply immediately without Apply', async () => {
+  await go('#/security-activity');
+  assert(!document.querySelector('.filter-apply'), 'Security Log has an unnecessary Apply');
+  document.querySelector('main .combo-trigger').click();
+  [...document.querySelectorAll('.combo-option')].find((node) => node.textContent.includes('LOGIN_FAILED')).click(); await sleep();
+  const owner = document.querySelector('.filters select');
+  owner.value = 'synthetic'; owner.dispatchEvent(new Event('change')); await sleep();
+  const date = document.querySelector('.filters input[type="date"]');
+  date.value = '2026-11-24'; date.dispatchEvent(new Event('change')); await sleep();
+  const until = document.querySelectorAll('.filters input[type="date"]')[1];
+  until.value = '2026-11-28'; until.dispatchEvent(new Event('change')); await sleep();
+  const q = new URL(requests.filter((row) => row.url.startsWith('/api/admin/audit?')).at(-1).url, location.href).searchParams;
+  assert(q.get('event') === 'LOGIN_FAILED' && q.get('user') === 'synthetic' && q.get('since') === '2026-11-24T00:00:00Z' &&
+    q.get('until') === '2026-11-28T23:59:59.999Z', 'Security discrete filters need Apply or lose each other');
+  await app.route(); await sleep();
+  assert(document.querySelector('.filters input[type="date"]').value === '2026-11-24', 'date did not survive URL reconstruction');
+  await go('#/home');
+});
+await test('U49: admin list text waits for Enter/Apply; state dropdowns keep unapplied text', async () => {
+  groupsFixture = [{ id: 'synthetic-group', name: 'Synthetic', active: true }];
+  try {
+    for (const route of ['#/admin/users', '#/admin/groups']) {
+      await go(route);
+      const text = document.querySelector('.filters input[type="search"]');
+      const apply = document.querySelector('.filter-apply');
+      text.value = 'missing-name'; text.dispatchEvent(new Event('input')); await sleep();
+      assert(document.querySelector('main tbody') && apply.classList.contains('pending') && !location.hash.includes('search='), 'typing applies admin search on ' + route);
+      const state = [...document.querySelectorAll('.filters select')].at(-1);
+      state.value = '1'; state.dispatchEvent(new Event('change')); await sleep();
+      assert(document.querySelector('main tbody') && !location.hash.includes('search=') && text.value === 'missing-name', 'state commits pending admin search on ' + route);
+      text.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await sleep();
+      assert(!document.querySelector('main tbody') && location.hash.includes('search=missing-name') && !apply.classList.contains('pending'), 'Enter fails admin search on ' + route);
+      text.value = ''; text.dispatchEvent(new Event('input')); apply.click(); await sleep();
+      assert(document.querySelector('main tbody'), 'Apply fails admin search on ' + route);
+      await app.route(); await sleep();
+      assert([...document.querySelectorAll('.filters select')].at(-1).value === '1', 'admin URL state reconstruction fails on ' + route);
+      [...document.querySelectorAll('.filters button')].find((node) => node.textContent === t('logs.clear')).click(); await sleep();
+      assert(!location.hash.includes('?'), 'admin Clear leaves filters on ' + route);
+    }
+  } finally { groupsFixture = []; await go('#/home'); }
+});
+await test('U48: managed defaults, name testing, validation and staged save confirmations', async () => {
+  exclusionsFixture = { exclude: ['.*', '@eaDir', '#recycle', '$RECYCLE.BIN', 'lost+found', 'Thumbs.db', 'desktop.ini'] };
+  const control = (key) => document.getElementById([...document.querySelectorAll('.modal label')].find((node) => node.textContent === t(key)).htmlFor);
+  const clickModal = async (key) => { [...document.querySelectorAll('.modal button')].find((node) => node.textContent === t(key)).click(); await sleep(); };
+  try {
+    await go('#/admin/settings');
+    assert(!document.querySelector('textarea') && document.querySelectorAll('.exclusions-list tbody tr').length === 7, 'exclusions remain free text or missing defaults');
+    assert(document.querySelectorAll('.exclusions-list .badge').length === 7 && document.querySelector('.exclusions-list').textContent.includes(t('exclusions.default.hidden')), 'default tags/descriptions missing');
+    [...document.querySelectorAll('.exclusions-list button')].find((node) => node.textContent === t('exclusions.add')).click(); await sleep();
+    control('exclusions.pattern').value = '*'; await clickModal('common.save');
+    assert(document.querySelector('.modal-overlay'), 'exclude-all pattern accepted');
+    control('exclusions.pattern').value = 'Backup';
+    control('exclusions.description').value = 'Synthetic backup';
+    control('exclusions.test_name').value = 'Backup'; control('exclusions.test_name').dispatchEvent(new Event('input')); await sleep();
+    assert(document.querySelector('.exclusion-dialog [role="status"]').textContent === t('exclusions.matches', { patterns: 'Backup' }), 'name test does not report matching pattern');
+    await clickModal('common.save');
+    const row = [...document.querySelectorAll('.exclusions-list tbody tr')].find((node) => node.textContent.includes('#recycle'));
+    row.querySelectorAll('button')[1].click(); await sleep();
+    await clickModal('common.cancel');
+    assert(row.isConnected, 'cancelled removal changes list');
+    row.querySelectorAll('button')[1].click(); await sleep(); await clickModal('common.confirm');
+    const save = document.querySelector('main .form > .actions button');
+    save.click(); await sleep();
+    assert(document.querySelector('.modal-body').textContent.includes(t('exclusions.added', { patterns: 'Backup' })) &&
+      document.querySelector('.modal-body').textContent.includes(t('exclusions.removed', { patterns: '#recycle' })) &&
+      document.querySelector('.modal-body').textContent.includes(t('exclusions.next_analysis')), 'save lacks explicit change summary/safety note');
+    const before = requests.filter((row) => row.url === '/api/admin/settings' && row.body).length;
+    await clickModal('common.cancel');
+    assert(requests.filter((row) => row.url === '/api/admin/settings' && row.body).length === before, 'cancelled save writes setting');
+    save.click(); await sleep(); await clickModal('common.confirm');
+    const saved = requests.filter((row) => row.url === '/api/admin/settings' && row.body).at(-1).body.scan;
+    assert(saved.confirm && saved.exclude.includes('Backup') && !saved.exclude.includes('#recycle') &&
+      saved.exclude_descriptions.Backup === 'Synthetic backup', 'confirmed save loses pattern semantics/description');
+    [...document.querySelectorAll('.exclusions-list button')].find((node) => node.textContent === t('exclusions.restore')).click(); await sleep();
+    await clickModal('common.cancel');
+    assert(document.querySelector('.exclusions-list').textContent.includes('Backup'), 'cancelled defaults changes list');
+  } finally { exclusionsFixture = null; document.querySelectorAll('.modal-overlay').forEach((node) => node.remove()); await go('#/home'); }
+});
+await test('U48: Edit rejects duplicate/empty/invalid patterns and Restore defaults is confirmed', async () => {
+  exclusionsFixture = { exclude: ['.*', '@eaDir', '#recycle', '$RECYCLE.BIN', 'lost+found', 'Thumbs.db', 'desktop.ini'] };
+  const click = async (key) => { [...document.querySelectorAll('.modal button')].find((node) => node.textContent === t(key)).click(); await sleep(); };
+  try {
+    await go('#/admin/settings');
+    const row = [...document.querySelectorAll('.exclusions-list tbody tr')].find((node) => node.textContent.includes('#recycle'));
+    row.querySelector('button').click(); await sleep();
+    const pattern = document.getElementById([...document.querySelectorAll('.modal label')].find((node) => node.textContent === t('exclusions.pattern')).htmlFor);
+    for (const invalid of ['', '@eaDir', '[abc']) {
+      pattern.value = invalid; await click('common.save');
+      assert(document.querySelector('.modal-overlay'), 'Edit accepted invalid pattern ' + invalid);
+    }
+    pattern.value = 'Backup'; await click('common.save');
+    assert(document.querySelector('.exclusions-list').textContent.includes('Backup') &&
+      !document.querySelector('.exclusions-list').textContent.includes('#recycle'), 'Edit does not update the staged list');
+    [...document.querySelectorAll('.exclusions-list button')].find((node) => node.textContent === t('exclusions.restore')).click(); await sleep();
+    assert(document.querySelector('.modal-body').textContent.includes(t('exclusions.restore_confirm')), 'Restore does not confirm');
+    await click('common.confirm');
+    assert(document.querySelectorAll('.exclusions-list .badge').length === 7 &&
+      !document.querySelector('.exclusions-list').textContent.includes('Backup'), 'Restore does not restore all built-ins');
+  } finally { exclusionsFixture = null; document.querySelectorAll('.modal-overlay').forEach((node) => node.remove()); await go('#/home'); }
+});
+if (app.state.view?.destroy) app.state.view.destroy();
+if (app.state.stopMetrics) app.state.stopMetrics();
+}
+window.testResults = results;
+window.testsDone = true;
+</script>
+</body>
+</html>

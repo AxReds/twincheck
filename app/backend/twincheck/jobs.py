@@ -141,25 +141,37 @@ class JobManager:
         self._wake.set()
 
     # -- API ---------------------------------------------------------------------------
-    def submit(self, kind: str, owner_id: str, params: dict, secret: dict | None = None,
-               parent_job_id: int | None = None, force: bool = False) -> int:
+    def submit_with_status(self, kind: str, owner_id: str, params: dict, secret: dict | None = None,
+                           parent_job_id: int | None = None, force: bool = False) -> tuple[int, bool]:
         if kind not in REGISTRY:
             raise ValueError(kind)
         if self.blocked and not force:
             raise RuntimeError("maintenance")
         db = self.app.db
         now = utcnow()
-        jid = db.insert(
-            "INSERT INTO jobs (kind, owner_id, status, params, checkpoint, progress_done, progress_total, parent_job_id, "
-            "created_at, updated_at, auto_resume) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-            (kind, owner_id, "queued", json.dumps(params, ensure_ascii=False), "{}", 0, 0, parent_job_id, now, now,
-             1 if REGISTRY[kind].auto_resume else 0),
-        )
+        encoded = json.dumps(params, ensure_ascii=False, sort_keys=True)
+        with db.job_submission_lock(owner_id, kind, params):
+            active = db.query("SELECT id, params FROM jobs WHERE owner_id=? AND kind=? "
+                              "AND status IN ('queued','running') ORDER BY id DESC",
+                              (owner_id, kind))
+            for row in active:
+                if row["params"] and json.loads(row["params"]) == params:
+                    return row["id"], True
+            jid = db.insert(
+                "INSERT INTO jobs (kind, owner_id, status, params, checkpoint, progress_done, progress_total, parent_job_id, "
+                "created_at, updated_at, auto_resume) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (kind, owner_id, "queued", encoded, "{}", 0, 0, parent_job_id, now, now,
+                 1 if REGISTRY[kind].auto_resume else 0),
+            )
         if secret:
             self.secrets[jid] = secret
         log(db, "JOB_QUEUED", job_id=jid, owner_id=owner_id, kind=kind)
         self._wake.set()
-        return jid
+        return jid, False
+
+    def submit(self, kind: str, owner_id: str, params: dict, secret: dict | None = None,
+               parent_job_id: int | None = None, force: bool = False) -> int:
+        return self.submit_with_status(kind, owner_id, params, secret, parent_job_id, force)[0]
 
     def pause(self, job_id: int) -> None:
         db = self.app.db

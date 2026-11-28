@@ -9,6 +9,65 @@
     ]
   },
   "messages": {
+    "common.select_option": "Sélectionnez une option valide dans la liste avant d'enregistrer.",
+    "common.no_options": "Aucune option correspondante.",
+    "common.rows_storage_unavailable": "Stockage du navigateur indisponible : impossible de mémoriser les lignes par page.",
+    "common.rows_per_page": "Lignes par page",
+    "common.all_rows": "Toutes",
+    "common.confirm_all_rows": {
+      "many": "Charger {count} lignes ? Cela peut prendre du temps.",
+      "one": "Charger {count} ligne ? Cela peut prendre du temps.",
+      "other": "Charger {count} lignes ? Cela peut prendre du temps."
+    },
+    "review.postponed_on": "Reporté le {date} · reste à vérifier",
+    "logs.only_present": "Uniquement les événements présents",
+    "logs.export_filtered": {
+      "many": "Exporter les filtrés ({count})",
+      "one": "Exporter les filtrés ({count})",
+      "other": "Exporter les filtrés ({count})"
+    },
+    "logs.export_all": {
+      "many": "Tout exporter ({count})",
+      "one": "Tout exporter ({count})",
+      "other": "Tout exporter ({count})"
+    },
+    "logs.export_own_note": "Seuls vos propres événements sont inclus.",
+    "logs.export_all_note": "Tout exporter inclut les événements de tous les utilisateurs.",
+    "logs.export_user_note": "Exporter les filtrés inclut les événements de {user}.",
+    "meta.latest_population": "{analysed} · {unreadable} · {total} · {pending} · {decided}",
+    "meta.current_population": "{current} = {reliable} + {review_files} + {other}. La file couvre tous les dossiers attribués ; l'analyse couvre le dernier dossier sélectionné. Les fichiers illisibles peuvent aussi être en révision.",
+    "settings.show_version_on_login": "Afficher la version sur la page de connexion",
+    "review.date_format": "aaaa-mm-jj hh:mm:ss (24 heures)",
+    "common.back_to": "Retour à {page}",
+    "meta.empty_fills": {
+      "many": "Aucun complément automatique : aucun champ manquant n'a de source fiable. En attente d'un choix de révision : {count}.",
+      "one": "Aucun complément automatique : aucun champ manquant n'a de source fiable. En attente d'un choix de révision : {count}.",
+      "other": "Aucun complément automatique : aucun champ manquant n'a de source fiable. En attente d'un choix de révision : {count}."
+    },
+    "plan.empty": "Rien à modifier dans cet aperçu. Aucun fichier ne sera modifié.",
+    "review.live_counts": "{total} · {pending} · {decided}",
+    "review.recheck_count": {
+      "many": "À revérifier: {count} éléments",
+      "one": "À revérifier: {count} élément",
+      "other": "À revérifier: {count} éléments"
+    },
+    "job.library_result": "{found} · {changed} · {unchanged} · {hashed}",
+    "job.unreadable": {
+      "many": "Illisibles: {count} fichiers",
+      "one": "Illisibles: {count} fichier",
+      "other": "Illisibles: {count} fichiers"
+    },
+    "analysis.history": "Historique dans Tâches",
+    "settings.library_timezone": "Fuseau horaire de la bibliothèque",
+    "settings.library_timezone_hint": "Nom IANA, p. ex. Europe/Paris. Pour organiser, sans modifier les EXIF d'origine.",
+    "settings.library_timezone_notice": "Le fuseau utilise UTC par défaut. Configurez-le avant de choisir les dates.",
+    "error.invalid_timezone": "Saisissez un nom de fuseau IANA valide.",
+    "error.invalid_proposal": "La proposition a changé. Rechargez cet élément.",
+    "review.status.needs_recheck": "À revérifier",
+    "review.recheck_notice": "Cette date peut avoir été enregistrée en UTC ({stored}). Date du système de fichiers en {timezone} : {suggested}. Confirmez ou modifiez.",
+    "review.accept_converted": "Accepter la date convertie",
+    "review.keep_stored": "Garder la date enregistrée",
+    "plan.note.needs_recheck": "Date à revérifier par le propriétaire avant organisation.",
     "app.name": "TwinCheck",
     "common.na": "n.d.",
     "common.next": "Suivant",
@@ -23,20 +82,28 @@
     "common.delete": "Supprimer",
     "common.remove": "Retirer",
     "common.language": "Langue",
+    "theme.label": "Thème",
+    "theme.auto": "Auto (suivre le système)",
+    "theme.light": "Clair",
+    "theme.dark": "Sombre",
+    "theme.to_light": "Passer au thème clair",
+    "theme.to_dark": "Passer au thème sombre",
+    "theme.storage_unavailable": "Le stockage du navigateur est indisponible : le thème de connexion ne peut pas être mémorisé.",
+    "error.invalid_theme": "Choisissez Auto, Clair ou Sombre.",
     "common.yes": "Oui",
     "common.no": "Non",
     "common.page_range": "{from}–{to} sur {total}",
     "nav.label": "Navigation principale",
     "nav.home": "Accueil",
-    "nav.scan": "Analyse",
+    "nav.scan": "Analyser",
     "nav.duplicates": "Doublons",
     "nav.metadata": "Métadonnées",
     "nav.review": "Révision",
     "nav.organize": "Organiser",
-    "nav.report": "Rapport et annulation",
+    "nav.report": "Historique et annulation",
     "nav.jobs": "Tâches",
-    "nav.logs": "Journaux",
-    "nav.admin": "Administration",
+    "nav.logs": "Diagnostic",
+    "nav.admin": "Paramètres",
     "role.admin": "Admin",
     "role.administrator": "Administrateur",
     "role.user": "Utilisateur de base",
@@ -46,7 +113,7 @@
     "header.host": "Hôte",
     "header.os": "Système",
     "header.cpu": "CPU",
-    "header.cpu_value": "{cores} cœurs · {pct}",
+    "header.cpu_value": "{cores} · {pct}",
     "header.load": "charge {load}",
     "header.memory": "Mémoire",
     "header.disk_value": "{used} / {total} ({pct})",
@@ -154,7 +221,7 @@
     "home.step_metadata": "Complétez les métadonnées manquantes uniquement à partir de sources fiables.",
     "home.step_review": "Décidez pour les fichiers douteux.",
     "home.step_organize": "Déplacez les fichiers dans des dossiers Année/Mois/Jour.",
-    "home.step_report": "Consultez le rapport, vérifiez, annulez si nécessaire.",
+    "home.step_report": "Voir ce qui a été fait, vérifier et annuler si nécessaire.",
     "home.summary": "Récapitulatif",
     "home.files": "Fichiers indexés",
     "home.files_value": {
@@ -183,6 +250,8 @@
       "other": "{count} éléments"
     },
     "job.phase": "phase {phase}",
+    "job.scan_result": "{indexed} · {hashed} · {reused} · {unhashed}",
+    "job.scan_result_legacy": "{indexed} · {hashed}; les fichiers inchangés réutilisent leurs empreintes (non comptées dans les anciens scans).",
     "job.needs_confirmation": "Cette tâche écrit ou déplace des fichiers : elle ne reprend que lorsque vous cliquez sur Reprendre.",
     "job.started": "Tâche n° {id} démarrée.",
     "job.status.queued": "en file d'attente",
@@ -221,8 +290,8 @@
     "jobs.filter": "Afficher",
     "sources.all": "Toutes mes sources",
     "browser.choose": "Choisir ce dossier",
-    "scan.title": "Analyse",
-    "scan.intro": "Indexe les fichiers d'une source et calcule le SHA-256. En lecture seule ; reprend automatiquement après une interruption. Les fichiers inchangés ne sont pas hachés à nouveau.",
+    "scan.title": "Analyser",
+    "scan.intro": "Analyse en lecture seule et reprenable : parcours, hachage, dates de prise de vue, doublons exacts et propositions de métadonnées. Les empreintes et dates inchangées sont réutilisées.",
     "scan.source": "Source",
     "scan.no_sources": "Aucun dossier source ne vous est attribué. Demandez à un administrateur.",
     "scan.browse_data": "Parcourir /data",
@@ -230,10 +299,17 @@
     "scan.start": "Lancer l'analyse",
     "scan.start_adhoc": "Analyser le dossier sélectionné",
     "scan.choose_folder": "Choisissez d'abord un dossier.",
-    "scan.jobs": "Analyses",
+    "scan.jobs": "Tâches d’analyse",
     "dup.title": "Doublons",
     "dup.intro": "Doublons exacts dans tous vos dossiers. Les doublons sont déplacés dans le dossier des doublons, jamais supprimés.",
-    "dup.rule": "Doublon = même taille, même SHA-256 et comparaison octet par octet. Le fichier à la date la plus ancienne est conservé (à date égale, celui au chemin le plus ordonné).",
+    "dup.rule": "Doublon = même taille, même SHA-256 et comparaison octet par octet. La date de capture interne connue est partagée, puis le chemin le plus ordonné décide. Sinon : date de modification la plus ancienne, puis chemin.",
+    "dup.capture_date": "Date de capture du groupe : {date}",
+    "dup.date_unknown": "Date de capture du groupe inconnue",
+    "dup.keeper_date": "Date du choix du fichier conservé : {date}",
+    "dup.keeper_rule.capture_date_tidy_path": "Règle : date de capture partagée, puis chemin le plus ordonné",
+    "dup.keeper_rule.mtime": "Règle : date de modification la plus ancienne",
+    "dup.keeper_rule.mtime_tidy_path": "Règle : dates de modification égales, puis chemin",
+    "dup.keeper_rule.manual": "Règle : votre choix du fichier conservé",
     "dup.scope": "Portée",
     "dup.scope_user": "Mes sources",
     "dup.scope_global": "Globale (tous les utilisateurs)",
@@ -285,9 +361,9 @@
     "plan.col_to": "Vers / modifications",
     "plan.col_status": "État",
     "plan.summary": {
-      "one": "{count} élément : {planned} à faire, {done} faits, {blocked} bloqués ou ignorés",
-      "many": "{count} d'éléments : {planned} à faire, {done} faits, {blocked} bloqués ou ignorés",
-      "other": "{count} éléments : {planned} à faire, {done} faits, {blocked} bloqués ou ignorés"
+      "many": "{count} éléments: {planned} · {done} · {blocked}",
+      "one": "{count} élément: {planned} · {done} · {blocked}",
+      "other": "{count} éléments: {planned} · {done} · {blocked}"
     },
     "plan.renamed": "suffixe ajouté",
     "plan.from": "depuis {tag} ({source})",
@@ -333,7 +409,7 @@
     "plan.note.recovered": "récupéré après une interruption",
     "review.title": "Révision",
     "review.intro": "Fichiers nécessitant une décision. Les décisions sont enregistrées immédiatement : vous pouvez vous arrêter et reprendre à tout moment.",
-    "review.counts": "{pending} en attente · {saved} enregistrés · {skipped} ignorés · {kept} laissés tels quels",
+    "review.counts": "{pending} · {saved} · {skipped} · {kept}",
     "review.filter_status": "État",
     "review.filter_kind": "Motif",
     "review.all_kinds": "Tous les motifs",
@@ -343,7 +419,7 @@
     "review.col_date": "Date",
     "review.open": "Ouvrir",
     "review.empty": "Rien à réviser.",
-    "review.status.pending": "en attente",
+    "review.status.pending": "À vérifier",
     "review.status.saved": "enregistré",
     "review.status.skipped": "ignoré",
     "review.status.kept": "laissé tel quel",
@@ -367,11 +443,11 @@
     "review.missing": "manquant",
     "review.source_file": "fichier",
     "review.utc": "UTC",
-    "review.proposal": "proposition",
+    "review.proposal": "Proposition",
     "review.use_proposal": "Utiliser",
     "review.auto_fill": "sera complété",
     "review.origin.filename": "déduit du nom de fichier",
-    "review.origin.mtime_utc": "déduit de la date de modification (UTC)",
+    "review.origin.mtime_utc": "déduit de la date de modification du fichier",
     "review.present_readonly": "présent : jamais écrasé",
     "review.not_writable": "non modifiable pour ce format",
     "review.col_field": "Champ",
@@ -387,10 +463,10 @@
     "review.date_keep": "conserver la date actuelle",
     "review.apply_scope": "Appliquer à",
     "review.scope.item": "ce fichier uniquement",
-    "review.scope.folder": "tous les fichiers en attente de ce dossier",
+    "review.scope.folder": "tous les fichiers à vérifier de ce dossier",
     "review.scope.group": "tout le groupe (doublons, Live Photo)",
     "review.save_next": "Enregistrer et suivant",
-    "review.skip": "Ignorer",
+    "review.skip": "Reporter",
     "review.leave": "Laisser tel quel",
     "review.reopen": "Rouvrir",
     "review.saved": {
@@ -401,7 +477,7 @@
     "review.empty_stays_empty": "Les champs laissés vides restent vides.",
     "field.datetime_original": "Date/heure de prise de vue",
     "field.create_date": "Date de création",
-    "field.modify_date": "Date de modification",
+    "field.modify_date": "Date de modification (EXIF)",
     "field.offset": "Décalage horaire",
     "field.gps": "Position GPS",
     "field.make": "Marque de l'appareil",
@@ -426,8 +502,8 @@
     "manifest.action.dup_move": "déplacé vers les doublons",
     "manifest.action.metadata": "métadonnées écrites",
     "manifest.action.restore": "remis en place",
-    "report.title": "Rapport et annulation",
-    "report.intro": "Récapitulatif de la base de données actuelle, manifeste, annulation et vérification finale.",
+    "report.title": "Historique et annulation",
+    "report.intro": "Opérations effectuées, leur annulation et la vérification finale.",
     "report.files": "Fichiers",
     "report.col_status": "État",
     "report.col_kind": "Type",
@@ -449,7 +525,7 @@
     "report.verify": "Vérification finale",
     "report.verify_help": "Vérifie que les fichiers et les hashs correspondent à l'index et au manifeste.",
     "report.verify_start": "Vérifier",
-    "logs.title": "Journaux",
+    "logs.title": "Diagnostic",
     "logs.intro": "Journal d'exécution de la base de données actuelle. Les entrées sont toujours en anglais.",
     "logs.event": "Code d'événement",
     "logs.level": "Niveau",
@@ -474,10 +550,10 @@
     "admin.http_warning": "Attention : cette application utilise HTTP non chiffré. Les mots de passe et cookies de session circulent en clair sur le réseau : utilisez-la uniquement sur des réseaux de confiance, limitez l'accès avec BIND_ADDRESS et ALLOWED_NETWORKS, ou placez devant votre propre proxy inverse HTTPS.",
     "admin.users": "Utilisateurs",
     "admin.groups": "Groupes",
-    "admin.settings": "Paramètres",
+    "admin.settings": "Général",
     "admin.database": "Base de données",
     "admin.transfer": "Export et migration",
-    "admin.audit": "Journal d'audit",
+    "admin.audit": "Journal de sécurité",
     "admin.security": "Sécurité",
     "admin.col_user": "Utilisateur",
     "admin.col_role": "Rôle",
@@ -746,6 +822,425 @@
     "cli.password_weak": "Le mot de passe ne respecte pas les exigences (minimum {min_length} caractères). Rien n'a été modifié.",
     "cli.generated_password_once": "Mot de passe généré (affiché une seule fois) :",
     "cli.change_at_first_login": "Il doit être changé à la première connexion.",
-    "cli.password_reset_done": "Mot de passe de {username} mis à jour. Toutes ses sessions ont été fermées et les blocages de connexion levés."
+    "cli.password_reset_done": "Mot de passe de {username} mis à jour. Toutes ses sessions ont été fermées et les blocages de connexion levés.",
+    "job.kind.analyze_library": "Analyze library",
+    "job.pipeline_phase": "Phase {phase} of 5: {name}",
+    "job.analysis_phase.scan": "scan",
+    "job.analysis_phase.hash": "hash",
+    "job.analysis_phase.capture_dates": "capture dates",
+    "job.analysis_phase.duplicates": "duplicates",
+    "job.analysis_phase.metadata": "metadata proposals",
+    "job.analysis_phase.complete": "complete",
+    "analysis.results_from": "Results from {date}.",
+    "analysis.recheck_before_action": "Files changed since then are re-checked before any action.",
+    "analysis.go_scan": "Go to Scan",
+    "scan.analyze_library": "Analyze library",
+    "dup.exif_date": "Exif date: {date}",
+    "dup.filesystem_date": "File system date: {date}",
+    "dup.unknown_date": "unknown",
+    "dup.no_analysis": "No duplicate analysis results are available yet.",
+    "meta.summary": "{analysed} · {fills} · {review}",
+    "meta.review_items": {
+      "many": "File de révision: {count} éléments",
+      "one": "File de révision: {count} élément",
+      "other": "File de révision: {count} éléments"
+    },
+    "meta.no_analysis": "No metadata analysis results are available yet.",
+    "review.preview_error": "Preview could not be loaded (HTTP {status}).",
+    "review.detail_values": {
+      "one": "{count} valeur",
+      "other": "{count} valeurs",
+      "many": "{count} valeurs"
+    },
+    "review.detail_label": "Detail: {name}",
+    "analysis.steps": "Library steps",
+    "analysis.step_analyze": "1 Analyser",
+    "analysis.step_review": "2 Vérifier (Doublons · Métadonnées)",
+    "analysis.step_organize": "3 Organize",
+    "analysis.step_report": "4 Historique et annulation",
+    "analysis.step_done": "Done: {step}",
+    "analysis.update": "Update analysis",
+    "analysis.empty": "Analyze this library before reviewing or acting on files.",
+    "analysis.stale": "Files changed or analysis was interrupted. Update the analysis before continuing.",
+    "analysis.changes": "{new} · {changed} · {removed}",
+    "analysis.incomplete": "La dernière analyse a été interrompue et reste incomplète.",
+    "job.already_running": "Job #{id} is already running.",
+    "review.status.decided": "Décidés",
+    "review.status.all": "Tous",
+    "meta.review_population": "{items} · {files}. L'analyse concerne le dernier dossier sélectionné.",
+    "meta.analysis_summary": "{analysed} · {fills}",
+    "db.update_required": "Mise à jour de la base de données requise. Contactez un administrateur.",
+    "settings.timezone_search": "Rechercher un fuseau horaire",
+    "settings.timezone_offset_hint": "Les décalages actuels sont affichés et changent avec l'heure d'été. Utilisé pour organiser les dates ; l'EXIF original reste inchangé.",
+    "review.accept": "Accepter",
+    "review.accept_next": "Accepter et suivant",
+    "review.keep_next": "Conserver et suivant",
+    "review.postponed": {
+      "one": "{count} élément reporté.",
+      "other": "{count} éléments reportés.",
+      "many": "{count} éléments reportés."
+    },
+    "settings.login_version_hint": "Afficher la version de l'application sur la page de connexion.",
+    "logs.all_events": "Tous les événements",
+    "logs.clear": "Effacer les filtres",
+    "logs.csv_scope": "Lignes CSV",
+    "logs.csv_filtered": "Événements actuellement filtrés",
+    "logs.csv_all": "Tous les événements visibles",
+    "logs.all_users": "Tous les utilisateurs",
+    "logs.system": "Système",
+    "scan.change_folder": "Changer de dossier",
+    "scan.all_analysis_jobs": "Toutes les analyses dans Tâches",
+    "logs.empty": "Aucun événement ne correspond à ces filtres.",
+    "common.empty_list": "Aucun élément à afficher.",
+    "review.short_date_help": "Les choix de classement sont enregistrés en base ; les détails figurent dans le panneau de révision.",
+    "review.col_decision": "Décision",
+    "review.decision.date": "Date choisie",
+    "review.decision.kept": "Laissé tel quel",
+    "review.decision.accepted": "Conversion acceptée",
+    "review.decision.stored": "Date enregistrée conservée",
+    "review.decision.fields": "Métadonnées enregistrées",
+    "common.clear_search": "Effacer la recherche",
+    "common.suggested": "Suggestions",
+    "settings.all_timezones": "Tous les fuseaux horaires",
+    "settings.no_matching_timezone": "Aucun fuseau horaire correspondant",
+    "logs.search_events": "Rechercher des événements",
+    "logs.no_matching_event": "Aucun événement correspondant",
+    "logs.present": "Présents",
+    "logs.not_present": "Absents",
+    "logs.no_code_events": "Aucun événement {code} pour le moment.",
+    "logs.security_admin_note": "Voir le journal de sécurité",
+    "logs.security_own_note": "Voir le journal de sécurité",
+    "security.activity": "Journal de sécurité",
+    "meta.compact_summary": "{analysed} · {unreadable} · {reliable} · {total} · {pending} · {decided}",
+    "meta.start_review": "Commencer la révision →",
+    "meta.how_completion_works": "Comment fonctionne le complément des métadonnées",
+    "review.skipped_compact": "Reporté · {date}",
+    "review.enlarge": "Agrandir l'aperçu",
+    "security.source_ip": "IP source",
+    "security.last_login": "Dernière connexion : {date} depuis {ip}",
+    "security.failed_since": {
+      "many": "{count} tentatives de connexion échouées depuis votre dernière connexion.",
+      "one": "{count} tentative de connexion échouée depuis votre dernière connexion.",
+      "other": "{count} tentatives de connexion échouées depuis votre dernière connexion."
+    },
+    "security.trial": "Essai : activité conservée pour cette instance, indépendamment de la base.",
+    "review.example_date": "p. ex. 2007-08-26 20:36:42",
+    "review.example_offset": "p. ex. +01:00",
+    "review.example_gps": "p. ex. 45.4642, 9.1900",
+    "review.example_make": "p. ex. Canon",
+    "review.example_model": "p. ex. EOS 80D",
+    "review.example_orientation": "p. ex. 1",
+    "review.example_title": "p. ex. Vacances",
+    "review.example_description": "p. ex. Photo de famille",
+    "analysis.reason.never_analyzed": "Cette bibliothèque n'a jamais été analysée.",
+    "analysis.reason.older_version": "Votre bibliothèque a été analysée avec une ancienne version de TwinCheck. Lancez Analyser la bibliothèque pour voir les résultats actuels. Les fichiers sont uniquement lus : rien n'est déplacé ni modifié.",
+    "analysis.changed_since": "Les fichiers sur disque ont changé depuis l'analyse du {date}.",
+    "org.last_preview": {
+      "many": "Dernier aperçu #{id} du {date} · {count} éléments",
+      "one": "Dernier aperçu #{id} du {date} · {count} élément",
+      "other": "Dernier aperçu #{id} du {date} · {count} éléments"
+    },
+    "org.recompute": "Recalculer",
+    "org.discard": "Abandonner l'aperçu",
+    "org.stale.scope": "Les affectations ou réglages de la bibliothèque ont changé. Recalculez avant d'exécuter.",
+    "org.stale.analysis": "Une analyse plus récente existe. Recalculez avant d'exécuter.",
+    "org.stale.decisions": "Les décisions de révision ont changé. Recalculez avant d'exécuter.",
+    "org.stale.files": "Les fichiers sur disque ont changé. Recalculez avant d'exécuter.",
+    "org.stale.older_version": "Cet aperçu provient d'une ancienne version. Recalculez avant d'exécuter.",
+    "org.stale.discarded": "Cet aperçu a été abandonné et ne peut pas être exécuté.",
+    "report.operations": "Opérations",
+    "report.operation.move": "Organisation",
+    "report.operation.dup_move": "Déplacement des doublons",
+    "report.operation.metadata": "Modifications des métadonnées",
+    "report.operation_undone": {
+      "many": "{count}",
+      "one": "{count}",
+      "other": "{count}"
+    },
+    "report.global_undo_note": "L'annulation par opération n'est pas encore disponible. Utilisez les aperçus globaux ci-dessous et vérifiez chaque fichier avant de confirmer.",
+    "report.moved_link": {
+      "many": "Déplacés: {count} fichiers · Voir Historique et annulation →",
+      "one": "Déplacés: {count} fichier · Voir Historique et annulation →",
+      "other": "Déplacés: {count} fichiers · Voir Historique et annulation →"
+    },
+    "logs.not_visible": {
+      "many": "Non visibles par {user}: {count} événements. Ils concernent des fichiers hors de la bibliothèque de {user}.",
+      "one": "Non visibles par {user}: {count} événement. Ils concernent des fichiers hors de la bibliothèque de {user}.",
+      "other": "Non visibles par {user}: {count} événements. Ils concernent des fichiers hors de la bibliothèque de {user}."
+    },
+    "logs.no_job_events": "Aucun événement pour la tâche {id}.",
+    "security.review": "Vérifier",
+    "security.see_log": "Voir le journal de sécurité",
+    "header.version_build": "{version} · Date de compilation : {date}",
+    "error.preview_stale": "Cet aperçu est obsolète ou abandonné. Recalculez avant d'exécuter.",
+    "error.server_busy": "Le serveur est occupé. Réessayez dans un instant.",
+    "security.close_banner": "Fermer les informations de connexion",
+    "analysis.no_results": "Aucun résultat pour l'instant : lancez Analyser la bibliothèque.",
+    "filters.pending": "Appliquer les filtres de texte en attente",
+    "filters.search": "Rechercher",
+    "filters.since": "Depuis la date (UTC)",
+    "filters.until": "Jusqu'à la date (UTC)",
+    "exclusions.pattern": "Motif",
+    "exclusions.description": "Description (facultative)",
+    "exclusions.default": "Par défaut",
+    "exclusions.add": "Ajouter un motif",
+    "exclusions.restore": "Restaurer les valeurs par défaut",
+    "exclusions.test_name": "Tester un nom",
+    "exclusions.test_hint": "Saisissez un nom de fichier ou de dossier à tester.",
+    "exclusions.matches": "Exclu par : {patterns}",
+    "exclusions.no_match": "Ce nom ne serait pas exclu.",
+    "exclusions.pattern_hint": "Les motifs shell correspondent à un nom, pas à un chemin. * correspond à tout texte, ? à un caractère, [abc] à un caractère de la liste. La casse est respectée.",
+    "exclusions.remove_confirm": "Retirer {pattern} des noms exclus ?",
+    "exclusions.restore_confirm": "Restaurer les motifs intégrés et effacer les descriptions personnalisées ?",
+    "exclusions.next_analysis": "Les changements s'appliquent à la prochaine analyse. Ils ne déplacent ni ne modifient jamais vos fichiers.",
+    "exclusions.internal": "Les noms internes .twincheck-* sont toujours exclus. Cette liste se gère ici, pas dans la configuration du serveur.",
+    "exclusions.empty": "Aucun nom exclu facultatif.",
+    "exclusions.save_title": "Confirmer les changements des noms exclus",
+    "exclusions.added": "Ajoutés : {patterns}",
+    "exclusions.removed": "Retirés : {patterns}",
+    "exclusions.edited": "Modifiés : {patterns}",
+    "error.exclusion_empty": "Saisissez un motif non vide.",
+    "error.exclusion_duplicate": "Ce motif figure déjà dans la liste.",
+    "error.exclusion_invalid": "Utilisez un motif shell valide pour un nom (sans chemin, 100 caractères maximum).",
+    "error.exclusion_all": "Ce motif exclurait tous les noms. Utilisez un motif plus précis.",
+    "error.exclusion_limit": "Utilisez au maximum 100 motifs.",
+    "error.exclusion_name": "Saisissez un nom, pas un chemin.",
+    "exclusions.default.hidden": "Fichiers et dossiers cachés",
+    "exclusions.default.synology_thumbnails": "Miniatures Synology",
+    "exclusions.default.synology_recycle": "Corbeille Synology",
+    "exclusions.default.windows_recycle": "Corbeille Windows",
+    "exclusions.default.linux_recovery": "Dossier de récupération Linux",
+    "exclusions.default.windows_thumbnails": "Cache des miniatures Windows",
+    "exclusions.default.windows_settings": "Paramètres des dossiers Windows",
+    "meta.latest_population.analysed": {
+      "many": "Analysés: {count} fichiers",
+      "one": "Analysés: {count} fichier",
+      "other": "Analysés: {count} fichiers"
+    },
+    "meta.latest_population.unreadable": {
+      "many": "Illisibles: {count} fichiers",
+      "one": "Illisibles: {count} fichier",
+      "other": "Illisibles: {count} fichiers"
+    },
+    "meta.latest_population.total": {
+      "many": "Signalés: {count} éléments",
+      "one": "Signalés: {count} élément",
+      "other": "Signalés: {count} éléments"
+    },
+    "meta.latest_population.pending": {
+      "many": "À vérifier: {count} éléments",
+      "one": "À vérifier: {count} élément",
+      "other": "À vérifier: {count} éléments"
+    },
+    "meta.latest_population.decided": {
+      "many": "Décidés: {count} éléments",
+      "one": "Décidés: {count} élément",
+      "other": "Décidés: {count} éléments"
+    },
+    "meta.compact_summary.analysed": {
+      "many": "Analysés: {count} fichiers",
+      "one": "Analysés: {count} fichier",
+      "other": "Analysés: {count} fichiers"
+    },
+    "meta.compact_summary.unreadable": {
+      "many": "Illisibles: {count} fichiers",
+      "one": "Illisibles: {count} fichier",
+      "other": "Illisibles: {count} fichiers"
+    },
+    "meta.compact_summary.reliable": {
+      "many": "Date fiable: {count} fichiers",
+      "one": "Date fiable: {count} fichier",
+      "other": "Date fiable: {count} fichiers"
+    },
+    "meta.compact_summary.total": {
+      "many": "Signalés: {count} éléments",
+      "one": "Signalés: {count} élément",
+      "other": "Signalés: {count} éléments"
+    },
+    "meta.compact_summary.pending": {
+      "many": "À vérifier: {count} éléments",
+      "one": "À vérifier: {count} élément",
+      "other": "À vérifier: {count} éléments"
+    },
+    "meta.compact_summary.decided": {
+      "many": "Décidés: {count} éléments",
+      "one": "Décidés: {count} élément",
+      "other": "Décidés: {count} éléments"
+    },
+    "review.live_counts.total": {
+      "many": "Signalés: {count} éléments",
+      "one": "Signalés: {count} élément",
+      "other": "Signalés: {count} éléments"
+    },
+    "review.live_counts.pending": {
+      "many": "À vérifier: {count} éléments",
+      "one": "À vérifier: {count} élément",
+      "other": "À vérifier: {count} éléments"
+    },
+    "review.live_counts.decided": {
+      "many": "Décidés: {count} éléments",
+      "one": "Décidés: {count} élément",
+      "other": "Décidés: {count} éléments"
+    },
+    "job.library_result.found": {
+      "many": "Trouvés: {count} fichiers",
+      "one": "Trouvés: {count} fichier",
+      "other": "Trouvés: {count} fichiers"
+    },
+    "job.library_result.changed": {
+      "many": "Nouveaux ou modifiés: {count} fichiers",
+      "one": "Nouveaux ou modifiés: {count} fichier",
+      "other": "Nouveaux ou modifiés: {count} fichiers"
+    },
+    "job.library_result.unchanged": {
+      "many": "Inchangés (réutilisés): {count} fichiers",
+      "one": "Inchangés (réutilisés): {count} fichier",
+      "other": "Inchangés (réutilisés): {count} fichiers"
+    },
+    "job.library_result.hashed": {
+      "many": "Hachés: {count} fichiers",
+      "one": "Hachés: {count} fichier",
+      "other": "Hachés: {count} fichiers"
+    },
+    "job.scan_result.indexed": {
+      "many": "Indexés: {count} fichiers",
+      "one": "Indexés: {count} fichier",
+      "other": "Indexés: {count} fichiers"
+    },
+    "job.scan_result.hashed": {
+      "many": "Hachés: {count} fichiers",
+      "one": "Hachés: {count} fichier",
+      "other": "Hachés: {count} fichiers"
+    },
+    "job.scan_result.reused": {
+      "many": "Empreintes réutilisées: {count} empreintes",
+      "one": "Empreintes réutilisées: {count} empreinte",
+      "other": "Empreintes réutilisées: {count} empreintes"
+    },
+    "job.scan_result.unhashed": {
+      "many": "Sans empreinte: {count} fichiers",
+      "one": "Sans empreinte: {count} fichier",
+      "other": "Sans empreinte: {count} fichiers"
+    },
+    "job.scan_result_legacy.indexed": {
+      "many": "Indexés: {count} fichiers",
+      "one": "Indexés: {count} fichier",
+      "other": "Indexés: {count} fichiers"
+    },
+    "job.scan_result_legacy.hashed": {
+      "many": "Hachés: {count} fichiers",
+      "one": "Hachés: {count} fichier",
+      "other": "Hachés: {count} fichiers"
+    },
+    "review.counts.pending": {
+      "many": "À vérifier: {count} éléments",
+      "one": "À vérifier: {count} élément",
+      "other": "À vérifier: {count} éléments"
+    },
+    "review.counts.saved": {
+      "many": "Enregistrés: {count} éléments",
+      "one": "Enregistrés: {count} élément",
+      "other": "Enregistrés: {count} éléments"
+    },
+    "review.counts.skipped": {
+      "many": "Reportés: {count} éléments",
+      "one": "Reportés: {count} élément",
+      "other": "Reportés: {count} éléments"
+    },
+    "review.counts.kept": {
+      "many": "Laissés inchangés: {count} éléments",
+      "one": "Laissés inchangés: {count} élément",
+      "other": "Laissés inchangés: {count} éléments"
+    },
+    "meta.summary.analysed": {
+      "many": "Analysés: {count} fichiers",
+      "one": "Analysés: {count} fichier",
+      "other": "Analysés: {count} fichiers"
+    },
+    "meta.summary.fills": {
+      "many": "Compléments proposés: {count} champs",
+      "one": "Compléments proposés: {count} champ",
+      "other": "Compléments proposés: {count} champs"
+    },
+    "meta.summary.review": {
+      "many": "Signalés: {count} éléments",
+      "one": "Signalés: {count} élément",
+      "other": "Signalés: {count} éléments"
+    },
+    "meta.analysis_summary.analysed": {
+      "many": "Analysés: {count} fichiers",
+      "one": "Analysés: {count} fichier",
+      "other": "Analysés: {count} fichiers"
+    },
+    "meta.analysis_summary.fills": {
+      "many": "Compléments proposés: {count} champs",
+      "one": "Compléments proposés: {count} champ",
+      "other": "Compléments proposés: {count} champs"
+    },
+    "meta.review_population.items": {
+      "many": "File de révision: {count} éléments",
+      "one": "File de révision: {count} élément",
+      "other": "File de révision: {count} éléments"
+    },
+    "meta.review_population.files": {
+      "many": "Actuels: {count} fichiers",
+      "one": "Actuels: {count} fichier",
+      "other": "Actuels: {count} fichiers"
+    },
+    "analysis.changes.new": {
+      "many": "Nouveaux depuis l'analyse: {count} fichiers",
+      "one": "Nouveaux depuis l'analyse: {count} fichier",
+      "other": "Nouveaux depuis l'analyse: {count} fichiers"
+    },
+    "analysis.changes.changed": {
+      "many": "Modifiés depuis l'analyse: {count} fichiers",
+      "one": "Modifiés depuis l'analyse: {count} fichier",
+      "other": "Modifiés depuis l'analyse: {count} fichiers"
+    },
+    "analysis.changes.removed": {
+      "many": "Retirés depuis l'analyse: {count} fichiers",
+      "one": "Retirés depuis l'analyse: {count} fichier",
+      "other": "Retirés depuis l'analyse: {count} fichiers"
+    },
+    "meta.current_population.current": {
+      "many": "Actuels: {count} fichiers",
+      "one": "Actuels: {count} fichier",
+      "other": "Actuels: {count} fichiers"
+    },
+    "meta.current_population.reliable": {
+      "many": "Date fiable: {count} fichiers",
+      "one": "Date fiable: {count} fichier",
+      "other": "Date fiable: {count} fichiers"
+    },
+    "meta.current_population.review_files": {
+      "many": "En révision: {count} fichiers",
+      "one": "En révision: {count} fichier",
+      "other": "En révision: {count} fichiers"
+    },
+    "meta.current_population.other": {
+      "many": "Autres: {count} fichiers",
+      "one": "Autres: {count} fichier",
+      "other": "Autres: {count} fichiers"
+    },
+    "plan.summary.planned": {
+      "many": "À faire: {count} éléments",
+      "one": "À faire: {count} élément",
+      "other": "À faire: {count} éléments"
+    },
+    "plan.summary.done": {
+      "many": "Terminés: {count} éléments",
+      "one": "Terminés: {count} élément",
+      "other": "Terminés: {count} éléments"
+    },
+    "plan.summary.blocked": {
+      "many": "Bloqués ou ignorés: {count} éléments",
+      "one": "Bloqués ou ignorés: {count} élément",
+      "other": "Bloqués ou ignorés: {count} éléments"
+    },
+    "header.cpu_value.cores": {
+      "many": "{count} cœurs",
+      "one": "{count} cœur",
+      "other": "{count} cœurs"
+    }
   }
 }

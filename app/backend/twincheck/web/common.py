@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 from typing import Any
+import re
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from ..fsutil import PathError
 from ..services import access
@@ -53,8 +56,29 @@ def own_row(req: Request, row: dict | None) -> dict:
     return row
 
 
+def scoped_file(req: Request, row: dict | None) -> dict:
+    row = own_row(req, row)
+    if not access.file_in_scope(app().settings.data_dir.as_posix(), req.user, row):
+        fail(404, "not_found")
+    return row
+
+
+def scoped_rows(req: Request, rows: list[dict]) -> list[dict]:
+    data_dir = app().settings.data_dir.as_posix()
+    return [row for row in rows if access.file_in_scope(data_dir, req.user, row)]
+
+
 def disp(req: Request, path: str | None) -> str | None:
     return access.display_path(app().settings.data_dir.as_posix(), req.user, path)
+
+
+def csv_disposition(name: str, user: str | None = None, job: str | None = None) -> dict[str, str]:
+    if user:
+        name += "-" + re.sub(r"[^A-Za-z0-9_-]", "-", user)
+    if job:
+        name += "-job" + str(int(job))
+    stamp = datetime.now(ZoneInfo(app().library_timezone)).strftime("%Y%m%d-%H%M")
+    return {"content-disposition": f'attachment; filename="twincheck-{name}-{stamp}.csv"'}
 
 
 def paging(req: Request, default: int = 50, maximum: int = 500) -> tuple[int, int]:
@@ -66,11 +90,20 @@ def paging(req: Request, default: int = 50, maximum: int = 500) -> tuple[int, in
     return off, lim
 
 
+def table_paging(req: Request, maximum: int = 500) -> tuple[int, int | None]:
+    if req.query.get("limit") == "all":
+        try:
+            return max(0, int(req.query.get("offset", 0))), None
+        except ValueError:
+            fail(400, "bad_paging")
+    return paging(req, maximum=maximum)
+
+
 def path_error(exc: PathError):
     fail(400, exc.code)
 
 
 def user_public(u: dict) -> dict:
     return {"id": u["id"], "username": u["username"], "role": u["role"], "active": u.get("active", True),
-            "groups": u.get("groups", []), "lang": u.get("lang"), "must_change_password": u.get("must_change_password", False),
+            "groups": u.get("groups", []), "lang": u.get("lang"), "theme": u.get("theme", "auto"), "must_change_password": u.get("must_change_password", False),
             "sources": u.get("sources", []), "created_at": u.get("created_at"), "fixed": u["username"] == "admin"}

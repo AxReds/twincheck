@@ -31,6 +31,9 @@ EVENTS: dict[str, str] = {
     "LOGIN_FAILED": "Failed login for {username} from {ip}",
     "LOGIN_THROTTLED": "Login throttled for {username} from {ip}",
     "LOGOUT": "User {username} logged out",
+    "SESSION_EXPIRED": "Session of {username} expired",
+    "USER_ROLE_CHANGED": "Role of {username} changed from {old_role} to {role} by {actor}",
+    "USER_GROUPS_CHANGED": "Groups of {username} changed by {actor}",
     "PASSWORD_CHANGED": "User {username} changed the password",
     "PASSWORD_RESET": "Password of {username} reset by {actor}",
     "PASSWORD_RESET_CLI": "Password of {username} reset from the container console",
@@ -42,6 +45,8 @@ EVENTS: dict[str, str] = {
     "GROUP_DELETED": "Group {name} deleted by {actor}",
     "SOURCES_UPDATED": "Sources of {username} updated by {actor}",
     "SETTINGS_UPDATED": "Settings {section} updated by {actor}",
+    "SETTING_CHANGED": "Setting {setting} changed by {actor}",
+    "DECISIONS_FLAGGED_FOR_RECHECK": "{count} review decision{count_suffix} flagged for re-check; stored values unchanged",
     "OWNER_REASSIGNED": "Records of owner {old_owner} reassigned to {username} by {actor}",
     "ACCESS_DENIED_NETWORK": "Request from {ip} rejected by ALLOWED_NETWORKS",
     # database
@@ -63,6 +68,9 @@ EVENTS: dict[str, str] = {
     "JOB_COMPLETED": "Job {job_id} ({kind}) completed",
     "JOB_FAILED": "Job {job_id} ({kind}) failed: {error}",
     "JOB_CANCELLED": "Job {job_id} ({kind}) cancelled",
+    "ANALYSIS_PHASE_STARTED": "Analysis phase {phase_label} started ({count} item{count_suffix})",
+    "ANALYSIS_PHASE_COMPLETED": "Analysis phase {phase_label} completed: {summary}",
+    "ANALYSIS_RESUMED": "Analysis resumed from phase {phase_label} at {position}",
     # files
     "SCAN_DIR": "Scanning {path}",
     "FILE_INDEXED": "File indexed {path}",
@@ -70,7 +78,7 @@ EVENTS: dict[str, str] = {
     "FILE_HASHED": "File hashed {path} sha256={sha256}",
     "FILE_UNREADABLE": "File cannot be read {path}: {error}",
     "SYMLINK_SKIPPED": "Symbolic link skipped {path}",
-    "DUP_GROUP": "Duplicate group sha256={sha256} with {count} files, keeper {keeper}",
+    "DUP_GROUP": "Duplicate group sha256={sha256} with {count} file{count_suffix}, keeper {keeper}",
     "DUP_MISMATCH": "Byte comparison mismatch despite equal hash: {a} {b}",
     "FILE_MOVED": "File moved from {src} to {dst}",
     "FILE_COPIED_VERIFIED": "File copied across volumes and verified from {src} to {dst}",
@@ -82,19 +90,21 @@ EVENTS: dict[str, str] = {
     "META_SKIPPED": "Metadata not written to {path}: {reason}",
     "REVIEW_ADDED": "File queued for review {path}: {reason}",
     "REVIEW_DECIDED": "Review decision {decision} for {path}",
+    "REVIEW_SKIPPED": "Review postponed for {path}",
+    "REVIEW_SKIPS_RETURNED_TO_PENDING": "{count} skip-only review record{count_suffix} returned to pending; skip timestamps preserved",
     "UNDO_MOVE": "Move undone {src} -> {dst}",
     "VERIFY_MISMATCH": "Verification mismatch {path}: {reason}",
-    "VERIFY_OK": "Verification passed for {count} files",
+    "VERIFY_OK": "Verification passed for {count} file{count_suffix}",
     "RECONCILE_DIFF": "Reconciliation difference {kind}: {path}",
     "RECONCILE_DONE": "Reconciliation finished: {missing} missing, {modified} modified, {new} new, {moved} moved",
     "PREVIEW_TRANSCODED": "Preview transcoded for file {file_id}",
     # transfer
     "EXPORT_STARTED": "Export of database {db_id} started by {actor}",
-    "EXPORT_DONE": "Export written {name} ({rows} rows)",
+    "EXPORT_DONE": "Export written {name} ({rows} row{rows_suffix})",
     "IMPORT_STARTED": "Import of {name} into {db_type} started by {actor}",
     "MIGRATE_STARTED": "Direct migration {src_db} -> {db_type} started by {actor}",
-    "TRANSFER_TABLE": "Table {table}: {rows} rows copied",
-    "TRANSFER_VERIFIED": "Transfer verified: {tables} tables, checksums identical",
+    "TRANSFER_TABLE": "Table {table}: {rows} row{rows_suffix} copied",
+    "TRANSFER_VERIFIED": "Transfer verified: {tables} table{tables_suffix}, checksums identical",
     "TRANSFER_FAILED": "Transfer failed: {error}",
     "TRANSFER_PROVENANCE": "Database created from {source_db_id} (app {app_version}) on {date}",
     "DESTINATION_PURGED": "Destination database purged by {actor} after failed transfer",
@@ -114,8 +124,13 @@ def setup_logging(level: str = "INFO") -> None:
 
 def render(event: str, params: dict[str, Any] | None = None) -> str:
     template = EVENTS[event]
+    values = dict(params or {})
+    for key in ("count", "rows", "tables"):
+        values[key + "_suffix"] = "" if values.get(key) in (1, "1") else "s"
+    if "phase" in values:
+        values["phase_label"] = str(values["phase"]).replace("_", " ")
     try:
-        return template.format(**(params or {}))
+        return template.format(**values)
     except (KeyError, IndexError):
         return template + " " + json.dumps(params or {}, ensure_ascii=False, default=str)
 

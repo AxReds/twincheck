@@ -10,7 +10,9 @@ import secrets
 import tempfile
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from unittest import mock
 
 from helpers import STRONG, Instance, make_user, sample_library, wait_job
 
@@ -283,6 +285,133 @@ class SwitchDatabase(unittest.TestCase):
 
 
 class CrashRecovery(unittest.TestCase):
+    def test_library_analysis_resumes_hash_and_capture_batches(self):
+        from helpers import jpeg_bytes
+        from twincheck.jobs import JobPaused
+        from twincheck.services import metadata, scan
+
+        for stage in ("hash", "capture_dates"):
+            inst = Instance().start()
+            try:
+                inst.setup()
+                admin = inst.admin()
+                root = inst.data / ("resume-" + stage)
+                root.mkdir()
+                for i in range(51 if stage == "capture_dates" else 7):
+                    (root / f"{i:03}.jpg").write_bytes(jpeg_bytes(1000 + i))
+                uid, user = make_user(admin, "resume-" + stage, [{"path": root.name}])
+                source = user.get("/api/sources").json()["sources"][0]
+                if stage == "hash":
+                    calls = {"n": 0}
+                    real = scan.sha256_file
+
+                    def interrupted_hash(path, stop=None):
+                        calls["n"] += 1
+                        if calls["n"] == 2:
+                            raise JobPaused()
+                        return real(path, stop=stop)
+
+                    with mock.patch.object(scan, "BATCH", 1), \
+                            mock.patch.object(scan, "sha256_file", side_effect=interrupted_hash):
+                        job_id = user.post("/api/library/analyze", {"source_id": source["id"]}).json()["job_id"]
+                        paused = wait_job(inst.core, job_id)
+                    self.assertEqual(paused["status"], "paused", paused.get("error"))
+                    done_before = inst.core.db.scalar(
+                        "SELECT COUNT(*) AS n FROM files WHERE owner_id=? AND phase_hash='done'", (uid,))
+                else:
+                    for scan_id in [user.post("/api/scan", {"source_id": source["id"]}).json()["job_id"]]:
+                        wait_job(inst.core, scan_id)
+                    calls = {"n": 0}
+                    real_capture = metadata.ensure_capture_dates
+
+                    def interrupted_capture(ctx, rows):
+                        calls["n"] += 1
+                        count = real_capture(ctx, rows)
+                        if calls["n"] == 2:
+                            raise JobPaused()
+                        return count
+
+                    with mock.patch.object(metadata, "ensure_capture_dates", side_effect=interrupted_capture):
+                        job_id = user.post("/api/library/analyze", {"source_id": source["id"]}).json()["job_id"]
+                        paused = wait_job(inst.core, job_id)
+                    self.assertEqual(paused["status"], "paused")
+                    done_before = inst.core.db.scalar(
+                        "SELECT COUNT(*) AS n FROM files WHERE owner_id=? AND phase_meta='analysed'", (uid,))
+
+                inst.core.db.execute("UPDATE jobs SET status='running' WHERE id=?", (job_id,))
+                inst.stop()
+                inst.start()
+                resumed = wait_job(inst.core, job_id, timeout=120)
+                self.assertEqual(resumed["status"], "completed", resumed["error"])
+                self.assertGreater(done_before, 0)
+                events = inst.core.db.query("SELECT event, params FROM run_log WHERE job_id=?", (job_id,))
+                self.assertIn("ANALYSIS_RESUMED", [row["event"] for row in events])
+                event_names = [row["event"] for row in events]
+                self.assertTrue(any(event == "ANALYSIS_PHASE_STARTED" for event in event_names))
+                self.assertTrue(any(event == "ANALYSIS_PHASE_COMPLETED" for event in event_names))
+                result = json.loads(inst.core.db.query_one("SELECT result FROM jobs WHERE id=?", (job_id,))["result"])
+                self.assertTrue(result["duplicates"].get("groups") >= 0)
+                if stage == "hash":
+                    self.assertEqual(inst.core.db.scalar(
+                        "SELECT COUNT(*) AS n FROM files WHERE owner_id=? AND phase_hash='done'", (uid,)), 7)
+                else:
+                    self.assertEqual(inst.core.db.scalar(
+                        "SELECT COUNT(*) AS n FROM files WHERE owner_id=? AND phase_meta IN ('analysed','done')", (uid,)), 51)
+            finally:
+                inst.cleanup()
+
+    def test_concurrent_duplicate_submissions_are_atomic(self):
+        for params in backends(os.environ.get("TMPDIR") or tempfile.gettempdir()):
+            with self.subTest(backend=params["type"]):
+                inst = Instance().start()
+                try:
+                    inst.setup(db=params)
+                    admin = inst.admin()
+                    (inst.data / ("job-scope-" + params["type"])).mkdir(exist_ok=True)
+                    uid, _ = make_user(admin, "job-scope-" + params["type"],
+                                       [{"path": "job-scope-" + params["type"]}])
+                    from threading import Barrier
+                    barrier = Barrier(12)
+
+                    def submit():
+                        barrier.wait()
+                        return inst.core.jobs.submit_with_status(
+                            "test_slow", uid, {"n": 400, "scope": "same"})
+
+                    with ThreadPoolExecutor(max_workers=12) as pool:
+                        results = list(pool.map(lambda _: submit(), range(12)))
+                    ids = {job_id for job_id, _ in results}
+                    self.assertEqual(len(ids), 1)
+                    self.assertEqual(sum(1 for _, existing in results if existing), 11)
+                    self.assertEqual(inst.core.db.scalar(
+                        "SELECT COUNT(*) AS n FROM jobs WHERE owner_id=? AND kind='test_slow' "
+                        "AND status IN ('queued','running')", (uid,)), 1)
+
+                    other_scope = inst.core.jobs.submit_with_status(
+                        "test_slow", uid, {"n": 400, "scope": "different"})
+                    self.assertFalse(other_scope[1])
+                    other_path = "job-other-" + params["type"]
+                    (inst.data / other_path).mkdir(exist_ok=True)
+                    second_uid, _ = make_user(
+                        admin, "job-other-" + params["type"],
+                        [{"path": other_path}])
+                    other_user = inst.core.jobs.submit_with_status(
+                        "test_slow", second_uid, {"n": 400, "scope": "same"})
+                    self.assertFalse(other_user[1])
+                    for job_id in ids | {other_scope[0], other_user[0]}:
+                        inst.core.jobs.cancel(job_id)
+                    for job_id in ids | {other_scope[0], other_user[0]}:
+                        wait_job(inst.core, job_id)
+                    finished_id = inst.core.jobs.submit("test_slow", uid, {"n": 0, "scope": "finished"})
+                    wait_job(inst.core, finished_id)
+                    new_finished = inst.core.jobs.submit_with_status(
+                        "test_slow", uid, {"n": 0, "scope": "finished"})
+                    self.assertFalse(new_finished[1])
+                    self.assertNotEqual(new_finished[0], finished_id)
+                finally:
+                    inst.cleanup()
+                    drop(params)
+
     def test_restart_marks_interrupted_and_resumes_read_only(self):
         inst = Instance().start()
         try:

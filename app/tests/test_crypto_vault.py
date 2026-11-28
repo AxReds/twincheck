@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import unittest
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from helpers import APP_DIR, STRONG, Instance, make_user
 
 from twincheck.crypto import (DecryptError, KeyError_, StreamDecryptor, StreamEncryptor, generate_key, load_master_key,
                              parse_key)
+from twincheck.exif import ExifTool
 from twincheck.vault import Vault, default_vault
 
 
@@ -19,6 +21,33 @@ def run_cli(args, env, stdin=None):
 
 
 class KeyTests(unittest.TestCase):
+    def test_persistent_exiftool_reuses_and_recovers_process(self):
+        inst = Instance()
+        photo = inst.data / "persistent.jpg"
+        photo.write_bytes(b"synthetic")
+        exif = ExifTool(inst.env["EXIFTOOL_PATH"], persistent=True)
+        try:
+            one_shot = ExifTool(inst.env["EXIFTOOL_PATH"])
+            baseline_start = time.monotonic()
+            one_shot.read([str(photo)])
+            one_shot.read([str(photo)])
+            baseline = time.monotonic() - baseline_start
+            started = time.monotonic()
+            self.assertIn(str(photo), exif.read([str(photo)]))
+            first_pid = exif.process_id()
+            self.assertIsNotNone(first_pid)
+            self.assertIn(str(photo), exif.read([str(photo)]))
+            self.assertEqual(exif.process_id(), first_pid)
+            elapsed = time.monotonic() - started
+            os.kill(first_pid, 9)
+            time.sleep(0.05)
+            self.assertIn(str(photo), exif.read([str(photo)]))
+            self.assertNotEqual(exif.process_id(), first_pid)
+            print(f"ExifTool two-read timing: one-shot {baseline:.4f}s; persistent {elapsed:.4f}s")
+        finally:
+            exif.close()
+            inst.cleanup()
+
     def test_generate_and_parse(self):
         k = generate_key()
         self.assertRegex(k, r"^[0-9a-f]{64}$")

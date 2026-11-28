@@ -6,7 +6,7 @@ import re
 import unittest
 from pathlib import Path
 
-from helpers import APP_DIR
+from helpers import APP_DIR, Instance
 
 from twincheck.config import ENV_PARAMS
 
@@ -40,6 +40,22 @@ def repository_files():
 
 @unittest.skipUnless((ROOT / "docker" / "README.md").exists(), "repository files not available (running inside the image)")
 class DocsConsistency(unittest.TestCase):
+    def test_browser_health_instructions_match_both_endpoint_responses(self):
+        inst = Instance().start()
+        try:
+            for endpoint in ("/health", "/healthz"):
+                response = inst.client().get(endpoint)
+                self.assertEqual(response.status, 200)
+                self.assertEqual(response.json(), {"status": "ok"})
+                for path in (ROOT / "README.md", ROOT / "docker/README.md"):
+                    text = path.read_text()
+                    self.assertIn("http://<server>:7777/health", text)
+                    self.assertIn(response.text, text)
+                    for phrase in ("wait a minute", "another browser", "what you were doing"):
+                        self.assertIn(phrase, text)
+        finally:
+            inst.cleanup()
+
     def test_required_readmes_exist(self):
         for p in ("README.md", "CONTRIBUTING.md", "LICENSE", ".gitignore", ".env.example", "app/README.md",
                   "app/backend/README.md", "app/frontend/README.md", "app/frontend/locales/README.md", "app/tests/README.md",
@@ -105,6 +121,35 @@ class DocsConsistency(unittest.TestCase):
             for code, status in rows.items():
                 expected = "complete" if code == "en" else locs[code]["status"]
                 self.assertEqual(status if code != "en" else status, expected, f"{readme} {code}")
+
+    def test_release_image_tags(self):
+        import os
+        import subprocess
+        import tempfile
+        import textwrap
+
+        workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text()
+        step = workflow.split("      - name: Image name and version\n", 1)[1]
+        script = textwrap.dedent(step.split("        run: |\n", 1)[1].split("\n      - ", 1)[0])
+        image = "ghcr.io/axreds/twincheck"
+        cases = {
+            "refs/tags/v1.0.1-rc.1": ("1.0.1-rc.1", ["1.0.1-rc.1", "rc"]),
+            "refs/tags/v1.0.1-rc.2": ("1.0.1-rc.2", ["1.0.1-rc.2", "rc"]),
+            "refs/tags/v1.2.3": ("1.2.3", ["1.2.3", "1.2", "latest"]),
+            "refs/heads/main": ("0.0.0-edge.abcdef0", ["edge"]),
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "output"
+            for ref, (version, tags) in cases.items():
+                with self.subTest(ref=ref):
+                    output.write_text("")
+                    env = dict(os.environ, GITHUB_REPOSITORY="AxReds/twincheck", GITHUB_REF=ref,
+                               GITHUB_REF_NAME=ref.rsplit("/", 1)[1], GITHUB_SHA="abcdef0123456789",
+                               GITHUB_OUTPUT=str(output))
+                    subprocess.run(["bash", "-eu", "-o", "pipefail", "-c", script], env=env, check=True, capture_output=True)
+                    values = dict(line.split("=", 1) for line in output.read_text().splitlines())
+                    self.assertEqual(values["version"], version)
+                    self.assertEqual(values["tags"].split(","), [image + ":" + tag for tag in tags])
 
     def test_no_secrets_or_data_committed(self):
         bad_ext = {".jpg", ".jpeg", ".heic", ".mov", ".mp4", ".sqlite3", ".db", ".tcarc", ".enc", ".pem", ".key"}

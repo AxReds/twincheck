@@ -46,6 +46,7 @@ variable exists.
 | `APP_MASTER_KEY` | Master key: 64 hex chars (32 bytes), base64 of 32 bytes, or a passphrase ≥ 20 characters; `file` = read `APP_MASTER_KEY_FILE`. Encryption key = HKDF-SHA256 (scrypt first for passphrases). | none | yes (or the file) | `3f9c…` |
 | `APP_MASTER_KEY_FILE` | File holding the key (Docker secret). | empty | no | `/run/secrets/twincheck_master_key` |
 | `APP_LANG` | Console language and initial instance language. | `en` | no | `it` |
+| `TZ` | Initial IANA library timezone; the admin vault setting takes precedence. | empty (UTC) | no | `Europe/Rome` |
 | `HOST_LABEL` | Host name shown in the header. | container host name | no | `nas` |
 | `ALLOWED_NETWORKS` | Allowed client CIDRs, comma-separated (loopback always allowed). | empty = all | no | `192.168.1.0/24` |
 | `TRUSTED_PROXIES` | Proxies whose `X-Forwarded-For` is trusted for login throttling. | empty | no | `172.18.0.10/32` |

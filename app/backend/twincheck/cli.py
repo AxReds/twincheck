@@ -49,7 +49,6 @@ def cmd_generate_key(_args) -> int:
 
 
 def cmd_reset_password(args) -> int:
-    from .db.manager import log, make_database
     from .crypto import DecryptError
     from .passwords import check_strength, generate_password, hash_password
     from .vault import Vault, audit
@@ -99,16 +98,8 @@ def cmd_reset_password(args) -> int:
         u["session_epoch"] = u.get("session_epoch", 0) + 1          # invalidates every session of the user
         u["active"] = True if u["role"] == "admin" else u.get("active", True)
         d["auth_epoch"] = d.get("auth_epoch", 0) + 1                 # clears login throttling
-        audit(d, "console", "PASSWORD_RESET_CLI", username=u["username"])
+        audit(d, "console", "PASSWORD_RESET_CLI", user_id=u["id"], username=u["username"])
     events.console("PASSWORD_RESET_CLI", username=user["username"])
-    params = data.get("database")
-    if params:
-        try:
-            db = make_database(params, os.environ.get("MARIADB_PASSWORD_FILE"))
-            log(db, "PASSWORD_RESET_CLI", actor="console", username=user["id"])   # ids only in the operational DB
-            db.close()
-        except Exception:
-            pass
     if args.generate:
         print(t("cli.generated_password_once"))
         print()

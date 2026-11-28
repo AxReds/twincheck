@@ -69,6 +69,8 @@ export function t(key, params = {}) {
   return String(v).replace(/\{(\w+)\}/g, (m, k) => {
     if (!(k in params)) return m;
     const p = params[k];
+    // Composite summaries give each independent counter its own plural message.
+    if (typeof p === 'number' && has(key + '.' + k)) return t(key + '.' + k, { count: p });
     return typeof p === 'number' ? fmt.number(p) : String(p);
   });
 }
@@ -83,20 +85,38 @@ export const fmt = {
     while (v >= 1024 && i < units.length - 1) { v /= 1024; i += 1; }
     return new Intl.NumberFormat(lang, { style: 'unit', unit: units[i], unitDisplay: 'short', maximumFractionDigits: i ? 1 : 0 }).format(v);
   },
-  date(iso) {
+  date(iso, timeZone) {
     if (!iso) return t('common.na');
     const d = new Date(iso.length <= 19 ? iso + (iso.length === 10 ? 'T00:00:00' : '') : iso);
     if (isNaN(d)) return iso;
-    return new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: iso.length > 10 ? 'medium' : undefined }).format(d);
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hourCycle: 'h23', numberingSystem: 'latn', ...(timeZone ? { timeZone } : {}),
+    }).formatToParts(d).map((part) => [part.type, part.value]));
+    return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+  },
+  dateTooltip(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return String(iso);
+    const minutes = -d.getTimezoneOffset();
+    const offset = (minutes < 0 ? '-' : '+') + String(Math.floor(Math.abs(minutes) / 60)).padStart(2, '0') +
+      ':' + String(Math.abs(minutes) % 60).padStart(2, '0');
+    return `${fmt.date(iso)} UTC${offset} · ${Intl.DateTimeFormat().resolvedOptions().timeZone} · ${iso}`;
   },
   localDate(iso) {
     // capture dates are local wall-clock times without a zone: show them as they are
     if (!iso) return t('common.na');
-    const [d, tm] = iso.split('T');
-    const [y, mo, da] = d.split('-').map(Number);
-    const [h, mi, s] = (tm || '00:00:00').split(':').map(Number);
-    const dt = new Date(Date.UTC(y, mo - 1, da, h, mi, s || 0));
-    return new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC' }).format(dt);
+    const value = String(iso).replace('T', ' ');
+    return value.length === 10 ? value + ' 00:00:00' : value.slice(0, 19);
+  },
+  exifDate(iso, offset = '') {
+    if (!iso) return t('common.na');
+    const shown = fmt.localDate(iso.slice(0, 19));
+    return offset ? `${shown} ${offset}` : shown;
+  },
+  dimensions(value) {
+    return String(value).replace(/^(\d+)\s*(?:[x×]|\s)\s*(\d+)$/, '$1 × $2');
   },
   duration(sec) {
     if (sec === null || sec === undefined) return t('common.na');

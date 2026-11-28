@@ -1,8 +1,8 @@
 // Export / import / direct migration between databases (admin only).
-import { h, mount, button, field, table, modal, toast } from '../dom.js';
+import { h, mount, button, field, table, modal, toast, instant } from '../dom.js';
 import { t, fmt } from '../i18n.js';
 import { get, post, del, uploadFile } from '../api.js';
-import { jobList, kv } from '../components.js';
+import { jobList, kv, poll } from '../components.js';
 import { adminNav, dbForm } from './admin.js';
 
 export async function transfer(main, state) {
@@ -14,7 +14,7 @@ export async function transfer(main, state) {
 
   const loadArchives = async () => {
     const a = await get('/api/admin/archives');
-    const rows = (where) => a[where].map((x) => h('tr', {}, h('td', {}, h('code', {}, x.name)), h('td', {}, fmt.bytes(x.bytes)), h('td', {}, fmt.date(new Date(x.modified * 1000).toISOString())),
+    const rows = (where) => a[where].map((x) => h('tr', {}, h('td', {}, h('code', {}, x.name)), h('td', {}, fmt.bytes(x.bytes)), h('td', {}, instant(new Date(x.modified * 1000).toISOString())),
       h('td', { class: 'actions' },
         where === 'exports' ? h('a', { class: 'btn small', href: '/api/admin/archives/exports/' + encodeURIComponent(x.name), download: x.name }, t('transfer.download')) : null,
         button('common.delete', async () => {
@@ -37,7 +37,7 @@ export async function transfer(main, state) {
           ['transfer.est_size', fmt.bytes(src.est_archive_bytes)], ['transfer.est_time', fmt.duration(src.est_seconds)]]),
         table(['transfer.col_table', 'transfer.rows'], src.tables.map((x) => h('tr', {}, h('td', {}, h('code', {}, x.name)), h('td', {}, fmt.number(x.rows)))))] : null,
         p.archive ? kv([['transfer.archive', p.archive.name], ['transfer.app_version', p.archive.app_version], ['db.schema_version', String(p.archive.schema_version)],
-          ['transfer.source_db', p.archive.source_db_id + ' (' + t('db.type.' + p.archive.source_type) + ')'], ['transfer.created', fmt.date(p.archive.created_at)],
+          ['transfer.source_db', p.archive.source_db_id + ' (' + t('db.type.' + p.archive.source_type) + ')'], ['transfer.created', instant(p.archive.created_at)],
           ['transfer.est_time', fmt.duration(p.est_seconds)]]) : null,
         p.destination ? h('div', {}, h('h4', {}, t('transfer.destination')), kv([['db.structure', t('db.structure.' + (p.destination.database_missing ? 'absent' : p.destination.structure || 'absent'))],
           ['db.files', String(p.destination.files ?? 0)]])) : null,
@@ -126,9 +126,7 @@ export async function transfer(main, state) {
     tabs, body, h('h2', {}, t('transfer.jobs')), jobsBox, h('h2', {}, t('transfer.archives')), archivesBox);
   await renderMode();
   await loadArchives();
-  const stop = setInterval(() => { if (!document.hidden) tj(); }, 2000);
-  tj();
-  return { destroy: () => clearInterval(stop) };
+  return { destroy: poll(tj, 2000) };
 }
 
 export { jobList };

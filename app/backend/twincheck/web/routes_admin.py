@@ -5,6 +5,8 @@ import json
 import os
 import re
 import secrets
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 
 from .. import events, i18n
 from ..crypto import KeyError_, generate_key, parse_key
@@ -15,7 +17,8 @@ from ..db.schema import CURRENT_VERSION, DATA_TABLES, get_meta
 from ..fsutil import PathError
 from ..passwords import check_strength, generate_password, hash_password
 from ..services import access
-from ..vault import audit, utcnow
+from ..services.scan import validate_exclusions
+from ..vault import audit, utcnow, default_settings
 from . import common
 from .app import db_params_from, inspect_params, router
 from .common import fail, need_db, require, user_public
@@ -68,6 +71,7 @@ def create_user(req: Request):
         errs = check_strength(pw, username, minlen)
         if errs:
             fail(400, "weak_password", reasons=errs, min_length=minlen)
+    password_hash = hash_password(pw)
     uid = access.new_id("usr")
     with core.vault.transaction() as data:
         try:
@@ -75,7 +79,7 @@ def create_user(req: Request):
         except PathError as exc:
             raise HTTPError(400, exc.code) from None
         groups = [g for g in body.get("groups", []) if g in data.get("groups", {})]
-        data["users"][uid] = {"id": uid, "username": username, "role": role, "password_hash": hash_password(pw), "active": True,
+        data["users"][uid] = {"id": uid, "username": username, "role": role, "password_hash": password_hash, "active": True,
                               "lang": body.get("lang") or None, "groups": groups, "sources": srcs, "session_epoch": 0,
                               "must_change_password": True, "created_at": utcnow()}
         audit(data, req.user["username"], "USER_CREATED", username=username, role=role)
@@ -101,10 +105,15 @@ def update_user(req: Request):
         if "role" in body and body["role"] != u["role"]:
             if u["username"] == "admin" or not access.can(req.user, "manage_administrators") or body["role"] not in ("user", "administrator"):
                 fail(403, "forbidden")
+            audit(data, req.user["username"], "USER_ROLE_CHANGED", user_id=uid, username=u["username"],
+                  old_role=u["role"], role=body["role"])
             u["role"] = body["role"]
             u["session_epoch"] = u.get("session_epoch", 0) + 1
         if "groups" in body:
-            u["groups"] = [g for g in body["groups"] if g in data.get("groups", {})]
+            groups = [g for g in body["groups"] if g in data.get("groups", {})]
+            if groups != u["groups"]:
+                audit(data, req.user["username"], "USER_GROUPS_CHANGED", user_id=uid, username=u["username"])
+            u["groups"] = groups
         if "sources" in body:
             try:
                 u["sources"] = access.validate_sources(data, uid, body["sources"] or [], core.settings.data_dir.as_posix())
@@ -143,13 +152,18 @@ def reset_user_password(req: Request):
     if target["username"] == "admin" and req.user["username"] != "admin":
         fail(403, "forbidden")
     pw = generate_password()
+    password_hash = hash_password(pw)
     with core.vault.transaction() as data:
         u = data["users"][uid]
-        u["password_hash"] = hash_password(pw)
+        u["password_hash"] = password_hash
         u["must_change_password"] = True
         u["session_epoch"] = u.get("session_epoch", 0) + 1
-        audit(data, req.user["username"], "PASSWORD_RESET", username=u["username"])
+        data["auth_epoch"] = data.get("auth_epoch", 0) + 1
+        auth_epoch = data["auth_epoch"]
+        audit(data, req.user["username"], "PASSWORD_RESET", user_id=uid, username=u["username"])
+    core.limiter.sync_epoch(auth_epoch)
     core.sessions.drop_user(uid)
+    events.console("PASSWORD_RESET", username=target["username"], actor=req.user["username"])
     return JSONResponse({"generated_password": pw})
 
 
@@ -190,8 +204,10 @@ def update_group(req: Request):
                     continue
                 if u["id"] in body["members"] and gid not in u.get("groups", []):
                     u.setdefault("groups", []).append(gid)
+                    audit(data, req.user["username"], "USER_GROUPS_CHANGED", user_id=u["id"], username=u["username"])
                 elif u["id"] not in body["members"] and gid in u.get("groups", []):
                     u["groups"].remove(gid)
+                    audit(data, req.user["username"], "USER_GROUPS_CHANGED", user_id=u["id"], username=u["username"])
         audit(data, req.user["username"], "GROUP_UPDATED", name=g["name"])
     return JSONResponse({"ok": True})
 
@@ -208,6 +224,7 @@ def delete_group(req: Request):
         for u in data["users"].values():
             if gid in u.get("groups", []):
                 u["groups"].remove(gid)
+                audit(data, req.user["username"], "USER_GROUPS_CHANGED", user_id=u["id"], username=u["username"])
         audit(data, req.user["username"], "GROUP_DELETED", name=g["name"])
     return JSONResponse({"ok": True})
 
@@ -218,9 +235,44 @@ def get_settings(req: Request):
     require(req, "tool_settings")
     core = common.app()
     d = core.vault.data
-    out = {"settings": d["settings"], "security": d["security"] if access.can(req.user, "security_settings") else None,
+    settings = {k: v for k, v in d["settings"].items() if k not in ("library_timezone", "show_version_on_login")}
+    if req.user["role"] == "admin":
+        settings["library_timezone"] = core.library_timezone
+        settings["show_version_on_login"] = d["settings"].get("show_version_on_login", True)
+    out = {"settings": settings, "library_timezone_notice": req.user["role"] == "admin" and
+           "library_timezone" not in d["settings"] and core.settings.library_timezone_notice,
+           "security": d["security"] if access.can(req.user, "security_settings") else None,
            "locales": i18n.listing(core.settings.locales_dir, core.settings.state_locales_dir)}
+    out["scan_exclude_defaults"] = default_settings()["scan"]["exclude"]
+    if req.user["role"] == "admin":
+        now = datetime.now(timezone.utc)
+        zones = []
+        for name in sorted(available_timezones()):
+            offset = now.astimezone(ZoneInfo(name)).utcoffset()
+            minutes = int(offset.total_seconds() / 60)
+            sign = "-" if minutes < 0 else "+"
+            zones.append({"name": name, "offset": f"{sign}{abs(minutes) // 60:02d}:{abs(minutes) % 60:02d}"})
+        out["timezones"] = zones
     return JSONResponse(out)
+
+
+@router.post("/api/admin/settings/exclusions/test")
+def test_exclusions(req: Request):
+    require(req, "tool_settings")
+    body = req.json()
+    patterns = body.get("exclude")
+    try:
+        validate_exclusions(patterns)
+    except ValueError as exc:
+        fail(400, str(exc))
+    name = body.get("name", "")
+    if not isinstance(name, str) or "/" in name or "\0" in name:
+        fail(400, "exclusion_name")
+    import fnmatch
+    matches = [pattern for pattern in patterns if fnmatch.fnmatchcase(name, pattern)]
+    if name.startswith(".twincheck-") and ".twincheck-*" not in matches:
+        matches.append(".twincheck-*")
+    return JSONResponse({"matches": matches})
 
 
 @router.patch("/api/admin/settings")
@@ -228,8 +280,47 @@ def set_settings(req: Request):
     require(req, "tool_settings")
     core = common.app()
     body = req.json()
+    sc = body.get("scan")
+    if sc is not None:
+        if not isinstance(sc, dict):
+            fail(400, "invalid_value", field="scan")
+        try:
+            validate_exclusions(sc.get("exclude"))
+        except ValueError as exc:
+            fail(400, str(exc))
+        descriptions = sc.get("exclude_descriptions", {})
+        if not isinstance(descriptions, dict) or any(
+                key not in sc["exclude"] or not isinstance(value, str) or len(value) > 300
+                for key, value in descriptions.items()):
+            fail(400, "invalid_value", field="exclude_descriptions")
+        previous = core.settings_section("scan")
+        if (sc["exclude"] != previous.get("exclude", []) or
+                descriptions != previous.get("exclude_descriptions", {})) and sc.get("confirm") is not True:
+            fail(400, "confirmation_required")
+    if "show_version_on_login" in body:
+        if req.user["role"] != "admin":
+            fail(403, "forbidden")
+        if not isinstance(body["show_version_on_login"], bool):
+            fail(400, "invalid_value", field="show_version_on_login")
+    if "library_timezone" in body:
+        if req.user["role"] != "admin":
+            fail(403, "forbidden")
+        try:
+            if not isinstance(body["library_timezone"], str):
+                fail(400, "invalid_value", field="library_timezone")
+            ZoneInfo(body["library_timezone"])
+        except (ZoneInfoNotFoundError, ValueError):
+            fail(400, "invalid_timezone")
     with core.vault.transaction() as data:
         s = data["settings"]
+        if "show_version_on_login" in body and body["show_version_on_login"] != s.get("show_version_on_login", True):
+            s["show_version_on_login"] = body["show_version_on_login"]
+            audit(data, req.user["username"], "SETTING_CHANGED", setting="show_version_on_login")
+        if "library_timezone" in body and body["library_timezone"] != core.library_timezone:
+            s["library_timezone"] = body["library_timezone"]
+            audit(data, req.user["username"], "SETTING_CHANGED", setting="library_timezone")
+        elif "library_timezone" in body:
+            s["library_timezone"] = body["library_timezone"]
         org = body.get("organize")
         if org:
             for k in ("no_date_folder", "duplicates_folder"):
@@ -238,9 +329,9 @@ def set_settings(req: Request):
                     if "/" in v or v.startswith(".") or len(v) > 60:
                         fail(400, "invalid_folder_name")
                     s["organize"][k] = v
-        sc = body.get("scan")
-        if sc and isinstance(sc.get("exclude"), list):
-            s["scan"]["exclude"] = [str(x)[:100] for x in sc["exclude"] if str(x).strip()][:100]
+        if sc is not None:
+            s["scan"]["exclude"] = sc["exclude"]
+            s["scan"]["exclude_descriptions"] = descriptions
         md = body.get("metadata")
         if md and isinstance(md.get("fields"), list):
             from ..services.metadata import WRITABLE
@@ -255,6 +346,10 @@ def set_settings(req: Request):
                 fail(400, "unknown_language")
             s["default_lang"] = body["default_lang"]
         audit(data, req.user["username"], "SETTINGS_UPDATED", section="tool")
+    if "library_timezone" in body and core.db_ready:
+        dbm.log(core.db, "SETTING_CHANGED", actor=req.user["id"], setting="library_timezone")
+    if "show_version_on_login" in body and core.db_ready:
+        dbm.log(core.db, "SETTING_CHANGED", actor=req.user["id"], setting="show_version_on_login")
     return JSONResponse({"ok": True})
 
 
@@ -277,14 +372,14 @@ def set_security(req: Request):
 
 @router.get("/api/admin/audit")
 def audit_log(req: Request):
-    require(req, "view_audit")
-    core = common.app()
-    items = list(reversed(core.vault.data.get("audit", [])))
-    try:
-        off, lim = int(req.query.get("offset", 0)), min(500, int(req.query.get("limit", 100)))
-    except ValueError:
-        fail(400, "bad_paging")
-    return JSONResponse({"items": items[off:off + lim], "total": len(items)})
+    from .app import security_activity_response
+    return security_activity_response(req, admin=True)
+
+
+@router.get("/api/admin/audit.csv", maintenance_ok=True)
+def audit_csv(req: Request):
+    from .app import security_csv_response
+    return security_csv_response(req, admin=True)
 
 
 # --- database: status, test, switch, schema migration -----------------------------------------
@@ -444,13 +539,20 @@ def db_migrate_schema(req: Request):
         fail(400, "confirmation_required")
     if core.db_ready:
         fail(409, "not_needed")
+    from_version = (core.db_error or {}).get("version")
+    last_log = int(core.db.scalar("SELECT MAX(id) FROM run_log") or 0) if core.db is not None else 0
     if core.db is not None:
         core.db.close()
     core.db = None
     core.connect_configured(allow_migrate=True)
     if not core.db_ready:
         fail(400, (core.db_error or {}).get("code", "unreachable"))
-    core.audit(req.user["username"], "DB_MIGRATED", from_version="old", to_version=CURRENT_VERSION)
+    if from_version is not None and from_version < CURRENT_VERSION:
+        with core.vault.transaction() as data:
+            audit(data, req.user["username"], "DB_MIGRATED", from_version=from_version, to_version=CURRENT_VERSION)
+            for entry in core.db.query("SELECT event, params FROM run_log WHERE id>? "
+                                       "AND event IN ('DECISIONS_FLAGGED_FOR_RECHECK','REVIEW_SKIPS_RETURNED_TO_PENDING')", (last_log,)):
+                audit(data, req.user["username"], entry["event"], **json.loads(entry["params"]))
     core.jobs.start()
     return JSONResponse({"ok": True})
 

@@ -85,7 +85,7 @@ class PureMetadataRules(unittest.TestCase):
         self.assertEqual(r["flags"], "utc_ambiguous")
         self.assertNotIn("datetime_original", r["fills"], "no local time written from a UTC value")
         own2 = collect({"QuickTime:CreateDate": "2022:08:01 22:30:00", "Keys:CreationDate": "2022:08:02 00:30:00+02:00"}, "file")
-        r2 = analyse_file(f, own2, [], {"create_date"})
+        r2 = analyse_file(f, own2, [], {"create_date"}, "Europe/Rome")
         self.assertEqual(r2["chosen"], "2022-08-02T00:30:00")
         self.assertEqual(r2["conflicts"], {}, "UTC and local differing by a whole offset are consistent")
 
@@ -264,6 +264,199 @@ class Workflow(unittest.TestCase):
         self.assertEqual(resp.headers["content-type"], "video/mp4")
         self.assertTrue(list((self.inst.state / "cache" / "previews").rglob("*.mp4")))
         self.assertTrue(self.hevc.exists())
+
+    def test_preview_cache_scope_headers_and_review_parallel_endpoint(self):
+        import hashlib
+        from twincheck import previews
+
+        photo = self.inst.data / "lib" / "preview-scope.jpg"
+        photo.write_bytes(jpeg_bytes := b"preview-synthetic-bytes")
+        self.run_job("/api/scan", {"source_id": self.sid})
+        row = self.inst.core.db.query_one("SELECT * FROM files WHERE owner_id=? AND name='preview-scope.jpg'",
+                                          (self.uid,))
+        self.assertIsNotNone(row)
+        review_id = self.inst.core.db.insert(
+            "INSERT INTO review_items (owner_id,file_id,kind,details,proposals,status,created_at,job_id,applied) "
+            "VALUES (?,?,?,?,?,?,?,?,?)",
+            (self.uid, row["id"], "no_date", "{}", "[]", "pending", "2026-11-25T00:00:00Z", 0, 0))
+
+        started = time.monotonic()
+        item = self.u.get(f"/api/review/{review_id}")
+        item_elapsed = time.monotonic() - started
+        self.assertEqual(item.status, 200, item.text)
+        self.assertLess(item_elapsed, 2.0)
+        preview = self.u.get(f"/api/review/{review_id}/preview")
+        preview_elapsed = time.monotonic() - started - item_elapsed
+        self.assertEqual(preview.status, 200)
+        self.assertTrue(preview.headers["content-type"].startswith("image/"))
+        self.assertEqual(preview.body, photo.read_bytes())
+        self.assertIn("no-store", preview.headers["cache-control"])
+
+        (self.inst.data / "preview-other").mkdir(exist_ok=True)
+        other = make_user(self.admin, "preview-other", [{"path": "preview-other"}])[1]
+        self.assertEqual(other.get(f"/api/files/{row['id']}/preview").status, 404)
+        self.assertEqual(other.get(f"/api/review/{review_id}/preview").status, 404)
+
+        source_path = row["cur_path"]
+        fake = {
+            **row, "media_kind": "video", "sha256": hashlib.sha256(jpeg_bytes).hexdigest(),
+            "name": "scope.mov", "cur_path": source_path,
+        }
+        with mock.patch("twincheck.previews.needs_preview", return_value=True):
+            status, cache_file = previews.ensure(
+                self.inst.core.settings.ffmpeg, self.inst.state / "cache", fake, 720, 28, 1024)
+            self.assertEqual(status, "pending")
+            signature = f"{fake['sha256']}-{fake['size']}-{fake['mtime_ns']}"
+            cached = Path(previews.cache_path(
+                self.inst.state / "cache", fake["owner_id"], signature, fake["media_kind"]))
+            cached.parent.mkdir(parents=True, exist_ok=True)
+            cached.write_bytes(b"synthetic-video-cache")
+            ready, hit = previews.ensure(
+                self.inst.core.settings.ffmpeg, self.inst.state / "cache", fake, 720, 28, 1024)
+            self.assertEqual((ready, hit), ("ready", str(cached)))
+            fake["mtime_ns"] += 1
+            changed, changed_path = previews.ensure(
+                self.inst.core.settings.ffmpeg, self.inst.state / "cache", fake, 720, 28, 1024)
+            self.assertEqual(changed, "pending")
+            self.assertIsNone(changed_path)
+
+        oversized = cached.parent / "old.mp4"
+        oversized.write_bytes(b"x" * 2048)
+        os.utime(oversized, (1, 1))
+        previews.prune(self.inst.state / "cache", 512)
+        self.assertFalse(oversized.exists())
+        print(f"Preview endpoint timing: review item {item_elapsed:.4f}s; original preview {preview_elapsed:.4f}s")
+
+    def test_scan_hash_completion_and_reuse(self):
+        from helpers import jpeg_bytes
+        root = self.inst.data / "scan-progress"
+        root.mkdir()
+        photo = root / "photo.jpg"
+        photo.write_bytes(jpeg_bytes(101))
+        uid, client = make_user(self.admin, "scan-progress", [{"path": "scan-progress"}])
+        sid = client.get("/api/sources").json()["sources"][0]["id"]
+        first = self.run_job("/api/scan", {"source_id": sid}, client)
+        job = client.get(f"/api/jobs/{first}").json()
+        self.assertEqual(job["phase"], "hash", "fast scans must not retain the throttled walk phase")
+        self.assertEqual((job["progress_done"], job["progress_total"]), (1, 1))
+        self.assertEqual(job["result"], {"indexed": 1, "missing": 0, "hashed": 1, "reused": 0, "unhashed": 0})
+        hashed_at = self.inst.core.db.query_one("SELECT hashed_at FROM files WHERE owner_id=?", (uid,))["hashed_at"]
+        second = self.run_job("/api/scan", {"source_id": sid}, client)
+        job = client.get(f"/api/jobs/{second}").json()
+        self.assertEqual(job["phase"], "hash")
+        self.assertEqual((job["progress_done"], job["progress_total"]), (0, 0))
+        self.assertEqual(job["result"], {"indexed": 1, "missing": 0, "hashed": 0, "reused": 1, "unhashed": 0})
+        self.assertEqual(self.inst.core.db.query_one("SELECT hashed_at FROM files WHERE owner_id=?", (uid,))["hashed_at"], hashed_at)
+        photo.write_bytes(jpeg_bytes(102) + b"changed")
+        third = self.run_job("/api/scan", {"source_id": sid}, client)
+        self.assertEqual(client.get(f"/api/jobs/{third}").json()["result"]["hashed"], 1)
+        with mock.patch("twincheck.services.scan.sha256_file", side_effect=OSError("test read failure")):
+            photo.write_bytes(jpeg_bytes(103) + b"unreadable")
+            fourth = self.run_job("/api/scan", {"source_id": sid}, client)
+        result = client.get(f"/api/jobs/{fourth}").json()["result"]
+        self.assertEqual((result["hashed"], result["reused"], result["unhashed"]), (0, 0, 1))
+
+    def test_duplicate_group_shared_capture_date_and_keeper_rule(self):
+        from helpers import jpeg_bytes
+
+        for mode in ("one-dated", "none-dated", "both-dated", "unread-dated", "placeholder-dated"):
+            with self.subTest(mode=mode):
+                root = self.inst.data / ("dup-" + mode)
+                first = root / "known" / "one.jpg"
+                second = root / "copies" / "nested" / "two.jpg"
+                first.parent.mkdir(parents=True)
+                second.parent.mkdir(parents=True)
+                first.write_bytes(jpeg_bytes(155))
+                if mode not in ("none-dated", "placeholder-dated"):
+                    set_tags(first, {"ExifIFD:DateTimeOriginal": "2007:07:31 10:00:00"})
+                shutil.copyfile(first, second)        # real ExifTool may have changed the bytes
+                self.assertEqual(first.read_bytes(), second.read_bytes())
+                os.utime(first, (1_700_000_000, 1_700_000_000))
+                os.utime(second, (1_000_000_000, 1_000_000_000))
+                uid, client = make_user(self.admin, "dup-" + mode,
+                                        [{"path": str(first.parent.relative_to(self.inst.data))},
+                                         {"path": str((root / "copies").relative_to(self.inst.data))}])
+                sources = client.get("/api/sources").json()["sources"]
+                for source in sources:
+                    self.run_job("/api/scan", {"source_id": source["id"]}, client)
+                if mode in ("one-dated", "both-dated"):
+                    self.run_job("/api/metadata/analyze", {"source_id": sources[0]["id"]} if mode == "one-dated" else {}, client)
+                if mode == "placeholder-dated":
+                    placeholder = json.dumps({"fields": {"datetime_original": {"candidates": [
+                        {"value": "0000:00:00 00:00:00", "tag": "ExifIFD:DateTimeOriginal",
+                         "source": "file", "semantic": "local", "offset": None}
+                    ]}}})
+                    self.inst.core.db.execute("UPDATE files SET meta_read=?, chosen_date=NULL, phase_meta='analysed' WHERE owner_id=?",
+                                              (placeholder, uid))
+                if mode == "one-dated":
+                    copy = self.inst.core.db.query_one("SELECT chosen_date, phase_meta FROM files WHERE owner_id=? AND name='two.jpg'", (uid,))
+                    self.assertIsNone(copy["chosen_date"])
+                    self.assertEqual(copy["phase_meta"], "pending", "the unread copy reproduces n/a despite identical internal tags")
+                self.run_job("/api/duplicates/analyze", {}, client)
+                group = client.get("/api/duplicates").json()["groups"][0]
+                self.assertTrue(all(member["filesystem_date"].endswith("Z") for member in group["members"]))
+                keeper = next(m for m in group["members"] if m["id"] == group["keeper_file_id"])
+                if mode not in ("none-dated", "placeholder-dated"):
+                    self.assertTrue(keeper["path"].endswith("one.jpg"), "shared capture date makes path tidiness decide, not missing metadata or mtime")
+                if mode in ("none-dated", "placeholder-dated"):
+                    self.assertIsNone(group["capture_date"])
+                    self.assertEqual(group["keeper_rule"], "mtime")
+                    self.assertTrue(keeper["path"].endswith("two.jpg"))
+                    for photo in (first, second):
+                        os.utime(photo, (1_000_000_000, 1_000_000_000))
+                    for source in sources:
+                        self.run_job("/api/scan", {"source_id": source["id"]}, client)
+                    self.run_job("/api/duplicates/analyze", {}, client)
+                    tied = client.get("/api/duplicates").json()["groups"][0]
+                    self.assertEqual(tied["keeper_rule"], "mtime_tidy_path")
+                    self.assertTrue(next(m for m in tied["members"] if m["id"] == tied["keeper_file_id"])["path"].endswith("one.jpg"))
+                    other = next(m for m in tied["members"] if m["id"] != tied["keeper_file_id"])
+                    self.assertEqual(client.post(f"/api/duplicates/{tied['id']}/keeper", {"file_id": other["id"]}).status, 200)
+                    self.assertEqual(client.get("/api/duplicates").json()["groups"][0]["keeper_rule"], "manual")
+                else:
+                    self.assertEqual(group["capture_date"], "2007-07-31T10:00:00")
+                    self.assertEqual({m["date"] for m in group["members"]}, {"2007-07-31T10:00:00"})
+                    self.assertEqual(group["keeper_rule"], "capture_date_tidy_path")
+                    self.assertTrue(keeper["path"].endswith("one.jpg"), "shared capture date makes path tidiness decide, not missing metadata or mtime")
+                self.assertTrue(first.exists() and second.exists(), "analysis must not move or delete files")
+                csv_text = client.get("/api/duplicates.csv").text
+                self.assertRegex(csv_text, r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
+
+    def test_analyze_library_pipeline_is_read_only_resumable_and_scoped(self):
+        from helpers import jpeg_bytes
+        root = self.inst.data / "pipeline" / "photos"
+        root.mkdir(parents=True)
+        first = root / "a.jpg"
+        second = root / "nested" / "b.jpg"
+        second.parent.mkdir()
+        first.write_bytes(jpeg_bytes(211))
+        shutil.copyfile(first, second)
+        set_tags(first, {"ExifIFD:DateTimeOriginal": "2021:04:05 06:07:08"})
+        shutil.copyfile(first, second)
+        uid, client = make_user(self.admin, "pipeline-user", [{"path": "pipeline/photos"}])
+        source = client.get("/api/sources").json()["sources"][0]
+
+        response = client.post("/api/library/analyze", {"source_id": source["id"]})
+        self.assertEqual(response.status, 202, response.text)
+        job_id = response.json()["job_id"]
+        job = wait_job(self.inst.core, job_id)
+        self.assertEqual(job["status"], "completed", job["error"])
+        public = client.get(f"/api/jobs/{job_id}").json()
+        self.assertEqual(public["phase"], "5/5 complete")
+        self.assertEqual(public["progress_done"], 5)
+        self.assertEqual(set(public["result"]), {"scan", "capture_dates", "duplicates", "metadata"})
+        checkpoint = json.loads(self.inst.core.db.query_one("SELECT checkpoint FROM jobs WHERE id=?", (job_id,))["checkpoint"])
+        self.assertEqual(set(checkpoint["completed"]), {"scan", "capture_dates", "duplicates", "metadata"})
+        files = self.inst.core.db.query("SELECT phase_hash, phase_meta, sha256 FROM files WHERE owner_id=?", (uid,))
+        self.assertTrue(files and all(f["phase_hash"] == "done" and f["phase_meta"] == "analysed" and f["sha256"] for f in files))
+        self.assertEqual(client.get("/api/duplicates").json()["total"], 1)
+        self.assertTrue(first.exists() and second.exists())
+        self.assertEqual(client.post("/api/library/analyze", {"source_id": "not-assigned"}).status, 403)
+        self.assertIn(client.post("/api/library/analyze", {"path": "../outside"}).status, (400, 403))
+
+        from twincheck.jobs import REGISTRY
+        self.assertTrue(REGISTRY["analyze_library"].auto_resume)
+        self.assertFalse(REGISTRY["analyze_library"].writes_files)
 
     def test_cross_volume_move(self):
         """Different volumes: copy, verify hash, then delete the original."""

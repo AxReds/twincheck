@@ -29,6 +29,18 @@ docker compose logs app | grep SETUP_TOKEN      # one-time token for the setup w
 Open `http://<host>:7777`. Requires Docker Compose v2.20+ (for `include`). With an older
 Compose run it from `docker/`: `cd docker && docker compose --env-file ../.env up -d`.
 
+### Is TwinCheck running? (for application administrators)
+
+The TwinCheck admin is not necessarily the person who manages Docker or the server.
+Open **http://<server>:7777/health** in a browser, using your usual server name or address.
+The healthy answer is `{"status": "ok"}`: the web application is responding.
+It is not a check of the library, database, or completion of an analysis.
+If there is no answer, wait a minute after an update, reload, and try another browser.
+If it still fails, tell whoever manages the server the time (including timezone),
+what you were doing, the `/health` result (or no answer), and the exact browser error.
+Never send passwords, keys or photos. The technical Docker healthcheck remains `/healthz`,
+on internal port 80; both endpoints return the same healthy answer.
+
 ## Parameters
 
 All parameters go in the `.env` file next to `compose.yaml` (repository root). "Compose" in the
@@ -45,6 +57,7 @@ application inside the container.
 | `TRUSTED_PROXIES` | CIDR list of your own reverse proxies. Only used to read the real client IP (`X-Forwarded-For`) for login rate limiting; never for `ALLOWED_NETWORKS`. | empty | no | `172.18.0.10/32` | App |
 | `HOST_LABEL` | Host name shown in the header (the real host name is not visible from the container). Empty = container name. | empty | no | `nas-living-room` | App |
 | `APP_LANG` | Language of console commands (`generate-key`, `reset-admin-password`) and initial default language of the instance (the admin can change the latter in the UI). Logs are always English. | `en` | no | `it` | App |
+| `TZ` | Initial IANA library timezone; Settings → General → Library timezone takes precedence and is stored in the vault. | empty (UTC, with admin notice) | no | `Europe/Rome` | App |
 | `DISK_WARN_FREE_PERCENT` | Free-space % under which a disk is shown in the warning colour. | `15` | no | `20` | App |
 | `DISK_CRIT_FREE_PERCENT` | Free-space % under which a disk is shown in the critical colour. | `5` | no | `3` | App |
 | `PUID` | UID the whole container runs as (`user:`). Must own the library and state folders. Never 0. | `1000` | no | `1026` | Compose |
@@ -66,9 +79,81 @@ application inside the container.
 Fixed values (not configurable on purpose): internal port **80**, published port **7777**,
 volumes `/data` and `/state`, `/tmp` on tmpfs.
 
+### Library timezone
+
+The image includes IANA timezone data. Optional `TZ` (example: `Europe/Rome`) is passed by
+both Compose and the Portainer stack and supplies the default **Library timezone**.
+If unset, the default is `UTC` and Settings → General recommends configuring it.
+The fixed admin can override it in that page; the override is stored in `/state/vault.enc`,
+not `.env`, and audited as `SETTING_CHANGED`.
+The field is one accessible searchable select with a closed value/chevron and a popup
+IANA-zone list with current UTC offsets. Suggested zones precede All timezones.
+Typing filters by case-insensitive substring; arrows and Enter select,
+Escape closes without changing the selection, and search text cannot be saved as a zone. Mouse and touch also work.
+The saved zone is highlighted and scrolled into view; offsets can change with daylight saving.
+
+Organizing dates are local wall-clock values in the library timezone: file-system mtime
+proposals convert from UTC; offset EXIF converts only for organizing while its original
+metadata is preserved; timezone-free EXIF and manual values are not shifted. Upgrading old
+databases flags ambiguous unapplied decisions for re-check without changing saved dates.
+Organize skips flagged files until the owner explicitly confirms or changes them.
+
+**Show version on login page** is another admin-only vault setting (default ON), not a
+container environment parameter. When OFF, public bootstrap contains no application version.
+
 Parameters that exist only inside the image and are set by the Dockerfile (`DATA_DIR=/data`,
 `STATE_DIR=/state`, `APP_PORT=80`, `EXIFTOOL_PATH`, `FFMPEG_PATH`) are documented in
 [`app/backend/README.md`](../app/backend/README.md); do not change them in a container deployment.
+
+## Upgrading to 1.0.1-rc.13
+
+Stop the container and back up `/state` and the operational MariaDB database if used.
+Deploy the exact candidate image `ghcr.io/axreds/twincheck:1.0.1-rc.13` (or the moving `rc`
+alias) after publication. From rc.12 no schema migration is needed: schema remains 6 and there is no
+`DB_MIGRATED` event for an already-current database. Existing decisions remain unchanged.
+From older schemas, an administrator must run **Settings → Database → Migrate schema**
+and confirm the backup. All signed-in users see **Database update required. Contact an
+administrator.** until the operational database is ready; admins can follow the banner.
+
+Schema 6 returns only historical skip-only records to Pending, preserving their skipped marker
+and timestamp. Chosen dates, Leave as it is and accepted/kept re-check decisions are unchanged.
+Postpone blocks Organize at preview and confirmation. A shared review
+status and canonical old links keep badges, filters and counts stable across Analyze library.
+Metadata distinguishes latest-run files from current all-folders review items/distinct files.
+
+The offline UI uses numeric 24-hour dates everywhere, with browser-local offsets on hover for
+instants; capture wall-clock dates are not shifted. It adds stay/next review actions, a Decision
+column, sticky table headers, inline checkbox labels and explained empty lists. Analyze retains
+three recent job cards, links to full analysis history, and logs hashed/extracted versus reused
+counts. Logs offers present events by default, optional muted zero-count events for admins, Clear filters
+and counted Export filtered / Export all buttons. CSV stays English, with `time_utc` in UTC
+and `time_local` in the library timezone, numeric 24-hour format and the applicable offset.
+Review items, Logs, Duplicates and Jobs remember 10/50/100/All per user and table in the browser;
+All above 1,000 rows requires confirmation before loading.
+Base users see only their own scoped jobs/files/decisions, never system/login events; admin roles
+see all events with a User filter. No new environment parameter or runtime network access is added.
+rc.11 keeps polling controls and focus intact, renders the theme into the initial HTML,
+uses descriptive timestamped CSV filenames and adds the trial Security Log page
+and sign-in banner. Security activity lives in the existing encrypted instance vault,
+independently of the operational database. No existing user decisions are changed.
+
+rc.12 renames the report to History & Undo, moves Diagnostics to the user menu, and unifies
+Security Log for both roles. Administrative Settings opens General. Filters persist in URLs;
+sign-in banners persist until dismissed for that sign-in. Saved Organize previews are reusable,
+but changed inputs or old preview formats require recomputation before execution.
+The logo version tooltip uses the UTC build timestamp stamped during image construction.
+The existing global undo remains available; per-operation undo is tracked separately in #110.
+No environment parameter or schema change is added.
+
+rc.13 corrects sign-in banner positioning, navigation outlines, count plurals in all ten
+languages, review dimensions and History wording. Missing/legacy analysis shows an explained
+no-results state, not fabricated zeros, on Home and the analysis-dependent pages.
+Compact filters apply selections/dates immediately and text/numbers on Enter/Apply only;
+pending text is preserved without silently applying it. Users/Groups gain name/state filters.
+Excluded names is a validated, confirmed list with built-in explanations and a server-matched
+name test. Patterns retain their case-sensitive basename shell semantics; optional descriptions
+live in the vault. It has no environment override, so server-managed read-only mode is not needed.
+Changes affect the next analysis only; internal `.twincheck-*` exclusions remain mandatory.
 
 ## The master key
 
@@ -83,7 +168,7 @@ Parameters that exist only inside the image and are set by the Dockerfile (`DATA
   in `.env`, and uncomment the `secrets:` blocks in `docker-compose.yml`.
 * **Missing key:** Compose stops with `APP_MASTER_KEY missing in .env`. **Wrong key:** the container
   logs `VAULT_DECRYPT_FAILED` and exits without modifying anything.
-* **Rotation:** *Administration → Security → Rotate master key* (admin only). The app shows a new key
+* **Rotation:** *Settings → Security → Rotate master key* (admin only). The app shows a new key
   once, asks you to paste it back, re-encrypts the vault (keeping `vault.enc.pre-rotation`, encrypted
   with the old key, for rollback), then you replace `APP_MASTER_KEY` in `.env` and restart. If the
   rotation fails the vault is restored and the old key stays valid.
@@ -91,7 +176,7 @@ Parameters that exist only inside the image and are set by the Dockerfile (`DATA
   **cannot be recovered**: there is no back door. Keep it in a password manager. Recovery: stop the
   container, move `state/vault.enc*` away, start again, complete the setup with the new token and
   recreate the accounts. The operational database keeps all the data; the admin reassigns the old
-  records to the recreated users in *Administration → Users → Owners without account*.
+  records to the recreated users in *Settings → Users → Owners without account*.
 
 ## Reset of the admin password (console only)
 
@@ -103,7 +188,7 @@ docker compose exec app reset-admin-password --user alice    # another account
 
 It uses the key already in the container, takes the same lock as the running application (which
 detects the change and reloads), changes only the password hash, closes all the sessions of that
-user, clears login blocks, and writes `PASSWORD_RESET_CLI` to the audit log and the database log -
+user, clears login blocks, and writes `PASSWORD_RESET_CLI` only to the instance audit log -
 never the password. It fails without modifying anything if the key is missing or wrong. There is no
 web endpoint and no extra port for it. **Warning:** anyone who can run commands in the container
 already controls the host.
@@ -142,6 +227,14 @@ restricted Kubernetes/NAS platforms):
 
 ## Volumes
 
+`DATA_PATH` is the host directory mounted as `/data`. For example, with
+`DATA_PATH=/volume1/photo`, the UI path `pippo/source/vacanze.jpg` refers to
+`/volume1/photo/pippo/source/vacanze.jpg` on the host and
+`/data/pippo/source/vacanze.jpg` inside the container. All app roles see the relative
+path, including administrators who do not manage Docker. Administrative CSV exports
+add `path_container` for technical support; user exports do not.
+Additional bind mounts below `/data` follow their own host-to-container mapping.
+
 | Path | Content | Notes |
 |------|---------|-------|
 | `/data` | photo/video libraries | read/write. Each user's source **and** destination should be on the same mount so moves are atomic renames; otherwise files are copied, verified by SHA-256, and only then the original is removed (the header warns). Several host folders can be mounted below `/data` (e.g. `- /mnt/disk2/photos:/data/disk2`). |
@@ -162,7 +255,7 @@ becomes useless once the wizard is completed (the wizard is then locked forever)
 
 ## MariaDB (optional external database)
 
-Configured in the web UI (setup wizard or *Administration → Database*): host, port (3306), database
+Configured in the web UI (setup wizard or *Settings → Database*): host, port (3306), database
 name, user, password, with *Test connection*. Credentials are stored in the encrypted vault; the
 password can come from a Docker secret instead (`MARIADB_PASSWORD_FILE`). Character set utf8mb4,
 InnoDB; paths use a binary collation (case-sensitive).
@@ -227,7 +320,7 @@ docker compose up -d
 ```
 
 If the new version has a newer database schema, the app asks the admin (after a backup warning) to
-confirm the migration in *Administration → Database*. A database with a schema newer than the
+confirm the migration in *Settings → Database*. A database with a schema newer than the
 application is refused.
 
 ## Plain HTTP and exposure
@@ -250,6 +343,14 @@ the image for **linux/amd64 and linux/arm64**, starts it once with the full hard
 | `ghcr.io/axreds/twincheck:1.0` | latest patch of 1.0 |
 | `ghcr.io/axreds/twincheck:latest` | latest version tag |
 | `ghcr.io/axreds/twincheck:edge` | current `main`, only when the workflow is started by hand |
+| `ghcr.io/axreds/twincheck:1.0.1-rc.1` | exact pre-release candidate, for isolated manual testing |
+| `ghcr.io/axreds/twincheck:rc` | most recently published pre-release candidate |
+
+Pre-release tags such as `v1.0.1-rc.1` publish **only** the exact version and `rc`,
+never `latest`, `1`, `1.0` or `1.0.0`. The smoke test does not print container logs
+(which can contain the one-time setup token). Git tags are immutable: a failed
+candidate is followed by a new candidate number, never by moving its tag.
+GitHub candidate releases must be marked **Pre-release**, not stable.
 
 The first time, open the package page on GitHub (*Packages → twincheck → Package settings*) and set
 the visibility to **Public**, or add a GHCR registry with a read-only token in Portainer.

@@ -1,21 +1,24 @@
 // Administration: users, groups, sources, settings, database, audit, security.
-import { h, mount, button, field, table, modal, toast, badge } from '../dom.js';
+import { h, mount, button, field, table, modal, toast, badge, instant } from '../dom.js';
 import { t, fmt } from '../i18n.js';
 import { get, post, patch, del } from '../api.js';
-import { folderBrowser, kv, pager } from '../components.js';
+import { folderBrowser, kv, pager, comboBox, filterControls } from '../components.js';
 import { testResult } from './setup.js';
+import { icon } from '../icons.js';
+import { securityActivity } from './tool.js';
+import { excludedNames } from '../exclusions.js';
 
 export function adminNav(state, active) {
-  const items = [['users', 'admin.users'], ['groups', 'admin.groups'], ['settings', 'admin.settings'], ['database', 'admin.database']];
-  if (state.perms.transfer_database) items.push(['transfer', 'admin.transfer']);
-  items.push(['audit', 'admin.audit']);
-  if (state.perms.security_settings) items.push(['security', 'admin.security']);
+  const items = [['settings', 'admin.settings', 'sliders-horizontal'], ['users', 'admin.users', 'users-round'], ['groups', 'admin.groups', 'users-round'], ['database', 'admin.database', 'database']];
+  if (state.perms.transfer_database) items.push(['transfer', 'admin.transfer', 'arrow-right-left']);
+  if (state.perms.security_settings) items.push(['security', 'admin.security', 'shield']);
   return [h('p', { class: 'notice warn http-warning', role: 'note' }, t('admin.http_warning')),
-    h('nav', { class: 'subnav', 'aria-label': t('nav.admin') }, items.map(([k, label]) => h('a', { href: '#/admin/' + k, class: k === active ? 'active' : '' }, t(label))))];
+    h('nav', { class: 'subnav', 'aria-label': t('nav.admin') }, items.map(([k, label, name]) => h('a', { href: '#/admin/' + k, title: t(label), 'aria-label': t(label), 'aria-current': k === active ? 'page' : undefined }, icon(name), h('span', { class: 'nav-label' }, t(label)))))];
 }
 
 function shell(main, state, active, titleKey, ...body) {
-  mount(main, h('h1', {}, t('nav.admin')), adminNav(state, active), h('h2', {}, t(titleKey)), ...body);
+  mount(main, h('h1', {}, t('nav.admin')), adminNav(state, active), h('h2', {}, t(titleKey)), ...body,
+    h('a', { class: 'back-link', href: '#/home' }, t('common.back')));
 }
 
 async function showPassword(pw) {
@@ -32,7 +35,7 @@ function sourcesEditor(initial) {
       dest.addEventListener('input', () => { s.dest = dest.value; });
       const label = h('input', { type: 'text', value: s.label || '' });
       label.addEventListener('input', () => { s.label = label.value; });
-      return h('tr', {}, h('td', {}, h('code', {}, '/data/' + s.path)), h('td', {}, dest), h('td', {}, label),
+      return h('tr', {}, h('td', {}, h('code', {}, s.path)), h('td', {}, dest), h('td', {}, label),
         h('td', {}, button('common.remove', () => { list.splice(i, 1); render(); }, 'small danger-outline')));
     })) : h('p', { class: 'muted' }, t('admin.no_sources')),
     h('details', { class: 'panel' }, h('summary', {}, t('admin.add_source')), folderBrowser((p) => {
@@ -54,11 +57,12 @@ export async function users(main, state) {
     const role = h('select', { disabled: u.fixed || state.user.role !== 'admin' }, ['user', 'administrator'].map((r) => h('option', { value: r, selected: u.role === r }, t('role.' + r))));
     const groups = h('div', { class: 'checks' }, d.groups.map((g) => h('label', {}, h('input', { type: 'checkbox', value: g.id, checked: u.groups.includes(g.id) }), ' ', g.name)));
     const src = sourcesEditor(u.sources);
-    const body = h('div', { class: 'form' }, u.fixed ? null : field('admin.role', role), u.role === 'user' ? [field('admin.groups', groups), h('h3', {}, t('admin.sources')), src.el] : null);
+    const body = h('div', { class: 'form' }, u.fixed ? null : field('admin.role', role),
+      u.role === 'user' ? field('admin.groups', groups) : null, h('h3', {}, t('admin.sources')), src.el);
     if (!await modal({ titleKey: 'admin.edit_user', body, confirmKey: 'common.save' })) return;
     const payload = { groups: [...groups.querySelectorAll('input:checked')].map((i) => i.value) };
     if (!u.fixed && state.user.role === 'admin') payload.role = role.value;
-    if (u.role === 'user') payload.sources = src.value();
+    payload.sources = src.value();
     await act(() => patch('/api/admin/users/' + u.id, payload));
   };
 
@@ -66,7 +70,7 @@ export async function users(main, state) {
     h('td', {}, h('strong', {}, u.username), u.fixed ? ' ' : null, u.fixed ? badge(t('admin.fixed'), 'muted') : null),
     h('td', {}, t('role.' + u.role)), h('td', {}, u.active ? badge(t('admin.active'), 'ok') : badge(t('admin.inactive'), 'warn')),
     h('td', {}, u.groups.map(groupName).join(', ')),
-    h('td', {}, u.sources.map((s) => h('div', {}, h('code', {}, '/data/' + s.path), s.dest !== s.path ? h('span', { class: 'muted' }, ' → /data/' + s.dest) : null))),
+    h('td', {}, u.sources.map((s) => h('div', {}, h('code', {}, s.path), s.dest !== s.path ? h('span', { class: 'muted' }, ' → ' + s.dest) : null))),
     h('td', { class: 'actions' }, editable(u) ? [
       button('admin.edit', () => editUser(u)),
       !u.fixed ? button(u.active ? 'admin.deactivate' : 'admin.activate', async () => { await act(() => patch('/api/admin/users/' + u.id, { active: !u.active })); }) : null,
@@ -94,13 +98,29 @@ export async function users(main, state) {
       users(main, state);
     } catch (e) { toast(e.message, 'error'); }
   };
+  const search = h('input', { type: 'search' });
+  const filterRole = h('select', {}, h('option', { value: '' }, t('review.status.all')),
+    ['admin', 'administrator', 'user'].map((role) => h('option', { value: role }, t('role.' + role))));
+  const active = h('select', {}, h('option', { value: '' }, t('review.status.all')),
+    h('option', { value: '1' }, t('admin.active')), h('option', { value: '0' }, t('admin.inactive')));
+  const list = h('div', {});
+  const load = () => mount(list, table(['admin.col_user', 'admin.col_role', 'admin.col_state', 'admin.col_groups', 'admin.col_sources', ''],
+    rows.filter((row, index) => {
+      const u = d.users[index];
+      return (!filters.get('search') || u.username.toLowerCase().includes(filters.get('search').toLowerCase())) &&
+        (!filters.get('role') || u.role === filters.get('role')) &&
+        (!filters.get('active') || String(Number(u.active)) === filters.get('active'));
+    })));
+  const filters = filterControls({ search, role: filterRole, active }, load);
   shell(main, state, 'users', 'admin.users',
-    table(['admin.col_user', 'admin.col_role', 'admin.col_state', 'admin.col_groups', 'admin.col_sources', ''], rows),
+    h('div', { class: 'filters' }, field('filters.search', search), field('admin.role', filterRole),
+      field('admin.col_state', active), filters.apply, filters.clear), list,
     h('details', { class: 'panel' }, h('summary', {}, t('admin.new_user')),
       h('div', { class: 'form' }, field('admin.username', uname, 'admin.username_rules'), field('admin.role', role), field('admin.password', pw, 'setup.password_rules'),
         d.groups.length ? field('admin.groups', groupsBox) : null, h('h3', {}, t('admin.sources')), src.el,
         h('div', { class: 'actions' }, button('admin.create', create, 'primary')))),
     state.perms.reassign_owner ? await ownersPanel() : null);
+  load();
 }
 
 async function ownersPanel() {
@@ -132,9 +152,21 @@ export async function groups(main, state) {
         button('common.delete', async () => { if (await modal({ titleKey: 'admin.delete_group', body: h('p', {}, t('admin.delete_group_confirm', { name: g.name })), danger: true, confirmKey: 'common.delete' })) { try { await del('/api/admin/groups/' + g.id); reload(); } catch (e) { toast(e.message, 'error'); } } }, 'danger-outline')));
   });
   const name = h('input', { type: 'text' });
+  const search = h('input', { type: 'search' });
+  const active = h('select', {}, h('option', { value: '' }, t('review.status.all')),
+    h('option', { value: '1' }, t('admin.active')), h('option', { value: '0' }, t('admin.inactive')));
+  const list = h('div', {});
+  const load = () => mount(list, d.groups.length ? table(['admin.col_group', 'admin.col_state', 'admin.col_members', ''],
+    rows.filter((row, index) => {
+      const g = d.groups[index];
+      return (!filters.get('search') || g.name.toLowerCase().includes(filters.get('search').toLowerCase())) &&
+        (!filters.get('active') || String(Number(g.active)) === filters.get('active'));
+    })) : h('p', { class: 'muted' }, t('admin.no_groups')));
+  const filters = filterControls({ search, active }, load);
   shell(main, state, 'groups', 'admin.groups', h('p', { class: 'hint' }, t('admin.groups_help')),
-    d.groups.length ? table(['admin.col_group', 'admin.col_state', 'admin.col_members', ''], rows) : h('p', { class: 'muted' }, t('admin.no_groups')),
+    h('div', { class: 'filters' }, field('filters.search', search), field('admin.col_state', active), filters.apply, filters.clear), list,
     h('div', { class: 'form inline' }, field('admin.group_name', name), button('admin.create', async () => { try { await post('/api/admin/groups', { name: name.value }); reload(); } catch (e) { toast(e.message, 'error'); } }, 'primary')));
+  load();
 }
 
 // --- settings ----------------------------------------------------------------------------------------
@@ -143,28 +175,53 @@ export async function settings(main, state) {
   const s = d.settings;
   const noDate = h('input', { type: 'text', value: s.organize.no_date_folder });
   const dupDir = h('input', { type: 'text', value: s.organize.duplicates_folder });
-  const exclude = h('textarea', { rows: '5' }); exclude.value = s.scan.exclude.join('\n');
+  const exclude = excludedNames(s.scan, d.scan_exclude_defaults || []);
   const fields = h('div', { class: 'checks' }, ['datetime_original', 'create_date', 'offset', 'gps', 'make', 'model', 'orientation', 'title', 'description']
     .map((f) => h('label', {}, h('input', { type: 'checkbox', value: f, checked: s.metadata.fields.includes(f) }), ' ', t('field.' + f))));
   const height = h('input', { type: 'number', min: '240', max: '2160', value: String(s.previews.transcode_height) });
   const crf = h('input', { type: 'number', min: '18', max: '40', value: String(s.previews.crf) });
   const lang = h('select', { disabled: !state.perms.security_settings }, d.locales.map((l) => h('option', { value: l.code, selected: l.code === s.default_lang }, l.name)));
+  const saveButton = button('common.save', () => save(), 'primary');
+  const timezone = state.user.role === 'admin' ? comboBox({
+    value: s.library_timezone,
+    searchKey: 'settings.timezone_search', emptyKey: 'settings.no_matching_timezone',
+    options: [
+      ...[...new Set(['UTC', s.library_timezone])]
+        .map((name) => d.timezones.find((zone) => zone.name === name)).filter(Boolean)
+        .map((zone) => ({ value: zone.name, label: `${zone.name} (UTC${zone.offset})`, section: 'common.suggested' })),
+      ...d.timezones.map((zone) => ({ value: zone.name, label: `${zone.name} (UTC${zone.offset})`, section: 'settings.all_timezones' })),
+    ],
+    onChange: (value, valid) => { saveButton.disabled = !valid; },
+  }) : null;
+  if (timezone) timezone.input.classList.add('timezone-input');
+  const loginVersion = state.user.role === 'admin' ? h('input', { type: 'checkbox', checked: s.show_version_on_login }) : null;
   const save = async () => {
-    const body = { organize: { no_date_folder: noDate.value, duplicates_folder: dupDir.value }, scan: { exclude: exclude.value.split('\n').map((x) => x.trim()).filter(Boolean) },
+    if (timezone && !timezone.valid()) return;
+    try {
+    const changes = await exclude.changes();
+    if (changes === false) return;
+    const body = { organize: { no_date_folder: noDate.value, duplicates_folder: dupDir.value },
       metadata: { fields: [...fields.querySelectorAll('input:checked')].map((i) => i.value) }, previews: { transcode_height: Number(height.value), crf: Number(crf.value) } };
+    if (changes) body.scan = changes;
     if (state.perms.security_settings) body.default_lang = lang.value;
-    try { await patch('/api/admin/settings', body); toast(t('common.saved'), 'ok'); } catch (e) { toast(e.message, 'error'); }
+    if (timezone) body.library_timezone = timezone.value();
+    if (loginVersion) body.show_version_on_login = loginVersion.checked;
+    await patch('/api/admin/settings', body); exclude.saved(); toast(t('common.saved'), 'ok');
+    } catch (e) { toast(e.message, 'error'); }
   };
   const sec = d.security;
   const secInputs = sec ? Object.fromEntries(Object.entries(sec).map(([k, v]) => [k, h('input', { type: 'number', value: String(v) })])) : null;
   shell(main, state, 'settings', 'admin.settings',
     h('div', { class: 'form' },
       h('h3', {}, t('settings.organize')), field('settings.no_date_folder', noDate), field('settings.duplicates_folder', dupDir),
-      h('h3', {}, t('settings.scan')), field('settings.exclude', exclude, 'settings.exclude_hint'),
+      h('h3', {}, t('settings.scan')), h('h4', {}, t('settings.exclude')), exclude.el,
       h('h3', {}, t('settings.metadata')), field('settings.fields', fields),
       h('h3', {}, t('settings.previews')), field('settings.preview_height', height), field('settings.preview_crf', crf),
       h('h3', {}, t('settings.instance')), field('settings.default_lang', lang, 'settings.default_lang_hint'),
-      h('div', { class: 'actions' }, button('common.save', save, 'primary'))),
+      timezone ? field('settings.library_timezone', timezone.el, 'settings.timezone_offset_hint') : null,
+      loginVersion ? field('settings.show_version_on_login', loginVersion, 'settings.login_version_hint') : null,
+      d.library_timezone_notice ? h('p', { class: 'notice warn' }, t('settings.library_timezone_notice')) : null,
+      h('div', { class: 'actions' }, saveButton)),
     secInputs ? h('div', { class: 'form' }, h('h3', {}, t('settings.security')),
       Object.entries(secInputs).map(([k, el]) => field('settings.sec.' + k, el)),
       h('div', { class: 'actions' }, button('common.save', async () => {
@@ -233,8 +290,8 @@ export async function database(main, state) {
     kv([['db.type', cur.type ? t('db.type.' + cur.type) : null], ['db.target', cur.type === 'sqlite' ? cur.path : cur.type ? `${cur.user}@${cur.host}:${cur.port}/${cur.database}` : null],
       ['db.password', cur.password || null], ['db.connected', d.status.connected ? t('common.yes') : t('common.no')], ['db.schema_version', d.status.schema_version ? String(d.status.schema_version) : null],
       ['db.db_id', d.info && d.info.db_id], ['db.files', d.info ? String(d.info.files) : null], ['db.open_jobs', d.info ? String(d.info.open_jobs) : null],
-      ['db.last_update', d.info && d.info.last_update]]),
-    d.info && d.info.provenance ? h('p', { class: 'hint' }, t('db.provenance', { source: d.info.provenance.source_db_id, date: fmt.date(d.info.provenance.date) })) : null,
+      ['db.last_update', d.info ? instant(d.info.last_update) : null]]),
+    d.info && d.info.provenance ? h('p', { class: 'hint', title: fmt.dateTooltip(d.info.provenance.date) }, t('db.provenance', { source: d.info.provenance.source_db_id, date: fmt.date(d.info.provenance.date) })) : null,
     h('h3', {}, t('db.change')), h('p', { class: 'hint' }, t('db.change_help')), form.el,
     h('div', { class: 'actions' }, button('db.test', () => doTest({ database: form.value() }))), result,
     d.previous.length ? [h('h3', {}, t('db.previous')), table(['db.type', 'db.target', ''], d.previous.map((p, i) => h('tr', {},
@@ -244,16 +301,9 @@ export async function database(main, state) {
 
 // --- audit ------------------------------------------------------------------------------------------------
 export async function audit(main, state) {
-  let offset = 0;
-  const box = h('div', {});
-  const load = async () => {
-    const d = await get(`/api/admin/audit?offset=${offset}&limit=100`);
-    mount(box, table(['logs.col_time', 'audit.col_actor', 'logs.col_event', 'logs.col_message'],
-      d.items.map((a) => h('tr', {}, h('td', {}, fmt.date(a.ts)), h('td', {}, a.actor), h('td', {}, h('code', {}, a.event)), h('td', { lang: 'en', dir: 'ltr' }, a.message)))),
-    pager(d.total, offset, 100, (o) => { offset = o; load(); }));
-  };
-  shell(main, state, 'audit', 'admin.audit', h('p', { class: 'hint' }, t('audit.english_note')), box);
-  await load();
+  const view = await securityActivity(main, state, true);
+  main.prepend(...adminNav(state, 'audit'));
+  return view;
 }
 
 // --- security: key rotation -------------------------------------------------------------------------------

@@ -6,15 +6,48 @@ from __future__ import annotations
 
 import json
 import os
+import hashlib
 
 from ..db.manager import log
 from ..db.schema import utcnow
-from ..fsutil import path_hash
+from ..fsutil import path_hash, sha256_file
 from ..jobs import JobContext, register
 from ..mover import MoveError, move_file
-from . import access
+from . import access, review_state
 from .companions import group_directory, renamed_companion, stem
 from .dedupe import duplicates_folder_target, group_members
+from .scan import iter_dirs
+
+
+def organize_snapshot(app, db, owner: str, params: dict) -> dict:
+    """Fingerprint planning inputs, excluding progress and ordinary log updates."""
+    def digest(value):
+        return hashlib.sha256(json.dumps(value, sort_keys=True, default=str).encode()).hexdigest()
+
+    user = app.user(owner)
+    root, dest = params["root"], params["dest"]
+    source_id = params["source_id"]
+    analysis = db.query_one("SELECT id FROM jobs WHERE owner_id=? AND kind='analyze_library' "
+                            "AND status='completed' ORDER BY id DESC LIMIT 1", (owner,))
+    files = db.query("SELECT id,cur_path,size,mtime_ns,sha256,present,chosen_date,status,phase_meta,phase_org "
+                     "FROM files WHERE owner_id=? AND source_id=? ORDER BY id", (owner, source_id))
+    reviews = db.query("SELECT r.id,r.status,r.decision,r.skipped_at,r.recheck_reason,r.applied "
+                       "FROM review_items r JOIN files f ON f.id=r.file_id "
+                       "WHERE f.owner_id=? AND f.source_id=? ORDER BY r.id", (owner, source_id))
+    disk = []
+    patterns = app.settings_section("scan").get("exclude", [])
+    for boundary in sorted({root, dest}):
+        for _, directory, entries in iter_dirs(boundary, patterns):
+            disk.append((directory, "directory"))
+            for entry in entries:
+                try:
+                    st = entry.stat(follow_symlinks=False)
+                    disk.append((entry.path, st.st_size, st.st_mtime_ns, st.st_ino, st.st_dev))
+                except OSError as exc:
+                    disk.append((entry.path, "unreadable", exc.errno))
+    return {"scope": digest([root, dest, (user or {}).get("sources"), app.settings_section("organize"),
+                             app.library_timezone, patterns]),
+            "analysis": digest(analysis), "decisions": digest(reviews), "files": digest([files, disk])}
 
 
 def _candidate_names(name: str, n: int) -> str:
@@ -53,13 +86,15 @@ def _owner_area(ctx: JobContext) -> dict:
 def organize_plan(ctx: JobContext) -> dict:
     db = ctx.db
     area = _owner_area(ctx)
+    ctx.params["preview_snapshot"] = organize_snapshot(ctx.app, db, ctx.owner_id, ctx.params)
+    db.execute("UPDATE jobs SET params=? WHERE id=?", (json.dumps(ctx.params), ctx.id))
     org = ctx.app.settings_section("organize")
     no_date = org.get("no_date_folder", "No_date")
     dup_folder = org.get("duplicates_folder", "Duplicates")
     db.execute("DELETE FROM plan_items WHERE plan_job_id=?", (ctx.id,))
     reserved: set[str] = set()
     cache: dict[str, tuple] = {}
-    stats = {"planned": 0, "already": 0, "not_analysed": 0, "no_date": 0, "skipped_duplicates": 0}
+    stats = {"planned": 0, "already": 0, "not_analysed": 0, "no_date": 0, "skipped_duplicates": 0, "needs_recheck": 0, "review_skipped": 0}
     seq = 0
     last = 0
     dup_root = os.path.join(area["dest"], dup_folder)
@@ -71,6 +106,16 @@ def organize_plan(ctx: JobContext) -> dict:
             break
         for f in rows:
             last = f["id"]
+            user = ctx.app.user(ctx.owner_id)
+            if not access.file_in_scope(ctx.app.settings.data_dir.as_posix(), user, f):
+                continue
+            block = review_state.organize_block(db, f["id"])
+            if block:
+                seq += 1
+                _insert_plan(db, ctx.id, ctx.owner_id, "organize", seq, f["id"], f["cur_path"], None, {},
+                             status="skipped", note=block)
+                stats[block] += 1
+                continue
             if f["status"] in ("dup_moved", "duplicate") or f["cur_path"].startswith(dup_root + "/"):
                 stats["skipped_duplicates"] += 1
                 continue
@@ -122,9 +167,10 @@ def dedupe_plan(ctx: JobContext) -> dict:
     reserved: set[str] = set()
     seq, recoverable = 0, 0
     users = ctx.app.vault.snapshot()["users"]
+    actor = users.get(ctx.owner_id)
     for g in db.query("SELECT * FROM dup_groups WHERE scope=? AND status='pending' ORDER BY id", (scope,)):
         ctx.check()
-        for m in group_members(db, g):
+        for m in group_members(db, g, actor, ctx.app.settings.data_dir.as_posix()):
             if m["id"] == g["keeper_file_id"] or m["status"] == "dup_moved":
                 continue
             owner = users.get(m["owner_id"])
@@ -134,6 +180,8 @@ def dedupe_plan(ctx: JobContext) -> dict:
                     if m["cur_path"].startswith(a["path"].rstrip("/") + "/") or m["cur_path"].startswith(a["dest"].rstrip("/") + "/"):
                         area = a
                         break
+            if area is None and not access.is_admin_role(actor):
+                continue
             if area is None:
                 root = ctx.params.get("root") or os.path.dirname(m["cur_path"])
                 area = {"path": root, "dest": ctx.params.get("dest") or root}
@@ -160,17 +208,23 @@ def dedupe_plan(ctx: JobContext) -> dict:
     return {"planned": seq, "recoverable_bytes": recoverable}
 
 
-def _validate(db, owner_id: str, entries: list[dict]) -> str | None:
+def _validate(ctx: JobContext, owner_id: str, entries: list[dict]) -> str | None:
+    db = ctx.db
+    user = ctx.app.user(owner_id)
     for e in entries:
         if not os.path.lexists(e["src"]):
             return "source_missing"
         if os.path.islink(e["src"]) or not os.path.isfile(e["src"]):
             return "source_not_regular"
+        if not access.file_in_scope(ctx.app.settings.data_dir.as_posix(), user, {"owner_id": owner_id, "cur_path": e["src"]}):
+            return "outside_source"
         if os.path.lexists(e["dst"]):
             return "destination_exists"
         if e.get("file_id"):
-            f = db.query_one("SELECT size, cur_path FROM files WHERE id=?", (e["file_id"],))
-            if f and (f["cur_path"] != e["src"] or os.path.getsize(e["src"]) != f["size"]):
+            f = db.query_one("SELECT size, sha256, owner_id, cur_path FROM files WHERE id=?", (e["file_id"],))
+            if not f or f["owner_id"] != owner_id or not access.file_in_scope(ctx.app.settings.data_dir.as_posix(), user, f):
+                return "outside_source"
+            if f["cur_path"] != e["src"] or os.path.getsize(e["src"]) != f["size"] or sha256_file(e["src"]) != f["sha256"]:
                 return "file_changed"
     return None
 
@@ -188,15 +242,22 @@ def run_move_plan(ctx: JobContext) -> dict:
         ctx.check()
         payload = json.loads(item["payload"] or "{}")
         entries = [{"file_id": item["file_id"], "src": item["src"], "dst": item["dst"]}] + payload.get("companions", [])
-        problem = _validate(db, item["owner_id"], entries)
+        block = next((reason for entry in entries if entry.get("file_id")
+                      if (reason := review_state.organize_block(db, entry["file_id"]))), None) if item["kind"] == "organize" else None
+        if item["kind"] == "organize" and not block:
+            file = db.query_one("SELECT chosen_date FROM files WHERE id=?", (item["file_id"],))
+            if not file or file["chosen_date"] != payload.get("date"):
+                block = "file_changed"
+        problem = block or _validate(ctx, item["owner_id"], entries)
         if problem:
             with db.transaction():
                 db.execute("UPDATE plan_items SET status='skipped', note=? WHERE id=?", (problem, item["id"]))
                 log(db, "MOVE_SKIPPED", level="WARNING", job_id=ctx.id, owner_id=item["owner_id"], src=item["src"], reason=problem)
-                db.execute("INSERT INTO review_items (owner_id, file_id, kind, details, proposals, status, created_at, job_id, applied) "
-                           "VALUES (?,?,?,?,?,?,?,?,?)", (item["owner_id"], item["file_id"], "move_conflict",
-                                                          json.dumps({"src": item["src"], "dst": item["dst"], "reason": problem}), "[]",
-                                                          "pending", utcnow(), ctx.id, 0))
+                if not block:
+                    db.execute("INSERT INTO review_items (owner_id, file_id, kind, details, proposals, status, created_at, job_id, applied) "
+                               "VALUES (?,?,?,?,?,?,?,?,?)", (item["owner_id"], item["file_id"], "move_conflict",
+                                                              json.dumps({"src": item["src"], "dst": item["dst"], "reason": problem}), "[]",
+                                                              "pending", utcnow(), ctx.id, 0))
             counts["skipped"] += 1
             done += 1
             ctx.progress(done=done, total=total, phase="move")
@@ -216,8 +277,8 @@ def run_move_plan(ctx: JobContext) -> dict:
                     status_sql = {"organize": "status=CASE WHEN status IN ('indexed','unique','normalized','review') THEN 'moved' ELSE status END, phase_org='done'",
                                   "dup_move": "status='dup_moved'",
                                   "undo_move": "status=CASE WHEN status='dup_moved' THEN 'duplicate' ELSE 'unique' END, phase_org='pending'"}[item["kind"]]
-                    db.execute(f"UPDATE files SET cur_path=?, cur_path_hash=?, name=?, {status_sql}, updated_at=? WHERE id=?",
-                               (e["dst"], path_hash(e["dst"]), os.path.basename(e["dst"]), utcnow(), e["file_id"]))
+                    db.execute(f"UPDATE files SET cur_path=?, cur_path_hash=?, name=?, {status_sql}, file_changed_at=?, updated_at=? WHERE id=?",
+                               (e["dst"], path_hash(e["dst"]), os.path.basename(e["dst"]), utcnow(), utcnow(), e["file_id"]))
                 if item["kind"] == "undo_move" and idx == 0 and payload.get("manifest_id"):
                     db.execute("UPDATE manifest SET undone_at=?, undo_job_id=? WHERE id=?", (utcnow(), ctx.id, payload["manifest_id"]))
                 if item["kind"] == "undo_move" and idx > 0 and e.get("manifest_id"):
@@ -242,6 +303,13 @@ def run_move_plan(ctx: JobContext) -> dict:
 
 @register("organize_apply", writes_files=True)
 def organize_apply(ctx: JobContext) -> dict:
+    plan = ctx.db.query_one("SELECT params FROM jobs WHERE id=?", (ctx.params["plan_job_id"],))
+    params = json.loads(plan["params"])
+    started = ctx.db.query_one("SELECT id FROM plan_items WHERE plan_job_id=? AND status='done' LIMIT 1",
+                               (ctx.params["plan_job_id"],))
+    if params.get("discarded_at") or not started and params.get("preview_snapshot") != organize_snapshot(
+            ctx.app, ctx.db, ctx.owner_id, params):
+        raise ValueError("preview_stale")
     return run_move_plan(ctx)
 
 

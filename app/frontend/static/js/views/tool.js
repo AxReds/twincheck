@@ -1,20 +1,61 @@
 // Tool pages: home, scan, duplicates, metadata, organise, plans, report & undo, jobs, logs, personal settings.
-import { h, mount, button, field, table, modal, toast, badge } from '../dom.js';
+import { h, mount, button, field, table, modal, toast, badge, instant, dataView } from '../dom.js';
 import { t, fmt } from '../i18n.js';
 import { get, post } from '../api.js';
-import { jobList, sourceSelect, folderBrowser, kv, pager, poll, jobBadge, waitForJob } from '../components.js';
+import { jobList, jobCard, sourceSelect, folderBrowser, kv, pager, poll, jobBadge, stepGuide, waitForJob, databaseNotice, comboBox, tablePaging, analysisSummary, refreshBlocked, pageFilters, filterControls } from '../components.js';
+import { reviewCounts, list as reviewQueue } from './review.js';
 
 function page(main, titleKey, introKey, ...body) {
-  mount(main, h('h1', {}, t(titleKey)), introKey ? h('p', { class: 'intro' }, t(introKey)) : null, ...body);
+  const guide = body[0]?.classList?.contains('step-guide') ? body.shift() : null;
+  const hidden = ['scan.title', 'dup.title', 'meta.title', 'org.title', 'report.title', 'jobs.title', 'logs.title'].includes(titleKey);
+  mount(main, h('h1', { class: hidden ? 'sr-only' : '' }, t(titleKey)), guide,
+    introKey ? h('p', { class: 'intro' }, t(introKey)) : null, ...body,
+    titleKey === 'security.activity' ? h('a', { class: 'back-link btn', href: '#/home' }, t('common.back')) : null);
 }
 
-async function startJob(url, body, then) {
+async function startJob(url, body, then, control = null) {
+  if (control) {
+    control.disabled = true;
+    control.dataset.pending = '1';
+  }
+  let jobId = null;
   try {
     const r = await post(url, body);
-    toast(t('job.started', { id: r.job_id }), 'ok');
+    jobId = r.job_id;
+    toast(t(r.existing ? 'job.already_running' : 'job.started', { id: r.job_id }), r.existing ? 'info' : 'ok');
     if (then) then(r.job_id);
     return r.job_id;
   } catch (e) { toast(e.message, 'error'); return null; }
+  finally {
+    if (control && jobId) waitForJob(jobId).catch(() => {}).finally(() => {
+      delete control.dataset.pending;
+      if (control.isConnected) control.disabled = false;
+    });
+    else if (control?.isConnected) {
+      delete control.dataset.pending;
+      control.disabled = false;
+    }
+  }
+}
+
+async function analysisState(sourceId = '') {
+  const status = await get('/api/library/status' + (sourceId ? '?source_id=' + encodeURIComponent(sourceId) : ''));
+  return status;
+}
+
+function analysisNotice(status, current = false) {
+  if (status.empty) return h('div', { class: 'notice warn' }, t('analysis.reason.' + (status.reason || 'never_analyzed')), ' ',
+    h('a', { class: 'btn', href: '#/analyze' }, t('scan.analyze_library')));
+  if (status.stale) return h('div', { class: 'notice warn' },
+    status.reason === 'files_changed' ? t('analysis.changed_since', { date: fmt.date(status.analyzed_at) }) + ' ' : '',
+    status.changes && Object.values(status.changes).some(Boolean) ? t('analysis.changes', status.changes) : t('analysis.stale'),
+    status.incomplete ? ' ' + t('analysis.incomplete') : '', ' ',
+    current ? null : h('a', { href: '#/analyze' }, t('analysis.update')));
+  if (status.analyzed_at) return h('p', { class: 'notice', title: fmt.dateTooltip(status.analyzed_at) },
+    t('analysis.results_from', { date: fmt.date(status.analyzed_at) }), ' ',
+    current ? null : h('a', { href: '#/analyze' }, t('analysis.update')),
+    current ? ' ' : ' · ', t('analysis.recheck_before_action'));
+  return null;
 }
 
 function openPlanWhenReady(id) {
@@ -23,21 +64,30 @@ function openPlanWhenReady(id) {
 
 // --- home -------------------------------------------------------------------------------------
 export async function home(main, state) {
-  const steps = [['#/scan', 'nav.scan', 'home.step_scan'], ['#/duplicates', 'nav.duplicates', 'home.step_duplicates'],
-    ['#/metadata', 'nav.metadata', 'home.step_metadata'], ['#/review', 'nav.review', 'home.step_review'],
+  const steps = [['#/analyze', 'nav.scan', 'home.step_scan'], ['#/duplicates', 'nav.duplicates', 'home.step_duplicates'],
+    ['#/metadata', 'nav.metadata', 'home.step_metadata'],
     ['#/organize', 'nav.organize', 'home.step_organize'], ['#/report', 'nav.report', 'home.step_report']];
   const summary = h('div', { class: 'cards' });
   page(main, 'home.title', 'home.intro',
     h('ol', { class: 'flow' }, steps.map(([href, k, d]) => h('li', {}, h('a', { href }, t(k)), h('p', {}, t(d))))),
     h('h2', {}, t('home.summary')), summary, h('h2', {}, t('home.open_jobs')));
+  if (state.boot.db?.connected === false) {
+    mount(summary, databaseNotice(state));
+    return;
+  }
   try {
-    const r = await get('/api/report');
-    const total = r.files.reduce((a, x) => a + x.n, 0);
-    const bytes = r.files.reduce((a, x) => a + x.bytes, 0);
-    const pending = (r.review.find((x) => x.status === 'pending') || {}).n || 0;
-    mount(summary, card('home.files', t('home.files_value', { count: total, size: fmt.bytes(bytes) })),
-      card('home.duplicates', t('home.duplicates_value', { count: r.duplicates.groups, size: fmt.bytes(r.duplicates.recoverable) })),
-      card('home.review_pending', fmt.number(pending)), card('home.missing', fmt.number(r.missing)));
+    const status = await analysisState();
+    if (!status.exists || status.empty) {
+      mount(summary, h('p', { class: 'notice' }, t('analysis.no_results')), analysisNotice(status));
+    } else {
+      const r = await get('/api/report');
+      const total = r.files.reduce((a, x) => a + x.n, 0);
+      const bytes = r.files.reduce((a, x) => a + x.bytes, 0);
+      const pending = r.review_counts?.pending ?? r.review.filter((x) => ['pending', 'skipped', 'needs_recheck'].includes(x.status)).reduce((n, x) => n + x.n, 0);
+      mount(summary, card('home.files', t('home.files_value', { count: total, size: fmt.bytes(bytes) })),
+        card('home.duplicates', t('home.duplicates_value', { count: r.duplicates.groups, size: fmt.bytes(r.duplicates.recoverable) })),
+        card('home.review_pending', fmt.number(pending)), card('home.missing', fmt.number(r.missing)));
+    }
   } catch (e) { mount(summary, h('p', { class: 'notice warn' }, e.message)); }
   const jl = jobList(main, 'status=open&limit=20');
   return { destroy: jl.stop };
@@ -46,99 +96,217 @@ export async function home(main, state) {
 function card(k, v) { return h('div', { class: 'card' }, h('div', { class: 'card-label' }, t(k)), h('div', { class: 'card-value' }, v)); }
 
 // --- scan -------------------------------------------------------------------------------------
-export async function scan(main) {
-  const { select, sources, canBrowse } = await sourceSelect();
-  let adhoc = null;
+function noSources(state) {
+  return state.perms.manage_users
+    ? h('p', { class: 'notice warn' }, t('admin.no_sources'), ' ',
+      h('a', { href: '#/admin/users' }, t('nav.admin'), ' → ', t('admin.users')),
+      ': ', t('admin.edit'), ' → ', t('admin.sources'))
+    : h('p', { class: 'notice warn' }, t('scan.no_sources'));
+}
+
+export async function scan(main, state) {
+  const { select, sources, canBrowse, scanSelection } = await sourceSelect();
+  const adminBrowse = Boolean(state.perms.see_all_sources);
+  if (state.scanPath === null && scanSelection) state.scanPath = scanSelection.path;
+  const selectedSource = () => sources.find((s) => s.path_rel === state.scanPath ||
+    (!adminBrowse && state.scanPath?.startsWith(s.path_rel + '/')));
+  select.value = selectedSource()?.id || '';
   const adhocLabel = h('code', {});
-  const browser = canBrowse ? h('details', { class: 'panel' }, h('summary', {}, t('scan.browse_data')),
-    folderBrowser((p) => { adhoc = p; adhocLabel.textContent = '/data/' + p; })) : null;
+  const noSelection = h('p', { class: 'notice warn', role: 'status' }, t('scan.choose_folder'));
+  const updateSelection = () => {
+    const source = selectedSource();
+    adhocLabel.textContent = state.scanPath === null ? '' : state.scanPath;
+    noSelection.hidden = state.scanPath !== null;
+    select.value = selectedSource()?.id || '';
+    browser?.querySelector('.browser')?.dispatchEvent(new Event('po:folder-selected'));
+    const summary = browser?.querySelector('summary');
+    if (summary) summary.textContent = t(state.scanPath !== null ? 'scan.change_folder' :
+      adminBrowse ? 'scan.browse_data' : 'scan.choose_folder');
+  };
+  const browser = canBrowse ? h('details', { class: 'panel' }, h('summary', {}, t(adminBrowse ? 'scan.browse_data' : 'scan.choose_folder')),
+    folderBrowser((p) => { state.scanPath = p; updateSelection(); }, state.scanPath ?? (adminBrowse ? '' : null), () => state.scanPath)) : null;
+  select.addEventListener('change', () => {
+    state.scanPath = sources.find((s) => s.id === select.value)?.path_rel ?? null;
+    updateSelection();
+    browser?.querySelector('.browser')?.dispatchEvent(new CustomEvent('po:folder-browse', { detail: state.scanPath }));
+  });
+  updateSelection();
+  const flowStatus = await analysisState(selectedSource()?.id || '');
+  let analyzeButton = null;
   page(main, 'scan.title', 'scan.intro',
-    sources.length ? field('scan.source', select) : h('p', { class: 'notice warn' }, t('scan.no_sources')),
-    browser, canBrowse ? h('p', {}, t('scan.adhoc_selected'), ' ', adhocLabel) : null,
+    stepGuide(1, flowStatus), flowStatus.exists ? analysisNotice(flowStatus, true) : null,
+    sources.length ? field('scan.source', select) : noSources(state),
+    browser, h('p', {}, t('scan.adhoc_selected'), ' ', adhocLabel), noSelection,
     h('div', { class: 'actions' },
-      sources.length ? button('scan.start', () => startJob('/api/scan', { source_id: select.value }), 'primary') : null,
-      canBrowse ? button('scan.start_adhoc', () => { if (adhoc === null) { toast(t('scan.choose_folder'), 'warn'); return; } startJob('/api/scan', { path: adhoc }); }) : null),
+      (sources.length || canBrowse) ? (analyzeButton = button('scan.analyze_library', (event) => {
+        if (state.scanPath === null) { noSelection.hidden = false; return; }
+        const source = selectedSource();
+        startJob('/api/library/analyze', source
+          ? { source_id: source.id, ...(state.scanPath !== source.path_rel ? { path: state.scanPath } : {}) }
+          : { path: state.scanPath },
+          null, event.currentTarget);
+      }, 'primary')) : null),
     h('h2', {}, t('scan.jobs')));
-  const jl = jobList(main, 'kind=scan&limit=10');
+  const jl = jobList(main, 'kind=analyze_library&limit=3', { onData: (items) => {
+    if (analyzeButton && !analyzeButton.dataset.pending)
+      analyzeButton.disabled = items.some((j) => ['queued', 'running'].includes(j.status));
+  }});
+  main.appendChild(h('a', { class: 'history-link', href: '#/jobs?kind=analyze_library' }, t('scan.all_analysis_jobs')));
   return { destroy: jl.stop };
 }
 
 // --- duplicates ------------------------------------------------------------------------------
 export async function duplicates(main, state) {
+  const filters = pageFilters({ scope: 'user' });
   let offset = 0;
   const list = h('div', {});
   const summary = h('p', { class: 'summary' });
   const scopeSel = state.perms.global_dedupe ? h('select', {}, h('option', { value: 'user' }, t('dup.scope_user')), h('option', { value: 'global' }, t('dup.scope_global'))) : null;
   const scope = () => (scopeSel ? scopeSel.value : 'user');
+  if (scopeSel) scopeSel.value = filters.get('scope');
+  const flowStatus = await analysisState();
+  const pagination = tablePaging(state.user.id, 'duplicates', (o) => { offset = o; load(); });
   const load = async () => {
-    const d = await get(`/api/duplicates?scope=${scope()}&offset=${offset}&limit=20`);
+    if (!flowStatus.exists || flowStatus.empty) {
+      summary.hidden = true;
+      mount(list, h('p', { class: 'notice' }, t('analysis.no_results')));
+      return;
+    }
+    const d = await get(`/api/duplicates?scope=${scope()}&offset=${offset}&limit=${pagination.query()}`);
+    if (!await pagination.check(d.total, d.groups.length)) return;
     summary.textContent = t('dup.summary', { count: d.total, size: fmt.bytes(d.recoverable) });
-    mount(list, d.groups.length ? d.groups.map((g) => group(g)) : h('p', { class: 'muted' }, t('dup.none')),
-      pager(d.total, offset, 20, (o) => { offset = o; load(); }));
+    mount(list, d.groups.length && !flowStatus.empty ? d.groups.map((g) => group(g)) : h('p', { class: 'muted' }, t('dup.none')),
+      pagination.render(d.total, offset));
   };
   const group = (g) => h('fieldset', { class: 'dup-group' },
     h('legend', {}, t('dup.group_title', { size: fmt.bytes(g.size), count: g.members.length, recoverable: fmt.bytes(g.recoverable) })),
     h('code', { class: 'hash' }, g.sha256),
+    h('p', { class: 'keeper-decision', title: !g.capture_date ? fmt.dateTooltip(g.keeper_date) : undefined },
+      g.capture_date ? t('dup.capture_date', { date: fmt.localDate(g.capture_date) }) : t('dup.date_unknown'),
+      g.date_flags === 'utc_ambiguous' ? ' · ' + t('review.utc') : '',
+      ' · ', t('dup.keeper_date', { date: g.capture_date ? fmt.localDate(g.keeper_date) : fmt.date(g.keeper_date) }),
+      ' · ', t('dup.keeper_rule.' + g.keeper_rule)),
     h('ul', {}, g.members.map((m) => {
       const r = h('input', { type: 'radio', name: 'keep' + g.id, checked: m.id === g.keeper_file_id, 'aria-label': t('dup.keep') });
       r.addEventListener('change', async () => { try { await post(`/api/duplicates/${g.id}/keeper`, { file_id: m.id }); load(); } catch (e) { toast(e.message, 'error'); } });
+      const exif = h(g.keeper_rule.startsWith('capture_date_') ? 'strong' : 'span', { class: 'dup-date-exif' },
+        t('dup.exif_date', { date: m.exif_date ? fmt.exifDate(m.exif_date, m.exif_offset) : t('dup.unknown_date') }));
+      const filesystem = h(g.keeper_rule.startsWith('mtime') ? 'strong' : 'span', { class: 'dup-date-filesystem', title: fmt.dateTooltip(m.filesystem_date) },
+        t('dup.filesystem_date', { date: fmt.date(m.filesystem_date) }));
       return h('li', { class: m.id === g.keeper_file_id ? 'keeper' : '' }, h('label', {}, r, ' ', m.id === g.keeper_file_id ? badge(t('dup.kept'), 'ok') : badge(t('dup.duplicate'), 'warn'), ' ',
-        h('code', {}, m.path || t('dup.other_user')), m.owner ? h('span', { class: 'muted' }, ' · ' + m.owner) : null, ' · ', h('span', { class: 'muted' }, fmt.localDate(m.date))));
+        h('code', {}, m.path || t('dup.other_user')), m.owner ? h('span', { class: 'muted' }, ' · ' + m.owner) : null,
+        ' · ', exif, ' · ', filesystem));
     })));
-  if (scopeSel) scopeSel.addEventListener('change', () => { offset = 0; load(); });
+  if (scopeSel) scopeSel.addEventListener('change', () => { filters.save({ scope: scope() }); offset = 0; load(); });
   page(main, 'dup.title', 'dup.intro',
-    scopeSel ? field('dup.scope', scopeSel) : null,
-    h('div', { class: 'actions' },
-      button('dup.analyze', () => startJob(scope() === 'global' ? '/api/admin/global-dedupe/analyze' : '/api/duplicates/analyze', {}, (id) => waitForJob(id).then(load))),
-      button('dup.plan', () => startJob(scope() === 'global' ? '/api/admin/global-dedupe/plan' : '/api/duplicates/plan', {}, openPlanWhenReady), 'primary'),
-      h('a', { class: 'btn', href: '/api/duplicates.csv?scope=' + scope(), download: 'duplicates.csv' }, t('dup.export_csv'))),
+    stepGuide(2, flowStatus), analysisNotice(flowStatus),
+    h('div', { class: 'filters' }, scopeSel ? field('dup.scope', scopeSel) : null,
+      button('logs.clear', () => { if (scopeSel) scopeSel.value = 'user'; filters.save({ scope: 'user' }); offset = 0; load(); })),
+    flowStatus.empty ? null : h('div', { class: 'actions' },
+      button('dup.plan', (event) => startJob(
+        scope() === 'global' ? '/api/admin/global-dedupe/plan' : '/api/duplicates/plan',
+        {}, openPlanWhenReady, event.currentTarget), 'primary'),
+      h('a', { class: 'btn', href: '/api/duplicates.csv?scope=' + scope(), download: '' }, t('dup.export_csv'))),
     h('p', { class: 'hint' }, t('dup.rule')), summary, list);
   await load();
-  const jl = jobList(main, 'kind=dedupe_analyze&limit=3');
-  return { destroy: jl.stop };
+  main.appendChild(h('a', { class: 'small history-link', href: '#/jobs' }, t('analysis.history')));
 }
 
 // --- metadata --------------------------------------------------------------------------------
-export async function metadata(main) {
-  const { select } = await sourceSelect(true);
+function metadataResult(data) {
+  if (!data.analyzed_at || !data.summary) {
+    return null;
+  }
+  return h('div', {},
+    analysisSummary(data.population));
+}
+
+export async function metadata(main, state, [view] = []) {
+  const flowStatus = await analysisState();
+  const data = await get('/api/metadata/results');
+  const queue = h('section', { class: 'review-queue' });
   page(main, 'meta.title', 'meta.intro',
-    h('ul', { class: 'rules' }, ['meta.rule_copy', 'meta.rule_never_invent', 'meta.rule_never_overwrite', 'meta.rule_conflicts', 'meta.rule_video_utc', 'meta.rule_backup']
-      .map((k) => h('li', {}, t(k)))),
-    field('scan.source', select),
-    h('div', { class: 'actions' }, button('meta.analyze', () => startJob('/api/metadata/analyze', { source_id: select.value || undefined }, openPlanWhenReady), 'primary'),
-      h('a', { class: 'btn', href: '#/review' }, t('meta.open_review'))),
-    h('h2', {}, t('meta.jobs')));
-  const jl = jobList(main, 'kind=metadata_analyze&limit=5');
-  return { destroy: jl.stop };
+    stepGuide(2, flowStatus), analysisNotice(flowStatus),
+    flowStatus.exists ? metadataResult(data) : null,
+    queue,
+    flowStatus.exists && data.summary?.fills > 0 ? h('div', { class: 'automatic-fills' },
+      h('h2', {}, t('review.auto_fill')),
+      h('a', { class: 'btn primary', href: '#/plans/' + data.plan_job_id }, t('job.open_plan'))) : null,
+    h('details', { class: 'panel metadata-help' }, h('summary', {}, t('meta.how_completion_works')),
+      h('p', { class: 'hint' }, t('review.short_date_help')), h('p', { class: 'hint' }, t('review.write_help')),
+      h('ul', { class: 'rules' }, ['meta.rule_copy', 'meta.rule_never_invent', 'meta.rule_never_overwrite', 'meta.rule_conflicts', 'meta.rule_video_utc', 'meta.rule_backup']
+        .map((k) => h('li', {}, t(k))))),
+    flowStatus.exists && !flowStatus.empty && data.review_write_pending > 0 ? h('div', { class: 'actions' }, button('review.write_plan',
+      (event) => startJob('/api/review/plan', {}, openPlanWhenReady, event.currentTarget), 'primary')) : null,
+    h('a', { class: 'small history-link', href: '#/jobs' }, t('analysis.history')));
+  if (flowStatus.exists && !flowStatus.empty) await reviewQueue(queue, state, { embedded: true });
+  else mount(queue, h('p', { class: 'notice' }, t('analysis.no_results')));
 }
 
 // --- organise ---------------------------------------------------------------------------------
-export async function organize(main) {
+export async function organize(main, state) {
   const { select, sources } = await sourceSelect();
+  const flowStatus = await analysisState();
+  const previewBox = h('div', { class: 'organize-preview-banner' });
+  const updatePreview = dataView(previewBox);
+  const loadPreview = async () => {
+    if (!flowStatus.exists || flowStatus.empty) {
+      mount(previewBox, h('p', { class: 'notice' }, t('analysis.no_results')));
+      return;
+    }
+    const data = await get('/api/organize/preview?source_id=' + encodeURIComponent(select.value));
+    updatePreview(data.preview, (preview) => preview ? h('div', { class: 'notice' + (preview.stale ? ' warn' : '') },
+      h('p', {}, t('org.last_preview', { id: preview.id, date: fmt.date(preview.date), count: preview.count })),
+      preview.stale ? h('p', {}, t('org.stale.' + preview.reason)) : null,
+      h('div', { class: 'actions' }, h('a', { class: 'btn', href: '#/plans/' + preview.id }, t('job.open_plan')),
+        button('org.recompute', (event) => startJob('/api/organize/plan', { source_id: select.value }, openPlanWhenReady, event.currentTarget)),
+        button('org.discard', async () => {
+          try { await post(`/api/organize/preview/${preview.id}/discard`); await loadPreview(); }
+          catch (e) { toast(e.message, 'error'); }
+        }))) : null);
+  };
+  select.addEventListener('change', loadPreview);
   page(main, 'org.title', 'org.intro',
+    stepGuide(3, flowStatus), analysisNotice(flowStatus),
+    previewBox,
     h('ul', { class: 'rules' }, ['org.rule_structure', 'org.rule_no_date', 'org.rule_no_rename', 'org.rule_companions', 'org.rule_mtime', 'org.rule_volumes']
       .map((k) => h('li', {}, t(k)))),
-    sources.length ? field('scan.source', select) : h('p', { class: 'notice warn' }, t('scan.no_sources')),
-    sources.length ? h('div', { class: 'actions' }, button('org.plan', () => startJob('/api/organize/plan', { source_id: select.value }, openPlanWhenReady), 'primary')) : null,
+    sources.length ? field('scan.source', select) : noSources(state),
+    sources.length && flowStatus.exists && !flowStatus.empty
+      ? h('div', { class: 'actions' }, button('org.plan', (event) => startJob(
+        '/api/organize/plan', { source_id: select.value }, openPlanWhenReady, event.currentTarget), 'primary')) : null,
     h('h2', {}, t('org.jobs')));
   const jl = jobList(main, 'kind=organize_plan&limit=5');
+  await loadPreview();
   return { destroy: jl.stop };
 }
 
 // --- plan (dry-run) and confirmation ------------------------------------------------------------
 export async function plan(main, state, [id]) {
   let offset = 0;
-  let status = '';
+  let section = '#/jobs';
+  let status = pageFilters().get('status');
   const box = h('div', {});
+  const update = dataView(box);
   const applyBox = h('div', {});
+  const back = h('a', { class: 'back-link', href: section });
   let stopApply = null;
+  const filter = h('select', {}, ['', 'planned', 'blocked', 'done', 'skipped', 'failed'].map((s) => h('option', { value: s }, s ? t('plan.status.' + s) : t('plan.all'))));
+  filter.value = status;
+  filter.addEventListener('change', () => { status = filter.value; pageFilters().save({ status }); offset = 0; load(); });
+  const filterField = field('plan.filter', filter);
   const load = async () => {
     const d = await get(`/api/plans/${id}?offset=${offset}&limit=100${status ? '&status=' + status : ''}`);
+    section = { review_plan: '#/metadata', metadata_analyze: '#/metadata', analyze_library: '#/metadata', dedupe_plan: '#/duplicates',
+      organize_plan: '#/organize', undo_moves_plan: '#/report', undo_meta_plan: '#/report' }[d.job.kind] || '#/jobs';
+    back.href = section;
+    back.textContent = '← ' + t('common.back_to', { page: t('nav.' + section.slice(2)) });
     const counts = {};
     for (const s of d.summary) counts[s.status] = (counts[s.status] || 0) + s.n;
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
-    const filter = h('select', {}, ['', 'planned', 'blocked', 'done', 'skipped', 'failed'].map((s) => h('option', { value: s, selected: s === status }, s ? t('plan.status.' + s) : t('plan.all'))));
-    filter.addEventListener('change', () => { status = filter.value; offset = 0; load(); });
+    if (!box.isConnected || refreshBlocked(box)) return;
+    filterField.hidden = total === 0;
+    update(d, () => {
     const rows = d.items.map((it) => h('tr', {},
       h('td', {}, t('plan.kind.' + it.kind)),
       h('td', {}, h('code', {}, it.src), it.companions.map((c) => h('div', { class: 'muted small' }, '+ ', h('code', {}, c.src)))),
@@ -146,15 +314,23 @@ export async function plan(main, state, [id]) {
         Object.entries(it.fills).map(([f, v]) => h('div', { class: 'small' }, t('field.' + f), ': ', h('code', {}, String(v.value)), ' ', h('span', { class: 'muted' }, t('plan.from', { tag: v.from, source: v.source })))),
         it.restore.length ? h('div', { class: 'small' }, t('plan.restore_tags'), ' ', h('code', {}, it.restore.join(', '))) : null),
       h('td', {}, badge(t('plan.status.' + it.status), it.status === 'done' ? 'ok' : it.status === 'planned' ? 'info' : 'warn'), it.note ? h('div', { class: 'small muted' }, t('plan.note.' + it.note)) : null)));
-    mount(box,
+    return [
       h('div', { class: 'job-head' }, h('strong', {}, t('job.kind.' + d.job.kind)), ' #' + d.job.id, ' ', jobBadge(d.job.status)),
-      d.job.result ? h('pre', { class: 'result' }, JSON.stringify(d.job.result, null, 1)) : null,
-      h('p', { class: 'summary' }, t('plan.summary', { count: total, planned: counts.planned || 0, done: counts.done || 0, blocked: (counts.blocked || 0) + (counts.skipped || 0) })),
-      field('plan.filter', filter),
-      table(['plan.col_action', 'plan.col_from', 'plan.col_to', 'plan.col_status'], rows),
+      d.job.result && ['metadata_analyze', 'analyze_library'].includes(d.job.kind)
+        ? h('p', { class: 'summary' }, t('meta.summary', d.job.result.metadata || d.job.result))
+        : null,
+      total ? h('p', { class: 'summary' }, t('plan.summary', { count: total, planned: counts.planned || 0, done: counts.done || 0, blocked: (counts.blocked || 0) + (counts.skipped || 0) }))
+        : h('div', { class: 'empty-state' }, h('p', {}, t(['metadata_analyze', 'analyze_library', 'review_plan'].includes(d.job.kind)
+          ? 'meta.empty_fills' : 'plan.empty', { count: d.review_counts?.pending || 0 })),
+          ['metadata_analyze', 'analyze_library', 'review_plan'].includes(d.job.kind)
+            ? h('a', { href: '#/metadata/review' }, t('meta.review_items', { count: d.review_counts?.pending || 0 })) : null),
+      d.preview?.stale ? h('p', { class: 'notice warn preview-stale' }, t('org.stale.' + d.preview.reason),
+        ' ', h('a', { href: '#/organize' }, t('org.recompute'))) : null,
+      rows.length ? table(['plan.col_action', 'plan.col_from', 'plan.col_to', 'plan.col_status'], rows) : null,
       pager(total, offset, 100, (o) => { offset = o; load(); }),
       d.can_confirm && (counts.planned || 0) > 0 ? h('div', { class: 'actions sticky' }, button('plan.confirm', () => confirmPlan(d, counts.planned), 'primary')) : null,
-      d.apply_jobs.length ? h('p', {}, t('plan.apply_jobs'), ' ', d.apply_jobs.map((a) => h('span', {}, '#' + a.id + ' ', jobBadge(a.status), ' '))) : null);
+      d.apply_jobs.length ? h('p', {}, t('plan.apply_jobs'), ' ', d.apply_jobs.map((a) => h('span', {}, '#' + a.id + ' ', jobBadge(a.status), ' '))) : null];
+    });
   };
   const confirmPlan = async (d, n) => {
     const ok = await modal({ titleKey: 'plan.confirm_title', body: h('div', {}, h('p', {}, t('plan.confirm_text', { count: n })), h('p', { class: 'hint' }, t('plan.confirm_safety'))),
@@ -167,66 +343,221 @@ export async function plan(main, state, [id]) {
       stopApply = jobList(applyBox, 'kind=' + d.job.apply_kind + '&limit=3').stop;
     } catch (e) { toast(e.message, 'error'); }
   };
-  page(main, 'plan.title', 'plan.intro', box, h('h2', {}, t('plan.execution')), applyBox);
+  page(main, 'plan.title', 'plan.intro', back, h('div', { class: 'filters' }, filterField,
+    button('logs.clear', () => { filter.value = ''; filter.dispatchEvent(new Event('change')); })), box,
+    h('h2', {}, t('plan.execution')), applyBox);
   await load();
-  const stop = poll(load, 4000);
-  return { destroy: () => { stop(); if (stopApply) stopApply(); } };
+  const stop = poll(load, 4000, box);
+  return { section, destroy: () => { stop(); if (stopApply) stopApply(); } };
 }
 
 // --- report, manifest, undo, verify --------------------------------------------------------------
 export async function report(main) {
   const r = await get('/api/report');
+  const flowStatus = await analysisState();
   const rows = r.files.map((x) => h('tr', {}, h('td', {}, t('file.status.' + x.status)), h('td', {}, t('file.kind.' + x.media_kind)), h('td', {}, fmt.number(x.n)), h('td', {}, fmt.bytes(x.bytes))));
   const man = r.manifest.map((x) => h('tr', {}, h('td', {}, t('manifest.action.' + x.action)), h('td', {}, fmt.number(x.n)), h('td', {}, fmt.number(x.undone || 0))));
+  const selected = new URLSearchParams(location.hash.split('?')[1] || '').get('operation');
+  const operations = (r.operations || []).map((op) => h('tr', { id: 'operation-' + op.id,
+    class: String(op.id) === selected ? 'operation-selected' : '' },
+    h('td', {}, instant(op.date)), h('td', {}, t('report.operation.' + op.type), ' #' + op.id),
+    h('td', {}, fmt.number(op.count)), h('td', {}, op.user),
+    h('td', {}, fmt.number(op.undone))));
   page(main, 'report.title', 'report.intro',
+    stepGuide(4, flowStatus),
+    h('h2', {}, t('report.operations')),
+    table(['logs.col_time', 'report.col_kind', 'report.col_count', 'admin.col_user', 'report.col_undone'], operations),
+    h('p', { class: 'hint' }, t('report.global_undo_note')),
     h('h2', {}, t('report.files')), table(['report.col_status', 'report.col_kind', 'report.col_count', 'report.col_size'], rows),
     h('p', {}, t('report.missing', { count: r.missing })),
     h('h2', {}, t('report.manifest')), table(['report.col_action', 'report.col_count', 'report.col_undone'], man),
-    h('div', { class: 'actions' }, h('a', { class: 'btn', href: '/api/manifest.csv', download: 'manifest.csv' }, t('report.manifest_csv'))),
+    h('div', { class: 'actions' }, h('a', { class: 'btn', href: '/api/manifest.csv', download: '' }, t('report.manifest_csv'))),
     h('h2', {}, t('report.undo')), h('p', { class: 'hint' }, t('report.undo_db_note')),
     h('div', { class: 'actions' },
-      button('report.undo_moves', () => startJob('/api/undo/moves/plan', {}, openPlanWhenReady)),
-      button('report.undo_metadata', () => startJob('/api/undo/metadata/plan', {}, openPlanWhenReady))),
+      button('report.undo_moves', (event) => startJob('/api/undo/moves/plan', {}, openPlanWhenReady, event.currentTarget)),
+      button('report.undo_metadata', (event) => startJob('/api/undo/metadata/plan', {}, openPlanWhenReady, event.currentTarget))),
     h('h2', {}, t('report.verify')), h('p', { class: 'hint' }, t('report.verify_help')),
-    h('div', { class: 'actions' }, button('report.verify_start', () => startJob('/api/verify', {}), 'primary')));
+    h('div', { class: 'actions' }, button('report.verify_start', (event) => startJob(
+      '/api/verify', {}, null, event.currentTarget), 'primary')));
   const jl = jobList(main, 'kind=verify&limit=3');
   return { destroy: jl.stop };
 }
 
 // --- jobs -----------------------------------------------------------------------------------------
-export async function jobs(main) {
-  const sel = h('select', {}, ['open', '', 'completed', 'failed', 'cancelled'].map((s) => h('option', { value: s }, s ? t('job.filter.' + s) : t('job.filter.all'))));
+export async function jobs(main, state) {
+  const query = new URLSearchParams(location.hash.split('?')[1] || '');
+  const kind = query.get('kind') || '';
+  const sel = h('select', {}, ['open', 'all', 'completed', 'failed', 'cancelled'].map((s) => h('option', { value: s }, t('job.filter.' + s))));
   const box = h('div', {});
-  page(main, 'jobs.title', 'jobs.intro', field('jobs.filter', sel), box);
-  let jl = jobList(box, 'status=open&limit=50');
-  sel.addEventListener('change', () => { jl.stop(); mount(box); jl = jobList(box, (sel.value ? 'status=' + sel.value + '&' : '') + 'limit=50'); });
-  return { destroy: () => jl.stop() };
+  const pagingBox = h('div', {});
+  const update = dataView(box);
+  const filters = filterControls({ status: sel }, () => { offset = 0; return load(); }, { status: kind ? 'all' : 'open' });
+  page(main, 'jobs.title', 'jobs.intro', stepGuide(0, await analysisState()), h('div', { class: 'filters log-filters' },
+    field('jobs.filter', sel), filters.clear), box, pagingBox);
+  let offset = 0;
+  const pagination = tablePaging(state.user.id, 'jobs', (o) => { offset = o; load(); });
+  const load = async (automatic = false) => {
+    const q = new URLSearchParams({ offset, limit: pagination.query() });
+    if (kind) q.set('kind', kind);
+    if (filters.get('status') !== 'all') q.set('status', filters.get('status'));
+    const d = await get('/api/jobs?' + q);
+    if (!box.isConnected || !await pagination.check(d.total, d.items.length)) return;
+    if (automatic && refreshBlocked(main)) return;
+    update(d.items, () => d.items.length ? d.items.map((j) => jobCard(j, load)) : h('p', { class: 'muted' }, t('job.none')));
+    const controls = pagination.render(d.total, offset);
+    if (!controls.isConnected) pagingBox.appendChild(controls);
+  };
+  await load();
+  return { destroy: poll(() => load(true), 1500, main) };
 }
 
 // --- logs (entries stay in English; only the surrounding UI is translated) -------------------------
-export async function logs(main) {
+export async function logs(main, state) {
   let offset = 0;
-  const ev = h('input', { type: 'text', placeholder: 'FILE_MOVED', size: '16' });
   const lv = h('select', {}, ['', 'INFO', 'WARNING', 'ERROR'].map((l) => h('option', { value: l }, l || t('logs.all_levels'))));
-  const job = h('input', { type: 'number', min: '1', size: '6' });
+  const job = h('input', { type: 'number', min: '1', class: 'log-job-filter' });
+  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  let selectedEvent = params.get('event') || '';
+  let selectedOwner = params.get('owner') || '';
+  const ev = comboBox({ options: [{ value: '', label: t('logs.all_events') },
+    ...(selectedEvent ? [{ value: selectedEvent, label: selectedEvent }] : [])], value: selectedEvent });
+  ev.input.classList.add('log-event-filter');
+  const onlyPresent = h('input', { type: 'checkbox', checked: params.get('only_present') !== '0', class: 'log-only-present' });
+  const owner = ['admin', 'administrator'].includes(state.user.role) ? h('select', { class: 'log-user-filter' }) : null;
+  lv.value = params.get('level') || '';
+  job.value = params.get('job_id') || '';
   const box = h('div', {});
-  const load = async () => {
-    const q = new URLSearchParams({ offset, limit: 100 });
-    if (ev.value) q.set('event', ev.value.trim().toUpperCase());
-    if (lv.value) q.set('level', lv.value);
-    if (job.value) q.set('job_id', job.value);
-    const d = await get('/api/logs?' + q);
-    mount(box, table(['logs.col_time', 'logs.col_level', 'logs.col_event', 'logs.col_message', 'logs.col_job'],
-      d.items.map((r) => h('tr', {}, h('td', {}, fmt.date(r.ts)), h('td', {}, r.level), h('td', {}, h('code', {}, r.event)),
-        h('td', { lang: 'en', dir: 'ltr' }, r.message), h('td', {}, r.job_id ? '#' + r.job_id : '')))),
-    pager(d.total, offset, 100, (o) => { offset = o; load(); }));
+  const exportFiltered = h('a', { class: 'btn log-export', download: '' });
+  const exportAll = h('a', { class: 'btn log-export-all', href: '/api/logs.csv?scope=all', download: '' });
+  const exportNote = h('p', { class: 'hint log-export-note' });
+  const visibilityNote = h('p', { class: 'notice log-visibility-note', hidden: true });
+  const filters = filterControls({ event: ev, level: lv, job_id: job, ...(owner ? { owner, only_present: onlyPresent } : {}) },
+    () => { selectedEvent = filters.get('event'); selectedOwner = filters.get('owner') || ''; offset = 0; return load(); },
+    { only_present: '1' });
+  let appliedFilters = new URLSearchParams();
+  let eventCounts = {};
+  const updateEvents = () => {
+    ev.setOptions([{ value: '', label: t('logs.all_events') },
+      ...Object.entries(eventCounts).filter(([code, count]) => owner ? !onlyPresent.checked || count > 0 || code === selectedEvent : count > 0)
+        .sort(([a, x], [b, y]) => Number(y > 0) - Number(x > 0) || a.localeCompare(b))
+        .map(([code, count]) => ({ value: code, label: `${code} (${fmt.number(count)})`, muted: count === 0,
+          section: count > 0 ? 'logs.present' : 'logs.not_present' }))]);
+    ev.setValue(selectedEvent);
   };
-  page(main, 'logs.title', 'logs.intro', h('div', { class: 'filters' }, field('logs.event', ev), field('logs.level', lv), field('logs.job', job),
-    button('logs.apply', () => { offset = 0; load(); })), box);
+  onlyPresent.addEventListener('change', updateEvents);
+  const updateExport = (d) => {
+    const q = new URLSearchParams(appliedFilters);
+    q.delete('offset'); q.delete('limit'); q.set('scope', 'filtered');
+    exportFiltered.href = '/api/logs.csv?' + q;
+    exportFiltered.setAttribute('aria-disabled', String(d.total === 0));
+    if (d.total === 0) exportFiltered.removeAttribute('href');
+    exportFiltered.textContent = t('logs.export_filtered', { count: d.total });
+    exportAll.textContent = t('logs.export_all', { count: d.all_total });
+    const username = selectedOwner === '__system__' ? t('logs.system') : d.users?.find((u) => u.id === selectedOwner)?.username;
+    exportNote.textContent = owner
+      ? (selectedOwner ? t('logs.export_user_note', { user: username || selectedOwner }) + ' ' + t('logs.export_all_note') : t('logs.export_all_note'))
+      : t('logs.export_own_note');
+  };
+  exportFiltered.addEventListener('click', (event) => { if (exportFiltered.getAttribute('aria-disabled') === 'true') event.preventDefault(); });
+  const clearFilters = () => filters.clear.click();
+  const pagination = tablePaging(state.user.id, 'logs', (o) => { offset = o; load(); });
+  const load = async () => {
+    const q = new URLSearchParams({ offset, limit: pagination.query() });
+    if (selectedEvent) q.set('event', selectedEvent);
+    if (lv.value) q.set('level', lv.value);
+    if (filters.get('job_id')) q.set('job_id', filters.get('job_id'));
+    if (owner && selectedOwner) q.set('owner', selectedOwner);
+    const d = await get('/api/logs?' + q);
+    if (!await pagination.check(d.total, d.items.length)) return;
+    appliedFilters = q; updateExport(d);
+    visibilityNote.hidden = !owner || !selectedOwner || !d.not_visible;
+    visibilityNote.textContent = t('logs.not_visible', { count: d.not_visible || 0,
+      user: d.users?.find((u) => u.id === selectedOwner)?.username || selectedOwner });
+    eventCounts = d.event_counts; updateEvents();
+    if (owner) mount(owner, h('option', { value: '' }, t('logs.all_users')),
+      h('option', { value: '__system__', selected: selectedOwner === '__system__' }, t('logs.system')),
+      d.users.map((user) => h('option', { value: user.id, selected: selectedOwner === user.id }, user.username)));
+    mount(box, d.items.length ? table(['logs.col_time', 'logs.col_level', 'logs.col_event', 'logs.col_message', 'logs.col_job', ...(owner ? ['admin.col_user'] : [])],
+      d.items.map((r) => h('tr', {}, h('td', {}, instant(r.ts)), h('td', {}, r.level), h('td', { class: 'event-code' }, h('code', {}, r.event)),
+        h('td', { lang: 'en', dir: 'ltr' }, r.message), h('td', {}, r.job_id ? '#' + r.job_id : ''),
+        owner ? h('td', {}, r.user || t('logs.system')) : null))) :
+      h('div', { class: 'empty-state notice' }, h('p', {}, t(filters.get('job_id') ? 'logs.no_job_events' : selectedEvent ? 'logs.no_code_events' : 'logs.empty', { code: selectedEvent, id: filters.get('job_id') })),
+        button('logs.clear', clearFilters)),
+    pagination.render(d.total, offset));
+  };
+  const eventField = field('logs.event', ev.el);
+  eventField.classList.add('log-event-field');
+  page(main, 'logs.title', 'logs.intro', stepGuide(0, await analysisState()), h('div', { class: 'filters log-filters' }, eventField,
+    owner ? field('logs.only_present', onlyPresent) : null, field('logs.level', lv),
+    owner ? field('admin.col_user', owner) : null,
+    field('logs.job', job),
+    filters.apply, filters.clear),
+    h('div', { class: 'filters log-export-actions' }, exportFiltered, exportAll), exportNote,
+    h('p', { class: 'hint security-log-note' }, h('a', { href: '#/security-activity' }, t('security.see_log'))),
+    visibilityNote, box);
   await load();
 }
 
 // --- personal settings ------------------------------------------------------------------------------
+export async function securityActivity(main, state, admin = ['admin', 'administrator'].includes(state.user.role)) {
+  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  let selectedEvent = params.get('event') || '';
+  const event = comboBox({ options: [{ value: '', label: t('logs.all_events') }], value: selectedEvent });
+  const owner = admin ? h('select', {}) : null;
+  const since = h('input', { type: 'date' });
+  const until = h('input', { type: 'date' });
+  let selectedUser = params.get('user') || '';
+  let offset = 0;
+  const box = h('div', {});
+  const filtered = h('a', { class: 'btn', download: '' });
+  const all = h('a', { class: 'btn', download: '' });
+  const endpoint = admin ? '/api/admin/audit' : '/api/me/security-activity';
+  const pagination = tablePaging(state.user.id, admin ? 'audit' : 'security', (next) => { offset = next; load(); });
+  const load = async () => {
+    const q = new URLSearchParams();
+    for (const key of ['since', 'until']) {
+      const value = filters.get(key);
+      if (value) q.set(key, value.length === 10 ? value + (key === 'until' ? 'T23:59:59.999Z' : 'T00:00:00Z') : value);
+    }
+    q.set('offset', offset); q.set('limit', pagination.query());
+    if (selectedEvent) q.set('event', selectedEvent); else q.delete('event');
+    if (selectedUser) q.set('user', selectedUser); else q.delete('user');
+    const data = await get(endpoint + '?' + q);
+    if (!await pagination.check(data.total, data.items.length)) return;
+    event.setOptions([{ value: '', label: t('logs.all_events') }, ...Object.entries(data.event_counts)
+      .map(([code, count]) => ({ value: code, label: `${code} (${fmt.number(count)})` }))]);
+    event.setValue(selectedEvent);
+    if (owner) {
+      const value = selectedUser;
+      mount(owner, h('option', { value: '' }, t('logs.all_users')),
+        data.users.map((user) => h('option', { value: user, selected: value === user }, user)));
+    }
+    q.delete('offset'); q.delete('limit'); q.set('scope', 'filtered');
+    filtered.href = endpoint + '.csv?' + q;
+    filtered.textContent = t('logs.export_filtered', { count: data.total });
+    filtered.setAttribute('aria-disabled', String(!data.total));
+    if (!data.total) filtered.removeAttribute('href');
+    all.href = endpoint + '.csv?scope=all';
+    all.textContent = t('logs.export_all', { count: data.all_total });
+    mount(box, data.items.length ? table(['logs.col_time', 'admin.col_user', 'security.source_ip', 'logs.col_event', 'logs.col_message'],
+      data.items.map((row) => h('tr', {}, h('td', {}, instant(row.ts)), h('td', {}, row.user),
+        h('td', {}, row.ip || t('common.na')), h('td', {}, h('code', {}, row.event)),
+        h('td', { lang: 'en', dir: 'ltr' }, row.message)))) :
+      h('p', { class: 'empty-state notice' }, t(selectedEvent ? 'logs.no_code_events' : 'logs.empty', { code: selectedEvent })),
+    pagination.render(data.total, offset));
+  };
+  const filters = filterControls({ event, ...(owner ? { user: owner } : {}), since, until }, () => {
+    selectedEvent = filters.get('event'); selectedUser = filters.get('user') || ''; offset = 0; return load();
+  });
+  page(main, 'security.activity', null,
+    h('p', { class: 'hint' }, t('security.trial')),
+    h('div', { class: 'filters log-filters' }, field('logs.event', event.el), owner ? field('admin.col_user', owner) : null,
+      field('filters.since', since), field('filters.until', until), filters.clear),
+    h('div', { class: 'actions' }, filtered, all), box);
+  await load();
+  return { destroy: () => event.close() };
+}
+
 export async function me(main, state) {
   const cur = h('input', { type: 'password', autocomplete: 'current-password' });
   const p1 = h('input', { type: 'password', autocomplete: 'new-password' });
@@ -236,14 +567,18 @@ export async function me(main, state) {
     kv([['me.username', state.user.username], ['me.role', t('role.' + state.user.role)]]),
     h('form', { class: 'form', onsubmit: async (e) => {
       e.preventDefault();
+      const submit = e.submitter;
+      if (submit) submit.disabled = true;
       try {
         await post('/api/me/password', { current: cur.value, password: p1.value, password_confirm: p2.value });
         toast(t('me.password_changed'), 'ok');
-        state.user.must_change_password = false;
         cur.value = p1.value = p2.value = '';
-        location.hash = '#/home';
-        location.reload();
-      } catch (err) { toast(err.message, 'error'); }
+        window.dispatchEvent(new CustomEvent('po:password-changed'));
+      } catch (err) {
+        toast(err.message, 'error');
+      } finally {
+        if (submit?.isConnected) submit.disabled = false;
+      }
     } }, h('h2', {}, t('user.change_password')), field('me.current', cur), field('me.new', p1, 'setup.password_rules'), field('me.confirm', p2),
     h('div', { class: 'actions' }, h('button', { type: 'submit', class: 'btn primary' }, t('common.save')))));
 }

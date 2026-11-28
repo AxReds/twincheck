@@ -101,7 +101,7 @@ def prepare(db: Database, allow_migrate: bool = False, create: bool = True) -> d
                 if not allow_migrate:
                     raise DBError("needs_migration", version=v, supported=CURRENT_VERSION)
                 migrate(db)
-                events.console("DB_MIGRATED", from_version=v, to_version=CURRENT_VERSION)
+                log(db, "DB_MIGRATED", echo=True, from_version=v, to_version=CURRENT_VERSION)
             else:
                 events.console("DB_STRUCTURE_REUSED", schema=v)
         if get_meta(db, "migration_state") is not None:

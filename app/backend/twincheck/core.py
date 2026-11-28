@@ -19,6 +19,7 @@ from .web.security import LoginLimiter, SessionStore
 # importing the services registers the job kinds
 from .services import dedupe, metadata, moves, scan, undo, verify  # noqa: F401,E402
 from .db import transfer  # noqa: F401,E402
+from .exif import ExifTool
 
 
 class StartupError(Exception):
@@ -38,7 +39,10 @@ class App:
         self.instance_lock: dbm.InstanceLock | None = None
         self.instance_id = dbm.new_instance_id()
         self.jobs = JobManager(self, settings.job_workers)
+        self.exiftool = ExifTool(settings.exiftool, persistent=True)
         self.sessions = SessionStore()
+        self.sessions.on_expire = lambda session: self.security_audit(
+            self.user(session["user_id"]), "SESSION_EXPIRED", ip=session.get("ip", ""))
         self.limiter = LoginLimiter()
         self.setup_token: str | None = None
         self.maintenance: str | None = None
@@ -78,6 +82,10 @@ class App:
     def settings_section(self, name: str) -> dict:
         data = self.vault.data or {}
         return (data.get("settings") or {}).get(name, {})
+
+    @property
+    def library_timezone(self) -> str:
+        return (self.vault.data or {}).get("settings", {}).get("library_timezone") or self.settings.library_timezone_default
 
     def settings_password_file(self) -> str | None:
         return os.environ.get("MARIADB_PASSWORD_FILE") or None
@@ -131,6 +139,7 @@ class App:
 
     def shutdown(self) -> None:
         self.jobs.stop()
+        self.exiftool.close()
         if self.db_ready:
             try:
                 dbm.log(self.db, "APP_STOPPED")
@@ -179,6 +188,13 @@ class App:
             self.end_maintenance(resume=True)
 
     # -- audit ---------------------------------------------------------------------------
+    def security_audit(self, user: dict | None, event: str, **params) -> None:
+        """Security activity belongs only to the encrypted instance audit store."""
+        with self.vault.transaction() as data:
+            audit(data, user["username"] if user else "system", event,
+                  user_id=user["id"] if user else None,
+                  username=user["username"] if user else params.pop("username", ""), **params)
+
     def audit(self, actor: str, event: str, **params) -> None:
         with self.vault.transaction() as data:
             audit(data, actor, event, **params)

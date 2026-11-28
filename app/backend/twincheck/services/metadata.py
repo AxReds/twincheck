@@ -18,12 +18,14 @@ import json
 import os
 import re
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from ..db.schema import utcnow
 from ..exif import ExifError, ExifTool
 from ..fsutil import path_hash, sha256_file
 from ..jobs import JobContext, register
 from .companions import group_directory
+from . import review_state
 
 FIELDS = ["datetime_original", "create_date", "modify_date", "offset", "gps", "make", "model", "orientation",
           "dimensions", "duration", "title", "description"]
@@ -265,7 +267,28 @@ def date_from_filename(name: str) -> str | None:
     return None
 
 
-def analyse_file(f: dict, own: dict, sidecars: list[dict], enabled: set[str]) -> dict:
+def date_candidate(c: dict, library_timezone: str | None) -> dict:
+    """Organizing values are library wall-clock values; raw metadata stays intact."""
+    out = dict(c)
+    out["source"] = ("sidecar" if c.get("source", "").startswith("sidecar") else
+                     "quicktime" if c.get("tag", "").startswith(("QuickTime:", "Track", "Keys:")) else "exif")
+    out["timezone"] = None
+    off = c.get("offset")
+    if off and library_timezone:
+        instant = datetime.fromisoformat(c["value"] + off)
+        out["value"] = instant.astimezone(ZoneInfo(library_timezone)).strftime("%Y-%m-%dT%H:%M:%S")
+        out["timezone"] = library_timezone
+    return out
+
+
+def mtime_proposal(f: dict, library_timezone: str) -> dict:
+    instant = datetime.fromtimestamp((f.get("mtime_ns") or 0) / 1e9, timezone.utc)
+    return {"field": "datetime_original", "value": instant.astimezone(ZoneInfo(library_timezone)).strftime("%Y-%m-%dT%H:%M:%S"),
+            "origin": "mtime_utc", "source": "filesystem_mtime", "timezone": library_timezone,
+            "original": instant.strftime("%Y-%m-%dT%H:%M:%SZ")}
+
+
+def analyse_file(f: dict, own: dict, sidecars: list[dict], enabled: set[str], library_timezone: str | None = "UTC") -> dict:
     """Pure function: decide fills, conflicts, proposals and the chosen date."""
     kind, ext = f["media_kind"], f["ext"]
     fields: dict[str, dict] = {}
@@ -296,13 +319,16 @@ def analyse_file(f: dict, own: dict, sidecars: list[dict], enabled: set[str]) ->
                     break
         fields[field] = info
     # chosen date for organisation
-    chosen, src, flags = None, None, ""
+    chosen, src, flags, chosen_offset = None, None, "", None
     dt_cands = fields["datetime_original"]["candidates"] + fields["create_date"]["candidates"]
     local = [c for c in dt_cands if c["semantic"] in ("local", "tz")]
     utc = [c for c in dt_cands if c["semantic"] == "utc"]
     if "datetime_original" not in conflicts and "create_date" not in conflicts:
         if local:
-            chosen, src = local[0]["value"], local[0]["tag"]
+            chosen, src, chosen_offset = local[0]["value"], local[0]["tag"], local[0].get("offset")
+            organizing = date_candidate({**local[0], "offset": chosen_offset or
+                                        next((c["value"] for c in own.get("offset", [])), None)}, library_timezone)
+            chosen = organizing["value"]
         elif utc:
             off = next((c["value"] for c in own.get("offset", [])), None)
             if off and re.match(r"^[+\-]\d{2}:\d{2}$", off):
@@ -315,14 +341,22 @@ def analyse_file(f: dict, own: dict, sidecars: list[dict], enabled: set[str]) ->
     if not chosen and not conflicts.get("datetime_original") and not conflicts.get("create_date"):
         fn = date_from_filename(f["name"])
         if fn:
-            proposals.append({"field": "datetime_original", "value": fn, "origin": "filename"})
-        mt = datetime.fromtimestamp((f.get("mtime_ns") or 0) / 1e9, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-        proposals.append({"field": "datetime_original", "value": mt, "origin": "mtime_utc"})
+            proposals.append({"field": "datetime_original", "value": fn, "origin": "filename", "source": "filename", "timezone": None})
+        proposals.append(mtime_proposal(f, library_timezone or "UTC"))
     return {"fields": fields, "fills": fills, "conflicts": conflicts, "chosen": chosen, "chosen_source": src,
-            "flags": flags, "proposals": proposals}
+            "chosen_offset": chosen_offset, "flags": flags, "proposals": proposals}
 
 
 def _add_review(db, f: dict, kind: str, details: dict, proposals: list, job_id: int) -> None:
+    existing = db.query_one("SELECT * FROM review_items WHERE file_id=? AND owner_id=? "
+                            "AND (kind=? OR skipped_at IS NOT NULL) ORDER BY id LIMIT 1",
+                            (f["id"], f["owner_id"], kind))
+    if existing:
+        if review_state.status(existing) == "pending":
+            db.execute("UPDATE review_items SET details=?, proposals=?, job_id=? WHERE id=?",
+                       (json.dumps(details, ensure_ascii=False), json.dumps(proposals, ensure_ascii=False),
+                        job_id, existing["id"]))
+        return
     db.execute(
         "INSERT INTO review_items (owner_id, file_id, kind, details, proposals, status, created_at, job_id, group_key, applied) "
         "VALUES (?,?,?,?,?,?,?,?,?,?)",
@@ -331,12 +365,58 @@ def _add_review(db, f: dict, kind: str, details: dict, proposals: list, job_id: 
     )
 
 
+def ensure_capture_dates(ctx: JobContext, rows: list[dict]) -> int:
+    """Read reliable date metadata without creating review items or write plans."""
+    pending = [r for r in rows if not r.get("meta_read") or r.get("phase_meta") not in ("analysed", "done")]
+    if not pending:
+        return 0
+    et = ctx.app.exiftool
+    dirs: dict[str, tuple] = {}
+    side_paths: dict[int, list[str]] = {}
+    for row in pending:
+        directory = os.path.dirname(row["cur_path"])
+        if directory not in dirs:
+            try:
+                dirs[directory] = group_directory(os.listdir(directory))
+            except OSError:
+                dirs[directory] = ({}, set())
+        companions = dirs[directory][0].get(row["name"], [])
+        side_paths[row["id"]] = [os.path.join(directory, name) for name in companions
+                                 if name.lower().endswith((".xmp", ".json"))]
+    to_read = [row["cur_path"] for row in pending]
+    to_read += [path for paths in side_paths.values() for path in paths if path.lower().endswith(".xmp")]
+    try:
+        metadata = et.read(to_read)
+    except ExifError as exc:
+        raise RuntimeError(exc.args[0]) from None
+    for row in pending:
+        own = collect(metadata.get(row["cur_path"], {}), "file")
+        sidecars = []
+        for path in side_paths[row["id"]]:
+            if path.lower().endswith(".xmp"):
+                sidecars.append(collect(metadata.get(path, {}), "sidecar:" + os.path.basename(path)))
+            else:
+                sidecars.append(takeout_candidates(path))
+        result = analyse_file(row, own, sidecars, set(), ctx.app.library_timezone)
+        decided = review_state.preserves_decision(ctx.db, row["id"])
+        if decided:
+            result.update(chosen=row["chosen_date"], chosen_source=row["chosen_date_source"], flags=row["date_flags"])
+        stored = {"fields": result["fields"], "fills": {}, "proposals": result["proposals"]}
+        ctx.db.execute("UPDATE files SET meta_read=?, chosen_date=?, chosen_date_source=?, date_flags=?, "
+                       "phase_meta='analysed', updated_at=? WHERE id=?",
+                       (json.dumps(stored, ensure_ascii=False), result["chosen"], result["chosen_source"],
+                        result["flags"], utcnow(), row["id"]))
+        row.update(meta_read=stored and json.dumps(stored, ensure_ascii=False), chosen_date=result["chosen"],
+                   chosen_date_source=result["chosen_source"], date_flags=result["flags"], phase_meta="analysed")
+    return len(pending)
+
+
 @register("metadata_analyze", auto_resume=True)
 def metadata_analyze(ctx: JobContext) -> dict:
     """Read metadata, choose dates, queue doubtful files for review and build the
     plan of automatic completions (written only after confirmation)."""
     db = ctx.db
-    et = ExifTool(ctx.app.settings.exiftool)
+    et = ctx.app.exiftool
     enabled = set(ctx.app.settings_section("metadata").get("fields", WRITABLE))
     source_id = ctx.params.get("source_id")
     where = "owner_id=? AND present=1 AND media_kind IN ('image','video') AND status<>'dup_moved'"
@@ -344,13 +424,24 @@ def metadata_analyze(ctx: JobContext) -> dict:
     if source_id:
         where += " AND source_id=?"
         args.append(source_id)
+    from . import access
+    user = ctx.app.user(ctx.owner_id)
+    in_scope = (lambda row: access.file_in_scope(ctx.app.settings.data_dir.as_posix(), user, row)) if user else (lambda row: True)
     last_id = ctx.checkpoint.get("last_id", 0)
     stats = ctx.checkpoint.get("stats") or {"analysed": 0, "fills": 0, "review": 0}
     total = int(db.scalar(f"SELECT COUNT(*) AS n FROM files WHERE {where}", args) or 0)
     seq = ctx.checkpoint.get("seq", 0)
     while True:
         ctx.check()
-        rows = db.query(f"SELECT * FROM files WHERE {where} AND id>? ORDER BY id LIMIT 50", (*args, last_id))
+        rows = [row for row in db.query(f"SELECT * FROM files WHERE {where} AND id>? ORDER BY id LIMIT 50", (*args, last_id))
+                if in_scope(row)]
+        if not rows:
+            max_row = db.query_one(f"SELECT MAX(id) AS id FROM files WHERE {where} AND id>?", (*args, last_id))
+            if not max_row or max_row["id"] is None:
+                break
+            last_id = max_row["id"]
+            ctx.save_checkpoint(last_id=last_id, stats=stats, seq=seq)
+            continue
         if not rows:
             break
         # read the batch (+ XMP sidecars) with one ExifTool call
@@ -380,7 +471,7 @@ def metadata_analyze(ctx: JobContext) -> dict:
                     sidecars.append(collect(meta.get(sp, {}), "sidecar:" + os.path.basename(sp)))
                 else:
                     sidecars.append(takeout_candidates(sp))
-            res = analyse_file(r, own, sidecars, enabled)
+            res = analyse_file(r, own, sidecars, enabled, ctx.app.library_timezone)
             raw_subset = {k: v for k, v in meta.get(r["cur_path"], {}).items()
                           if any(k == t or (t.startswith("Track*") and k.endswith(t.split(":")[1])) for specs in READ_TAGS.values() for t, _ in specs)}
             duration = None
@@ -391,19 +482,22 @@ def metadata_analyze(ctx: JobContext) -> dict:
                 except ValueError:
                     pass
             with db.transaction():
-                db.execute("DELETE FROM review_items WHERE file_id=? AND status='pending' AND kind IN ('meta_conflict','no_date','date_utc')",
-                           (r["id"],))
+                current_kind = "meta_conflict" if res["conflicts"] else "no_date" if not res["chosen"] else "date_utc" if res["flags"] == "utc_ambiguous" else ""
+                db.execute("DELETE FROM review_items WHERE file_id=? AND status='pending' AND skipped_at IS NULL "
+                           "AND decision IS NULL AND kind IN ('meta_conflict','no_date','date_utc') AND kind<>?",
+                           (r["id"], current_kind))
                 db.execute("DELETE FROM plan_items WHERE plan_job_id=? AND file_id=?", (ctx.id, r["id"]))
                 status = r["status"]
-                if res["conflicts"]:
+                decided = review_state.preserves_decision(db, r["id"])
+                if res["conflicts"] and not decided:
                     _add_review(db, r, "meta_conflict", {"fields": res["conflicts"]}, res["proposals"], ctx.id)
                     stats["review"] += 1
                     status = "review" if status in ("indexed", "unique") else status
-                elif not res["chosen"]:
+                elif not res["chosen"] and not decided:
                     _add_review(db, r, "no_date", {}, res["proposals"], ctx.id)
                     stats["review"] += 1
                     status = "review" if status in ("indexed", "unique") else status
-                elif res["flags"] == "utc_ambiguous":
+                elif res["flags"] == "utc_ambiguous" and not decided:
                     _add_review(db, r, "date_utc", {"value": res["chosen"], "tag": res["chosen_source"]}, [], ctx.id)
                     stats["review"] += 1
                 if res["fills"]:
@@ -413,13 +507,11 @@ def metadata_analyze(ctx: JobContext) -> dict:
                                (ctx.id, r["owner_id"], "meta_fill", seq, r["id"], r["cur_path"], None,
                                 json.dumps({"fills": res["fills"]}, ensure_ascii=False), "planned"))
                     stats["fills"] += 1
-                decided = db.query_one("SELECT id FROM review_items WHERE file_id=? AND status='saved' AND decision LIKE ?",
-                                       (r["id"], '%"date"%'))
                 db.execute("UPDATE files SET meta_read=?, chosen_date=CASE WHEN ? THEN chosen_date ELSE ? END, "
                            "chosen_date_source=CASE WHEN ? THEN chosen_date_source ELSE ? END, date_flags=?, phase_meta='analysed', "
                            "status=?, duration_s=?, meta_before=COALESCE(meta_before, ?), updated_at=? WHERE id=?",
                            (json.dumps({"fields": res["fields"], "fills": res["fills"], "proposals": res["proposals"]}, ensure_ascii=False),
-                            1 if decided else 0, res["chosen"], 1 if decided else 0, res["chosen_source"], res["flags"],
+                            1 if decided else 0, res["chosen"], 1 if decided else 0, res["chosen_source"], r["date_flags"] if decided else res["flags"],
                             status, duration, json.dumps(raw_subset, ensure_ascii=False), utcnow(), r["id"]))
             stats["analysed"] += 1
             ctx.progress(done=stats["analysed"], total=total, phase="metadata")
@@ -433,6 +525,10 @@ def apply_fill(ctx: JobContext, item: dict, et: ExifTool) -> str:
     f = db.query_one("SELECT * FROM files WHERE id=?", (item["file_id"],))
     if not f or not f["present"] or f["cur_path"] != item["src"]:
         return "file_changed"
+    user = ctx.app.user(item["owner_id"])
+    from . import access
+    if f["owner_id"] != item["owner_id"] or not access.file_in_scope(ctx.app.settings.data_dir.as_posix(), user, f):
+        return "outside_source"
     try:
         st = os.stat(f["cur_path"])
     except OSError:
@@ -471,16 +567,17 @@ def apply_fill(ctx: JobContext, item: dict, et: ExifTool) -> str:
     sha_after = sha256_file(f["cur_path"])
     with db.transaction():
         db.execute("UPDATE manifest SET sha256_after=? WHERE id=?", (sha_after, mid))
-        db.execute("UPDATE files SET sha256=?, size=?, mtime_ns=?, meta_after=?, status=CASE WHEN status IN ('indexed','unique') "
+        db.execute("UPDATE files SET sha256=?, size=?, mtime_ns=?, meta_after=?, inode=?, device=?, file_changed_at=?, status=CASE WHEN status IN ('indexed','unique') "
                    "THEN 'normalized' ELSE status END, phase_meta='done', updated_at=? WHERE id=?",
-                   (sha_after, st2.st_size, st2.st_mtime_ns, json.dumps(tags, ensure_ascii=False, default=str), utcnow(), f["id"]))
+                   (sha_after, st2.st_size, st2.st_mtime_ns, json.dumps(tags, ensure_ascii=False, default=str),
+                    st2.st_ino, st2.st_dev, utcnow(), utcnow(), f["id"]))
         ctx.log("META_WRITTEN", path=f["cur_path"], tags=", ".join(sorted(tags)))
     return "done"
 
 
 def run_meta_plan(ctx: JobContext) -> dict:
     db = ctx.db
-    et = ExifTool(ctx.app.settings.exiftool)
+    et = ctx.app.exiftool
     plan_id = ctx.params["plan_job_id"]
     total = int(db.scalar("SELECT COUNT(*) AS n FROM plan_items WHERE plan_job_id=? AND owner_id=?", (plan_id, ctx.owner_id)) or 0)
     done = int(db.scalar("SELECT COUNT(*) AS n FROM plan_items WHERE plan_job_id=? AND owner_id=? AND status<>'planned'", (plan_id, ctx.owner_id)) or 0)
@@ -513,9 +610,13 @@ def review_plan(ctx: JobContext) -> dict:
     db = ctx.db
     seq, n = 0, 0
     db.execute("DELETE FROM plan_items WHERE plan_job_id=?", (ctx.id,))
-    for it in db.query("SELECT r.*, f.media_kind, f.ext, f.cur_path, f.meta_read FROM review_items r JOIN files f ON f.id=r.file_id "
+    from . import access
+    user = ctx.app.user(ctx.owner_id)
+    for it in db.query("SELECT r.*, f.media_kind, f.ext, f.cur_path, f.meta_read, f.owner_id, f.size, f.mtime_ns, f.present FROM review_items r JOIN files f ON f.id=r.file_id "
                        "WHERE r.owner_id=? AND r.status='saved' AND r.applied=0 AND f.present=1 ORDER BY r.id", (ctx.owner_id,)):
         ctx.check()
+        if not access.file_in_scope(ctx.app.settings.data_dir.as_posix(), user, it):
+            continue
         decision = json.loads(it["decision"] or "{}")
         values = decision.get("fields") or {}
         meta = json.loads(it["meta_read"] or "{}").get("fields", {})

@@ -19,7 +19,7 @@ LABEL org.opencontainers.image.title="TwinCheck" \
       org.opencontainers.image.licenses="GPL-3.0-only" \
       org.opencontainers.image.description="Safe, multi-user reorganisation of photo and video libraries"
 
-RUN apk add --no-cache python3 py3-cryptography exiftool ffmpeg \
+RUN apk add --no-cache python3 py3-cryptography exiftool ffmpeg tzdata \
     && find /usr/lib/python3* -name '__pycache__' -prune -exec rm -rf {} + || true
 
 COPY --from=deps /opt/twincheck/site /opt/twincheck/site
@@ -29,6 +29,7 @@ COPY docker/bin/ /usr/local/bin/
 RUN chmod 0755 /usr/local/bin/twincheck-entrypoint /usr/local/bin/generate-key /usr/local/bin/reset-admin-password \
                 /usr/local/bin/twincheck-healthcheck \
     && chmod -R a+rX /opt/twincheck \
+    && sed -i "s/^BUILD_DATE = .*/BUILD_DATE = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"/" /opt/twincheck/app/backend/twincheck/__init__.py \
     && rm -f /opt/twincheck/app/frontend/locales/README.md
 
 ENV PYTHONPATH=/opt/twincheck/site:/opt/twincheck/app/backend \

@@ -9,6 +9,59 @@
     ]
   },
   "messages": {
+    "common.select_option": "Vor dem Speichern eine gültige Option aus der Liste auswählen.",
+    "common.no_options": "Keine passenden Optionen.",
+    "common.rows_storage_unavailable": "Browserspeicher nicht verfügbar: Zeilen pro Seite können nicht gespeichert werden.",
+    "common.rows_per_page": "Zeilen pro Seite",
+    "common.all_rows": "Alle",
+    "common.confirm_all_rows": {
+      "one": "{count} Zeile laden? Dies kann etwas dauern.",
+      "other": "{count} Zeilen laden? Dies kann etwas dauern."
+    },
+    "review.postponed_on": "Verschoben am {date} · noch zu prüfen",
+    "logs.only_present": "Nur vorhandene Ereignisse",
+    "logs.export_filtered": {
+      "one": "Gefilterte exportieren ({count})",
+      "other": "Gefilterte exportieren ({count})"
+    },
+    "logs.export_all": {
+      "one": "Alle exportieren ({count})",
+      "other": "Alle exportieren ({count})"
+    },
+    "logs.export_own_note": "Nur Ihre eigenen Ereignisse sind enthalten.",
+    "logs.export_all_note": "Alle exportieren enthält Ereignisse aller Benutzer.",
+    "logs.export_user_note": "Gefilterte exportieren enthält Ereignisse von {user}.",
+    "meta.latest_population": "{analysed} · {unreadable} · {total} · {pending} · {decided}",
+    "meta.current_population": "{current} = {reliable} + {review_files} + {other}. Die Warteschlange umfasst alle zugewiesenen Ordner; die Analyse den zuletzt ausgewählten Ordner. Unlesbare Dateien können ebenfalls in Prüfung sein.",
+    "settings.show_version_on_login": "Version auf der Anmeldeseite anzeigen",
+    "review.date_format": "jjjj-mm-tt hh:mm:ss (24 Stunden)",
+    "common.back_to": "Zurück zu {page}",
+    "meta.empty_fills": {
+      "one": "Keine automatischen Ergänzungen: kein fehlendes Feld hat eine verlässliche Quelle. Warten auf eine Prüfentscheidung: {count}.",
+      "other": "Keine automatischen Ergänzungen: kein fehlendes Feld hat eine verlässliche Quelle. Warten auf eine Prüfentscheidung: {count}."
+    },
+    "plan.empty": "In dieser Vorschau ist nichts zu ändern. Keine Dateien werden geändert.",
+    "review.live_counts": "{total} · {pending} · {decided}",
+    "review.recheck_count": {
+      "one": "Erneut zu prüfen: {count} Eintrag",
+      "other": "Erneut zu prüfen: {count} Einträge"
+    },
+    "job.library_result": "{found} · {changed} · {unchanged} · {hashed}",
+    "job.unreadable": {
+      "one": "Unlesbar: {count} Datei",
+      "other": "Unlesbar: {count} Dateien"
+    },
+    "analysis.history": "Verlauf unter Aufträge",
+    "settings.library_timezone": "Zeitzone der Bibliothek",
+    "settings.library_timezone_hint": "IANA-Name, z. B. Europe/Berlin. Zum Organisieren, ohne originale EXIF zu ändern.",
+    "settings.library_timezone_notice": "Standard ist UTC. Stellen Sie die Zeitzone vor der Datumsauswahl ein.",
+    "error.invalid_timezone": "Geben Sie einen gültigen IANA-Zeitzonennamen ein.",
+    "error.invalid_proposal": "Der Vorschlag wurde geändert. Laden Sie den Eintrag erneut.",
+    "review.status.needs_recheck": "Erneut prüfen",
+    "review.recheck_notice": "Dieses Datum wurde möglicherweise in UTC gespeichert ({stored}). Dateisystemdatum in {timezone}: {suggested}. Bestätigen oder ändern.",
+    "review.accept_converted": "Umgerechnetes Datum akzeptieren",
+    "review.keep_stored": "Gespeichertes Datum behalten",
+    "plan.note.needs_recheck": "Datum vor dem Organisieren vom Eigentümer erneut prüfen lassen.",
     "app.name": "TwinCheck",
     "common.na": "k. A.",
     "common.next": "Weiter",
@@ -23,20 +76,28 @@
     "common.delete": "Löschen",
     "common.remove": "Entfernen",
     "common.language": "Sprache",
+    "theme.label": "Design",
+    "theme.auto": "Auto (System folgen)",
+    "theme.light": "Hell",
+    "theme.dark": "Dunkel",
+    "theme.to_light": "Zum hellen Design wechseln",
+    "theme.to_dark": "Zum dunklen Design wechseln",
+    "theme.storage_unavailable": "Browserspeicher nicht verfügbar: Das Anmeldedesign kann nicht gespeichert werden.",
+    "error.invalid_theme": "Wählen Sie Auto, Hell oder Dunkel.",
     "common.yes": "Ja",
     "common.no": "Nein",
     "common.page_range": "{from}–{to} von {total}",
     "nav.label": "Hauptnavigation",
     "nav.home": "Start",
-    "nav.scan": "Scan",
+    "nav.scan": "Analysieren",
     "nav.duplicates": "Duplikate",
     "nav.metadata": "Metadaten",
     "nav.review": "Prüfung",
     "nav.organize": "Ordnen",
-    "nav.report": "Bericht & Rückgängig",
+    "nav.report": "Verlauf und Rückgängig",
     "nav.jobs": "Aufträge",
-    "nav.logs": "Protokolle",
-    "nav.admin": "Verwaltung",
+    "nav.logs": "Diagnose",
+    "nav.admin": "Einstellungen",
     "role.admin": "Admin",
     "role.administrator": "Administrator",
     "role.user": "Basisbenutzer",
@@ -46,7 +107,7 @@
     "header.host": "Host",
     "header.os": "System",
     "header.cpu": "CPU",
-    "header.cpu_value": "{cores} Kerne · {pct}",
+    "header.cpu_value": "{cores} · {pct}",
     "header.load": "Last {load}",
     "header.memory": "Arbeitsspeicher",
     "header.disk_value": "{used} / {total} ({pct})",
@@ -152,7 +213,7 @@
     "home.step_metadata": "Fehlende Metadaten nur aus zuverlässigen Quellen ergänzen.",
     "home.step_review": "Über zweifelhafte Dateien entscheiden.",
     "home.step_organize": "Dateien in Ordner Jahr/Monat/Tag verschieben.",
-    "home.step_report": "Bericht prüfen, verifizieren, bei Bedarf rückgängig machen.",
+    "home.step_report": "Ausgeführte Schritte ansehen, prüfen und bei Bedarf rückgängig machen.",
     "home.summary": "Zusammenfassung",
     "home.files": "Indexierte Dateien",
     "home.files_value": {
@@ -178,6 +239,8 @@
       "other": "{count} Elemente"
     },
     "job.phase": "Phase {phase}",
+    "job.scan_result": "{indexed} · {hashed} · {reused} · {unhashed}",
+    "job.scan_result_legacy": "{indexed} · {hashed}; unveränderte Dateien verwenden Hashes wieder (in älteren Scans nicht gezählt).",
     "job.needs_confirmation": "Dieser Auftrag schreibt oder verschiebt Dateien: Er wird erst fortgesetzt, wenn Sie auf Fortsetzen klicken.",
     "job.started": "Auftrag #{id} gestartet.",
     "job.status.queued": "in Warteschlange",
@@ -216,8 +279,8 @@
     "jobs.filter": "Anzeigen",
     "sources.all": "Alle meine Quellen",
     "browser.choose": "Diesen Ordner wählen",
-    "scan.title": "Scan",
-    "scan.intro": "Indexiert die Dateien einer Quelle und berechnet SHA-256. Nur lesend; wird nach einer Unterbrechung automatisch fortgesetzt. Unveränderte Dateien werden nicht erneut gehasht.",
+    "scan.title": "Analysieren",
+    "scan.intro": "Fortsetzbare Analyse ohne Schreibzugriffe: Scan, Hashes, Aufnahmedaten, exakte Duplikate und Metadatenvorschläge. Unveränderte Hashes und Daten werden wiederverwendet.",
     "scan.source": "Quelle",
     "scan.no_sources": "Ihnen ist kein Quellordner zugewiesen. Wenden Sie sich an einen Administrator.",
     "scan.browse_data": "/data durchsuchen",
@@ -225,10 +288,17 @@
     "scan.start": "Scan starten",
     "scan.start_adhoc": "Ausgewählten Ordner scannen",
     "scan.choose_folder": "Wählen Sie zuerst einen Ordner.",
-    "scan.jobs": "Scans",
+    "scan.jobs": "Analyseaufträge",
     "dup.title": "Duplikate",
     "dup.intro": "Exakte Duplikate in allen Ihren Ordnern. Duplikate werden in den Duplikatordner verschoben, nie gelöscht.",
-    "dup.rule": "Duplikat = gleiche Größe, gleicher SHA-256 und byteweiser Vergleich. Die Datei mit dem ältesten Datum wird behalten (bei gleichem Datum die mit dem aufgeräumtesten Pfad).",
+    "dup.rule": "Duplikat = gleiche Größe, gleicher SHA-256 und byteweiser Vergleich. Ein bekanntes internes Aufnahmedatum gilt für alle Kopien; dann entscheidet der aufgeräumteste Pfad. Sonst: älteste Änderungszeit, dann Pfad.",
+    "dup.capture_date": "Aufnahmedatum der Gruppe: {date}",
+    "dup.date_unknown": "Aufnahmedatum der Gruppe unbekannt",
+    "dup.keeper_date": "Entscheidungsdatum der behaltenen Datei: {date}",
+    "dup.keeper_rule.capture_date_tidy_path": "Regel: gemeinsames Aufnahmedatum, dann aufgeräumtester Pfad",
+    "dup.keeper_rule.mtime": "Regel: älteste Dateisystem-Änderungszeit",
+    "dup.keeper_rule.mtime_tidy_path": "Regel: gleiche Änderungszeiten, dann Pfad",
+    "dup.keeper_rule.manual": "Regel: Ihre Auswahl der behaltenen Datei",
     "dup.scope": "Bereich",
     "dup.scope_user": "Meine Quellen",
     "dup.scope_global": "Global (alle Benutzer)",
@@ -278,8 +348,8 @@
     "plan.col_to": "Nach / Änderungen",
     "plan.col_status": "Status",
     "plan.summary": {
-      "one": "{count} Element: {planned} offen, {done} erledigt, {blocked} blockiert oder übersprungen",
-      "other": "{count} Elemente: {planned} offen, {done} erledigt, {blocked} blockiert oder übersprungen"
+      "one": "{count} Eintrag: {planned} · {done} · {blocked}",
+      "other": "{count} Einträge: {planned} · {done} · {blocked}"
     },
     "plan.renamed": "Suffix angehängt",
     "plan.from": "aus {tag} ({source})",
@@ -324,7 +394,7 @@
     "plan.note.recovered": "nach Unterbrechung wiederhergestellt",
     "review.title": "Prüfung",
     "review.intro": "Dateien, die eine Entscheidung erfordern. Entscheidungen werden sofort gespeichert: Sie können jederzeit unterbrechen und fortfahren.",
-    "review.counts": "{pending} offen · {saved} gespeichert · {skipped} übersprungen · {kept} unverändert belassen",
+    "review.counts": "{pending} · {saved} · {skipped} · {kept}",
     "review.filter_status": "Status",
     "review.filter_kind": "Grund",
     "review.all_kinds": "Alle Gründe",
@@ -334,7 +404,7 @@
     "review.col_date": "Datum",
     "review.open": "Öffnen",
     "review.empty": "Nichts zu prüfen.",
-    "review.status.pending": "offen",
+    "review.status.pending": "Zu prüfen",
     "review.status.saved": "gespeichert",
     "review.status.skipped": "übersprungen",
     "review.status.kept": "unverändert belassen",
@@ -362,7 +432,7 @@
     "review.use_proposal": "Übernehmen",
     "review.auto_fill": "wird ergänzt",
     "review.origin.filename": "aus dem Dateinamen abgeleitet",
-    "review.origin.mtime_utc": "aus dem Änderungsdatum abgeleitet (UTC)",
+    "review.origin.mtime_utc": "aus dem Änderungsdatum der Datei abgeleitet",
     "review.present_readonly": "vorhanden: nie überschrieben",
     "review.not_writable": "für dieses Format nicht schreibbar",
     "review.col_field": "Feld",
@@ -378,10 +448,10 @@
     "review.date_keep": "aktuelles beibehalten",
     "review.apply_scope": "Anwenden auf",
     "review.scope.item": "nur diese Datei",
-    "review.scope.folder": "alle offenen Dateien dieses Ordners",
+    "review.scope.folder": "alle zu prüfenden Dateien dieses Ordners",
     "review.scope.group": "die ganze Gruppe (Duplikate, Live Photo)",
     "review.save_next": "Speichern und weiter",
-    "review.skip": "Überspringen",
+    "review.skip": "Verschieben",
     "review.leave": "Unverändert lassen",
     "review.reopen": "Wieder öffnen",
     "review.saved": {
@@ -391,7 +461,7 @@
     "review.empty_stays_empty": "Leer gelassene Felder bleiben leer.",
     "field.datetime_original": "Aufnahmedatum/-zeit",
     "field.create_date": "Erstellungsdatum",
-    "field.modify_date": "Änderungsdatum",
+    "field.modify_date": "Änderungsdatum (EXIF)",
     "field.offset": "Zeitzonenversatz",
     "field.gps": "GPS-Position",
     "field.make": "Kamerahersteller",
@@ -416,8 +486,8 @@
     "manifest.action.dup_move": "zu Duplikaten verschoben",
     "manifest.action.metadata": "Metadaten geschrieben",
     "manifest.action.restore": "zurückverschoben",
-    "report.title": "Bericht & Rückgängig",
-    "report.intro": "Übersicht der aktuellen Datenbank, Manifest, Rückgängigmachen und abschließende Verifizierung.",
+    "report.title": "Verlauf und Rückgängig",
+    "report.intro": "Ausgeführte Vorgänge, deren Rücknahme und abschließende Prüfung.",
     "report.files": "Dateien",
     "report.col_status": "Status",
     "report.col_kind": "Typ",
@@ -438,7 +508,7 @@
     "report.verify": "Abschließende Verifizierung",
     "report.verify_help": "Prüft, ob Dateien und Hashes mit Index und Manifest übereinstimmen.",
     "report.verify_start": "Verifizieren",
-    "logs.title": "Protokolle",
+    "logs.title": "Diagnose",
     "logs.intro": "Ausführungsprotokoll der aktuellen Datenbank. Einträge sind immer auf Englisch.",
     "logs.event": "Ereigniscode",
     "logs.level": "Stufe",
@@ -463,10 +533,10 @@
     "admin.http_warning": "Achtung: Diese Anwendung nutzt unverschlüsseltes HTTP. Passwörter und Sitzungscookies werden unverschlüsselt übertragen: Nur in vertrauenswürdigen Netzwerken verwenden, Zugriff mit BIND_ADDRESS und ALLOWED_NETWORKS beschränken oder einen eigenen HTTPS-Reverse-Proxy vorschalten.",
     "admin.users": "Benutzer",
     "admin.groups": "Gruppen",
-    "admin.settings": "Einstellungen",
+    "admin.settings": "Allgemein",
     "admin.database": "Datenbank",
     "admin.transfer": "Export & Migration",
-    "admin.audit": "Audit-Protokoll",
+    "admin.audit": "Sicherheitsprotokoll",
     "admin.security": "Sicherheit",
     "admin.col_user": "Benutzer",
     "admin.col_role": "Rolle",
@@ -733,6 +803,371 @@
     "cli.password_weak": "Das Passwort erfüllt die Anforderungen nicht (mindestens {min_length} Zeichen). Nichts wurde geändert.",
     "cli.generated_password_once": "Erzeugtes Passwort (wird nur einmal angezeigt):",
     "cli.change_at_first_login": "Es muss bei der ersten Anmeldung geändert werden.",
-    "cli.password_reset_done": "Passwort von {username} aktualisiert. Alle Sitzungen wurden beendet und Anmeldesperren aufgehoben."
+    "cli.password_reset_done": "Passwort von {username} aktualisiert. Alle Sitzungen wurden beendet und Anmeldesperren aufgehoben.",
+    "job.kind.analyze_library": "Analyze library",
+    "job.pipeline_phase": "Phase {phase} of 5: {name}",
+    "job.analysis_phase.scan": "scan",
+    "job.analysis_phase.hash": "hash",
+    "job.analysis_phase.capture_dates": "capture dates",
+    "job.analysis_phase.duplicates": "duplicates",
+    "job.analysis_phase.metadata": "metadata proposals",
+    "job.analysis_phase.complete": "complete",
+    "analysis.results_from": "Results from {date}.",
+    "analysis.recheck_before_action": "Files changed since then are re-checked before any action.",
+    "analysis.go_scan": "Go to Scan",
+    "scan.analyze_library": "Analyze library",
+    "dup.exif_date": "Exif date: {date}",
+    "dup.filesystem_date": "File system date: {date}",
+    "dup.unknown_date": "unknown",
+    "dup.no_analysis": "No duplicate analysis results are available yet.",
+    "meta.summary": "{analysed} · {fills} · {review}",
+    "meta.review_items": {
+      "one": "Prüfliste: {count} Eintrag",
+      "other": "Prüfliste: {count} Einträge"
+    },
+    "meta.no_analysis": "No metadata analysis results are available yet.",
+    "review.preview_error": "Preview could not be loaded (HTTP {status}).",
+    "review.detail_values": {
+      "one": "{count} Wert",
+      "other": "{count} Werte"
+    },
+    "review.detail_label": "Detail: {name}",
+    "analysis.steps": "Library steps",
+    "analysis.step_analyze": "1 Analysieren",
+    "analysis.step_review": "2 Prüfen (Duplikate · Metadaten)",
+    "analysis.step_organize": "3 Organize",
+    "analysis.step_report": "4 Verlauf und Rückgängig",
+    "analysis.step_done": "Done: {step}",
+    "analysis.update": "Update analysis",
+    "analysis.empty": "Analyze this library before reviewing or acting on files.",
+    "analysis.stale": "Files changed or analysis was interrupted. Update the analysis before continuing.",
+    "analysis.changes": "{new} · {changed} · {removed}",
+    "analysis.incomplete": "Die letzte Analyse wurde unterbrochen und ist unvollständig.",
+    "job.already_running": "Job #{id} is already running.",
+    "review.status.decided": "Entschieden",
+    "review.status.all": "Alle",
+    "meta.review_population": "{items} · {files}. Analysezahlen beziehen sich auf den zuletzt ausgewählten Ordner.",
+    "meta.analysis_summary": "{analysed} · {fills}",
+    "db.update_required": "Datenbankaktualisierung erforderlich. Wenden Sie sich an einen Administrator.",
+    "settings.timezone_search": "Zeitzonen suchen",
+    "settings.timezone_offset_hint": "Aktuelle UTC-Abstände werden angezeigt und ändern sich mit der Sommerzeit. Zur Datumsorganisation; Original-EXIF bleibt unverändert.",
+    "review.accept": "Akzeptieren",
+    "review.accept_next": "Akzeptieren und weiter",
+    "review.keep_next": "Behalten und weiter",
+    "review.postponed": {
+      "one": "{count} Eintrag verschoben.",
+      "other": "{count} Einträge verschoben."
+    },
+    "settings.login_version_hint": "Anwendungsversion auf der Anmeldeseite anzeigen.",
+    "logs.all_events": "Alle Ereignisse",
+    "logs.clear": "Filter zurücksetzen",
+    "logs.csv_scope": "CSV-Zeilen",
+    "logs.csv_filtered": "Aktuell gefilterte Ereignisse",
+    "logs.csv_all": "Alle sichtbaren Ereignisse",
+    "logs.all_users": "Alle Benutzer",
+    "logs.system": "System",
+    "scan.change_folder": "Ordner ändern",
+    "scan.all_analysis_jobs": "Alle Analyseaufträge unter Aufträge",
+    "logs.empty": "Keine Ereignisse entsprechen diesen Filtern.",
+    "common.empty_list": "Keine Einträge vorhanden.",
+    "review.short_date_help": "Datumsentscheidungen werden in der Datenbank gespeichert; Details stehen im Prüffenster.",
+    "review.col_decision": "Entscheidung",
+    "review.decision.date": "Datum gewählt",
+    "review.decision.kept": "Unverändert gelassen",
+    "review.decision.accepted": "Umrechnung akzeptiert",
+    "review.decision.stored": "Gespeichertes Datum behalten",
+    "review.decision.fields": "Metadaten gespeichert",
+    "common.clear_search": "Suche leeren",
+    "common.suggested": "Vorgeschlagen",
+    "settings.all_timezones": "Alle Zeitzonen",
+    "settings.no_matching_timezone": "Keine passende Zeitzone",
+    "logs.search_events": "Ereignisse suchen",
+    "logs.no_matching_event": "Kein passendes Ereignis",
+    "logs.present": "Vorhanden",
+    "logs.not_present": "Nicht vorhanden",
+    "logs.no_code_events": "Noch keine {code}-Ereignisse.",
+    "logs.security_admin_note": "Sicherheitsprotokoll öffnen",
+    "logs.security_own_note": "Sicherheitsprotokoll öffnen",
+    "security.activity": "Sicherheitsprotokoll",
+    "meta.compact_summary": "{analysed} · {unreadable} · {reliable} · {total} · {pending} · {decided}",
+    "meta.start_review": "Prüfung starten →",
+    "meta.how_completion_works": "So funktioniert die Metadaten-Ergänzung",
+    "review.skipped_compact": "Zurückgestellt · {date}",
+    "review.enlarge": "Vorschau vergrößern",
+    "security.source_ip": "Quell-IP",
+    "security.last_login": "Letzte Anmeldung: {date} von {ip}",
+    "security.failed_since": {
+      "one": "{count} fehlgeschlagener Anmeldeversuch seit Ihrer letzten Anmeldung.",
+      "other": "{count} fehlgeschlagene Anmeldeversuche seit Ihrer letzten Anmeldung."
+    },
+    "security.trial": "Testversion: Aktivität wird für diese Instanz unabhängig von der Datenbank gespeichert.",
+    "review.example_date": "z. B. 2007-08-26 20:36:42",
+    "review.example_offset": "z. B. +01:00",
+    "review.example_gps": "z. B. 45.4642, 9.1900",
+    "review.example_make": "z. B. Canon",
+    "review.example_model": "z. B. EOS 80D",
+    "review.example_orientation": "z. B. 1",
+    "review.example_title": "z. B. Urlaub",
+    "review.example_description": "z. B. Familienfoto",
+    "analysis.reason.never_analyzed": "Diese Bibliothek wurde noch nie analysiert.",
+    "analysis.reason.older_version": "Ihre Bibliothek wurde mit einer älteren TwinCheck-Version analysiert. Führen Sie Bibliothek analysieren aus, um aktuelle Ergebnisse zu sehen. Dateien werden nur gelesen: nichts wird verschoben oder geändert.",
+    "analysis.changed_since": "Dateien auf dem Datenträger haben sich seit der Analyse vom {date} geändert.",
+    "org.last_preview": {
+      "one": "Letzte Vorschau #{id} vom {date} · {count} Eintrag",
+      "other": "Letzte Vorschau #{id} vom {date} · {count} Einträge"
+    },
+    "org.recompute": "Neu berechnen",
+    "org.discard": "Vorschau verwerfen",
+    "org.stale.scope": "Bibliothekszuordnungen oder Einstellungen geändert. Vor der Ausführung neu berechnen.",
+    "org.stale.analysis": "Eine neuere Analyse liegt vor. Vor der Ausführung neu berechnen.",
+    "org.stale.decisions": "Prüfentscheidungen geändert. Vor der Ausführung neu berechnen.",
+    "org.stale.files": "Dateien auf dem Datenträger geändert. Vor der Ausführung neu berechnen.",
+    "org.stale.older_version": "Diese Vorschau stammt aus einer älteren Version. Vor der Ausführung neu berechnen.",
+    "org.stale.discarded": "Diese Vorschau wurde verworfen und kann nicht ausgeführt werden.",
+    "report.operations": "Vorgänge",
+    "report.operation.move": "Organisierung",
+    "report.operation.dup_move": "Duplikate verschieben",
+    "report.operation.metadata": "Metadatenänderungen",
+    "report.operation_undone": {
+      "one": "{count}",
+      "other": "{count}"
+    },
+    "report.global_undo_note": "Das Rückgängigmachen einzelner Vorgänge ist noch nicht verfügbar. Verwenden Sie die globalen Vorschauen unten und prüfen Sie jede Datei vor der Bestätigung.",
+    "report.moved_link": {
+      "one": "Verschoben: {count} Datei · Verlauf und Rückgängig öffnen →",
+      "other": "Verschoben: {count} Dateien · Verlauf und Rückgängig öffnen →"
+    },
+    "logs.not_visible": {
+      "one": "Nicht sichtbar für {user}: {count} Ereignis. Sie betreffen Dateien außerhalb der Bibliothek von {user}.",
+      "other": "Nicht sichtbar für {user}: {count} Ereignisse. Sie betreffen Dateien außerhalb der Bibliothek von {user}."
+    },
+    "logs.no_job_events": "Keine Ereignisse für Auftrag {id}.",
+    "security.review": "Prüfen",
+    "security.see_log": "Sicherheitsprotokoll öffnen",
+    "header.version_build": "{version} · Build-Datum: {date}",
+    "error.preview_stale": "Diese Vorschau ist veraltet oder verworfen. Vor der Ausführung neu berechnen.",
+    "error.server_busy": "Der Server ist ausgelastet. Versuchen Sie es gleich erneut.",
+    "security.close_banner": "Anmeldeinformationen schließen",
+    "analysis.no_results": "Noch keine Ergebnisse: Bibliothek analysieren ausführen.",
+    "filters.pending": "Ausstehende Textfilter anwenden",
+    "filters.search": "Suchen",
+    "filters.since": "Ab Datum (UTC)",
+    "filters.until": "Bis Datum (UTC)",
+    "exclusions.pattern": "Muster",
+    "exclusions.description": "Beschreibung (optional)",
+    "exclusions.default": "Standard",
+    "exclusions.add": "Muster hinzufügen",
+    "exclusions.restore": "Standard wiederherstellen",
+    "exclusions.test_name": "Namen testen",
+    "exclusions.test_hint": "Geben Sie einen Datei- oder Ordnernamen zum Testen ein.",
+    "exclusions.matches": "Ausgeschlossen durch: {patterns}",
+    "exclusions.no_match": "Dieser Name würde nicht ausgeschlossen.",
+    "exclusions.pattern_hint": "Shell-Muster gelten für Namen, nicht Pfade. * steht für beliebigen Text, ? für ein Zeichen, [abc] für ein Zeichen der Liste. Groß-/Kleinschreibung wird beachtet.",
+    "exclusions.remove_confirm": "{pattern} aus den ausgeschlossenen Namen entfernen?",
+    "exclusions.restore_confirm": "Standardmuster wiederherstellen und eigene Beschreibungen entfernen?",
+    "exclusions.next_analysis": "Änderungen gelten ab der nächsten Analyse. Dateien werden niemals verschoben oder geändert.",
+    "exclusions.internal": "Interne .twincheck-*-Namen sind immer ausgeschlossen. Diese Liste wird hier verwaltet, nicht über die Serverkonfiguration.",
+    "exclusions.empty": "Keine optional ausgeschlossenen Namen.",
+    "exclusions.save_title": "Änderungen ausgeschlossener Namen bestätigen",
+    "exclusions.added": "Hinzugefügt: {patterns}",
+    "exclusions.removed": "Entfernt: {patterns}",
+    "exclusions.edited": "Bearbeitet: {patterns}",
+    "error.exclusion_empty": "Geben Sie ein nicht leeres Muster ein.",
+    "error.exclusion_duplicate": "Dieses Muster ist bereits in der Liste.",
+    "error.exclusion_invalid": "Verwenden Sie ein gültiges Shell-Namensmuster (kein Pfad, höchstens 100 Zeichen).",
+    "error.exclusion_all": "Dieses Muster würde jeden Namen ausschließen. Verwenden Sie ein genaueres Muster.",
+    "error.exclusion_limit": "Verwenden Sie höchstens 100 Muster.",
+    "error.exclusion_name": "Geben Sie einen Namen ein, keinen Pfad.",
+    "exclusions.default.hidden": "Versteckte Dateien und Ordner",
+    "exclusions.default.synology_thumbnails": "Synology-Miniaturbilder",
+    "exclusions.default.synology_recycle": "Synology-Papierkorb",
+    "exclusions.default.windows_recycle": "Windows-Papierkorb",
+    "exclusions.default.linux_recovery": "Linux-Wiederherstellungsordner",
+    "exclusions.default.windows_thumbnails": "Windows-Miniaturbildcache",
+    "exclusions.default.windows_settings": "Windows-Ordnereinstellungen",
+    "meta.latest_population.analysed": {
+      "one": "Analysiert: {count} Datei",
+      "other": "Analysiert: {count} Dateien"
+    },
+    "meta.latest_population.unreadable": {
+      "one": "Unlesbar: {count} Datei",
+      "other": "Unlesbar: {count} Dateien"
+    },
+    "meta.latest_population.total": {
+      "one": "Markiert: {count} Eintrag",
+      "other": "Markiert: {count} Einträge"
+    },
+    "meta.latest_population.pending": {
+      "one": "Zu prüfen: {count} Eintrag",
+      "other": "Zu prüfen: {count} Einträge"
+    },
+    "meta.latest_population.decided": {
+      "one": "Entschieden: {count} Eintrag",
+      "other": "Entschieden: {count} Einträge"
+    },
+    "meta.compact_summary.analysed": {
+      "one": "Analysiert: {count} Datei",
+      "other": "Analysiert: {count} Dateien"
+    },
+    "meta.compact_summary.unreadable": {
+      "one": "Unlesbar: {count} Datei",
+      "other": "Unlesbar: {count} Dateien"
+    },
+    "meta.compact_summary.reliable": {
+      "one": "Zuverlässiges Datum: {count} Datei",
+      "other": "Zuverlässiges Datum: {count} Dateien"
+    },
+    "meta.compact_summary.total": {
+      "one": "Markiert: {count} Eintrag",
+      "other": "Markiert: {count} Einträge"
+    },
+    "meta.compact_summary.pending": {
+      "one": "Zu prüfen: {count} Eintrag",
+      "other": "Zu prüfen: {count} Einträge"
+    },
+    "meta.compact_summary.decided": {
+      "one": "Entschieden: {count} Eintrag",
+      "other": "Entschieden: {count} Einträge"
+    },
+    "review.live_counts.total": {
+      "one": "Markiert: {count} Eintrag",
+      "other": "Markiert: {count} Einträge"
+    },
+    "review.live_counts.pending": {
+      "one": "Zu prüfen: {count} Eintrag",
+      "other": "Zu prüfen: {count} Einträge"
+    },
+    "review.live_counts.decided": {
+      "one": "Entschieden: {count} Eintrag",
+      "other": "Entschieden: {count} Einträge"
+    },
+    "job.library_result.found": {
+      "one": "Gefunden: {count} Datei",
+      "other": "Gefunden: {count} Dateien"
+    },
+    "job.library_result.changed": {
+      "one": "Neu oder geändert: {count} Datei",
+      "other": "Neu oder geändert: {count} Dateien"
+    },
+    "job.library_result.unchanged": {
+      "one": "Unverändert (wiederverwendet): {count} Datei",
+      "other": "Unverändert (wiederverwendet): {count} Dateien"
+    },
+    "job.library_result.hashed": {
+      "one": "Gehasht: {count} Datei",
+      "other": "Gehasht: {count} Dateien"
+    },
+    "job.scan_result.indexed": {
+      "one": "Indiziert: {count} Datei",
+      "other": "Indiziert: {count} Dateien"
+    },
+    "job.scan_result.hashed": {
+      "one": "Gehasht: {count} Datei",
+      "other": "Gehasht: {count} Dateien"
+    },
+    "job.scan_result.reused": {
+      "one": "Wiederverwendete Hashes: {count} Hash",
+      "other": "Wiederverwendete Hashes: {count} Hashes"
+    },
+    "job.scan_result.unhashed": {
+      "one": "Ohne Hash: {count} Datei",
+      "other": "Ohne Hash: {count} Dateien"
+    },
+    "job.scan_result_legacy.indexed": {
+      "one": "Indiziert: {count} Datei",
+      "other": "Indiziert: {count} Dateien"
+    },
+    "job.scan_result_legacy.hashed": {
+      "one": "Gehasht: {count} Datei",
+      "other": "Gehasht: {count} Dateien"
+    },
+    "review.counts.pending": {
+      "one": "Zu prüfen: {count} Eintrag",
+      "other": "Zu prüfen: {count} Einträge"
+    },
+    "review.counts.saved": {
+      "one": "Gespeichert: {count} Eintrag",
+      "other": "Gespeichert: {count} Einträge"
+    },
+    "review.counts.skipped": {
+      "one": "Verschoben auf später: {count} Eintrag",
+      "other": "Verschoben auf später: {count} Einträge"
+    },
+    "review.counts.kept": {
+      "one": "Unverändert belassen: {count} Eintrag",
+      "other": "Unverändert belassen: {count} Einträge"
+    },
+    "meta.summary.analysed": {
+      "one": "Analysiert: {count} Datei",
+      "other": "Analysiert: {count} Dateien"
+    },
+    "meta.summary.fills": {
+      "one": "Vorgeschlagene Ergänzungen: {count} Feld",
+      "other": "Vorgeschlagene Ergänzungen: {count} Felder"
+    },
+    "meta.summary.review": {
+      "one": "Markiert: {count} Eintrag",
+      "other": "Markiert: {count} Einträge"
+    },
+    "meta.analysis_summary.analysed": {
+      "one": "Analysiert: {count} Datei",
+      "other": "Analysiert: {count} Dateien"
+    },
+    "meta.analysis_summary.fills": {
+      "one": "Vorgeschlagene Ergänzungen: {count} Feld",
+      "other": "Vorgeschlagene Ergänzungen: {count} Felder"
+    },
+    "meta.review_population.items": {
+      "one": "Prüfliste: {count} Eintrag",
+      "other": "Prüfliste: {count} Einträge"
+    },
+    "meta.review_population.files": {
+      "one": "Aktuell: {count} Datei",
+      "other": "Aktuell: {count} Dateien"
+    },
+    "analysis.changes.new": {
+      "one": "Neu seit Analyse: {count} Datei",
+      "other": "Neu seit Analyse: {count} Dateien"
+    },
+    "analysis.changes.changed": {
+      "one": "Geändert seit Analyse: {count} Datei",
+      "other": "Geändert seit Analyse: {count} Dateien"
+    },
+    "analysis.changes.removed": {
+      "one": "Entfernt seit Analyse: {count} Datei",
+      "other": "Entfernt seit Analyse: {count} Dateien"
+    },
+    "meta.current_population.current": {
+      "one": "Aktuell: {count} Datei",
+      "other": "Aktuell: {count} Dateien"
+    },
+    "meta.current_population.reliable": {
+      "one": "Zuverlässiges Datum: {count} Datei",
+      "other": "Zuverlässiges Datum: {count} Dateien"
+    },
+    "meta.current_population.review_files": {
+      "one": "In Prüfung: {count} Datei",
+      "other": "In Prüfung: {count} Dateien"
+    },
+    "meta.current_population.other": {
+      "one": "Andere: {count} Datei",
+      "other": "Andere: {count} Dateien"
+    },
+    "plan.summary.planned": {
+      "one": "Ausstehend: {count} Eintrag",
+      "other": "Ausstehend: {count} Einträge"
+    },
+    "plan.summary.done": {
+      "one": "Erledigt: {count} Eintrag",
+      "other": "Erledigt: {count} Einträge"
+    },
+    "plan.summary.blocked": {
+      "one": "Blockiert oder übersprungen: {count} Eintrag",
+      "other": "Blockiert oder übersprungen: {count} Einträge"
+    },
+    "header.cpu_value.cores": {
+      "one": "{count} Kern",
+      "other": "{count} Kerne"
+    }
   }
 }
