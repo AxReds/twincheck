@@ -2,12 +2,18 @@
 // Every visible string must come from t(...) or from data (paths, values).
 import { t, fmt } from './i18n.js';
 
+const listeners = new WeakMap();
 export function h(tag, attrs, ...children) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
     if (v === undefined || v === null || v === false) continue;
     if (k === 'class') el.className = v;
-    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (k.startsWith('on') && typeof v === 'function') {
+      const event = k.slice(2).toLowerCase();
+      el.addEventListener(event, v);
+      if (!listeners.has(el)) listeners.set(el, {});
+      listeners.get(el)[event] = v;
+    }
     else if (k === 'dataset') Object.assign(el.dataset, v);
     else if (k === 'value') el.value = v;
     else if (k === 'checked') el.checked = !!v;
@@ -27,6 +33,60 @@ function append(el, children) {
 
 export function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return el; }
 export function mount(el, ...children) { clear(el); append(el, children); return el; }
+
+function reconcile(current, next) {
+  if (current.nodeType !== next.nodeType || current.nodeName !== next.nodeName) {
+    current.replaceWith(next);
+    return;
+  }
+  if (current.nodeType === Node.TEXT_NODE) {
+    if (current.nodeValue !== next.nodeValue) current.nodeValue = next.nodeValue;
+    return;
+  }
+  for (const attr of [...current.attributes]) if (!next.hasAttribute(attr.name)) current.removeAttribute(attr.name);
+  for (const attr of next.attributes) if (current.getAttribute(attr.name) !== attr.value) current.setAttribute(attr.name, attr.value);
+  const oldEvents = listeners.get(current) || {};
+  const newEvents = listeners.get(next) || {};
+  for (const [event, fn] of Object.entries(oldEvents)) current.removeEventListener(event, fn);
+  for (const [event, fn] of Object.entries(newEvents)) current.addEventListener(event, fn);
+  listeners.set(current, newEvents);
+  const oldChildren = [...current.childNodes], newChildren = [...next.childNodes];
+  newChildren.forEach((child, index) => {
+    if (oldChildren[index]) reconcile(oldChildren[index], child);
+    else current.appendChild(child);
+  });
+  oldChildren.slice(newChildren.length).forEach((child) => child.remove());
+  if (current !== document.activeElement) {
+    if (current.matches('input, select, textarea') && current.value !== next.value) current.value = next.value;
+    if (current.matches('input') && current.checked !== next.checked) current.checked = next.checked;
+  }
+}
+
+export function dataView(container) {
+  let previous = null;
+  return (data, render) => {
+    const signature = JSON.stringify(data);
+    if (signature === previous) return false;
+    const next = h(container.tagName, {}, render(data));
+    const scroll = window.scrollY;
+    const positions = [container, ...container.querySelectorAll('*')]
+      .filter((node) => node.scrollTop || node.scrollLeft)
+      .map((node) => ({ node, top: node.scrollTop, left: node.scrollLeft }));
+    const oldChildren = [...container.childNodes], newChildren = [...next.childNodes];
+    newChildren.forEach((child, index) => {
+      if (oldChildren[index]) reconcile(oldChildren[index], child);
+      else container.appendChild(child);
+    });
+    oldChildren.slice(newChildren.length).forEach((child) => child.remove());
+    window.scrollTo(0, scroll);
+    for (const { node, top, left } of positions) {
+      node.scrollTop = top;
+      node.scrollLeft = left;
+    }
+    previous = signature;
+    return true;
+  };
+}
 
 export function field(labelKey, input, hintKey) {
   const id = 'f' + Math.random().toString(36).slice(2, 9);

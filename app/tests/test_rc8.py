@@ -134,9 +134,11 @@ class ReviewDates(unittest.TestCase):
         full = self.user.get("/api/review/" + str(item["id"])).json()
         self.assertEqual(full["decision"]["date"], "2007-08-29T19:51:02")
         self.assertEqual(full["recheck_proposal"]["value"], "2007-08-29T21:51:02")
-        self.run_job("/api/plans/" + str(original_plan) + "/confirm", {"confirm": True})
+        response = self.user.post("/api/plans/" + str(original_plan) + "/confirm", {"confirm": True})
+        self.assertEqual(response.status, 409, response.text)
+        self.assertEqual(response.json()["error"], "preview_stale")
         stale_item = db.query_one("SELECT * FROM plan_items WHERE plan_job_id=? AND file_id=?", (original_plan, item["file_id"]))
-        self.assertEqual((stale_item["status"], stale_item["note"]), ("skipped", "needs_recheck"))
+        self.assertEqual(stale_item["status"], "planned", "stale plans must not execute any item")
         self.assertTrue(os.path.isfile(file["cur_path"]))
 
     def test_use_proposal_and_manual_field_entry_store_provenance(self):

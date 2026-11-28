@@ -1,4 +1,5 @@
 """TwinCheck - safe, multi-user reorganisation of photo and video libraries."""
 
-VERSION = "1.0.1-rc.11"
+VERSION = "1.0.1-rc.12"
+BUILD_DATE = "2026-11-28"
 APP_NAME = "TwinCheck"

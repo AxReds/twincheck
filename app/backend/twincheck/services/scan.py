@@ -221,9 +221,19 @@ def analysis_phase_event(ctx: JobContext, phase: str, started: bool, count: int,
                 summary = ", ".join(f"{value} {key[:-1] if value == 1 and key.endswith('s') else key}"
                                     for key, value in counts.items())
             elif phase == "metadata":
+                from . import access, review_state
+                rows = ctx.db.query("SELECT r.*,f.cur_path FROM review_items r JOIN files f ON f.id=r.file_id "
+                                    "AND f.owner_id=r.owner_id WHERE r.owner_id=? AND f.present=1 "
+                                    "AND f.media_kind IN ('image','video') AND f.status<>'dup_moved'", (ctx.owner_id,))
+                user = ctx.app.user(ctx.owner_id)
+                reviews = review_state.active([row for row in rows if access.file_in_scope(
+                    ctx.app.settings.data_dir.as_posix(), user, row)])
+                counts["review"] = len(reviews)
+                counts["pending"] = sum(review_state.status(row) != "decided" for row in reviews)
+                counts["decided"] = len(reviews) - counts["pending"]
                 fills = counts["fills"]
                 summary = (f"{counts['analysed']} analysed, {fills} metadata completion{'s' if fills != 1 else ''} proposed, "
-                           f"{counts['review']} to review")
+                           f"{counts['review']} flagged, {counts['pending']} to review, {counts['decided']} decided")
         ctx.log(event, phase=phase, phase_label=phase.replace("_", " "), count=count, summary=summary, **counts)
 
 

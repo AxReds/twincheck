@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import hashlib
 
 from ..db.manager import log
 from ..db.schema import utcnow
@@ -15,6 +16,38 @@ from ..mover import MoveError, move_file
 from . import access, review_state
 from .companions import group_directory, renamed_companion, stem
 from .dedupe import duplicates_folder_target, group_members
+from .scan import iter_dirs
+
+
+def organize_snapshot(app, db, owner: str, params: dict) -> dict:
+    """Fingerprint planning inputs, excluding progress and ordinary log updates."""
+    def digest(value):
+        return hashlib.sha256(json.dumps(value, sort_keys=True, default=str).encode()).hexdigest()
+
+    user = app.user(owner)
+    root, dest = params["root"], params["dest"]
+    source_id = params["source_id"]
+    analysis = db.query_one("SELECT id FROM jobs WHERE owner_id=? AND kind='analyze_library' "
+                            "AND status='completed' ORDER BY id DESC LIMIT 1", (owner,))
+    files = db.query("SELECT id,cur_path,size,mtime_ns,sha256,present,chosen_date,status,phase_meta,phase_org "
+                     "FROM files WHERE owner_id=? AND source_id=? ORDER BY id", (owner, source_id))
+    reviews = db.query("SELECT r.id,r.status,r.decision,r.skipped_at,r.recheck_reason,r.applied "
+                       "FROM review_items r JOIN files f ON f.id=r.file_id "
+                       "WHERE f.owner_id=? AND f.source_id=? ORDER BY r.id", (owner, source_id))
+    disk = []
+    patterns = app.settings_section("scan").get("exclude", [])
+    for boundary in sorted({root, dest}):
+        for _, directory, entries in iter_dirs(boundary, patterns):
+            disk.append((directory, "directory"))
+            for entry in entries:
+                try:
+                    st = entry.stat(follow_symlinks=False)
+                    disk.append((entry.path, st.st_size, st.st_mtime_ns, st.st_ino, st.st_dev))
+                except OSError as exc:
+                    disk.append((entry.path, "unreadable", exc.errno))
+    return {"scope": digest([root, dest, (user or {}).get("sources"), app.settings_section("organize"),
+                             app.library_timezone, patterns]),
+            "analysis": digest(analysis), "decisions": digest(reviews), "files": digest([files, disk])}
 
 
 def _candidate_names(name: str, n: int) -> str:
@@ -53,6 +86,8 @@ def _owner_area(ctx: JobContext) -> dict:
 def organize_plan(ctx: JobContext) -> dict:
     db = ctx.db
     area = _owner_area(ctx)
+    ctx.params["preview_snapshot"] = organize_snapshot(ctx.app, db, ctx.owner_id, ctx.params)
+    db.execute("UPDATE jobs SET params=? WHERE id=?", (json.dumps(ctx.params), ctx.id))
     org = ctx.app.settings_section("organize")
     no_date = org.get("no_date_folder", "No_date")
     dup_folder = org.get("duplicates_folder", "Duplicates")
@@ -209,6 +244,10 @@ def run_move_plan(ctx: JobContext) -> dict:
         entries = [{"file_id": item["file_id"], "src": item["src"], "dst": item["dst"]}] + payload.get("companions", [])
         block = next((reason for entry in entries if entry.get("file_id")
                       if (reason := review_state.organize_block(db, entry["file_id"]))), None) if item["kind"] == "organize" else None
+        if item["kind"] == "organize" and not block:
+            file = db.query_one("SELECT chosen_date FROM files WHERE id=?", (item["file_id"],))
+            if not file or file["chosen_date"] != payload.get("date"):
+                block = "file_changed"
         problem = block or _validate(ctx, item["owner_id"], entries)
         if problem:
             with db.transaction():
@@ -264,6 +303,13 @@ def run_move_plan(ctx: JobContext) -> dict:
 
 @register("organize_apply", writes_files=True)
 def organize_apply(ctx: JobContext) -> dict:
+    plan = ctx.db.query_one("SELECT params FROM jobs WHERE id=?", (ctx.params["plan_job_id"],))
+    params = json.loads(plan["params"])
+    started = ctx.db.query_one("SELECT id FROM plan_items WHERE plan_job_id=? AND status='done' LIMIT 1",
+                               (ctx.params["plan_job_id"],))
+    if params.get("discarded_at") or not started and params.get("preview_snapshot") != organize_snapshot(
+            ctx.app, ctx.db, ctx.owner_id, params):
+        raise ValueError("preview_stale")
     return run_move_plan(ctx)
 
 

@@ -1,8 +1,8 @@
 // Application shell: boot, fixed header with live system metrics, navigation, router.
-import { h, mount, clear, toast } from './dom.js';
+import { h, mount, clear, toast, dataView } from './dom.js';
 import { t, fmt, setLanguage, listLocales, browserLanguage, onLanguage, currentLang } from './i18n.js';
-import { get, post, setCsrf } from './api.js';
-import { poll, stopPolling, resumePolling, databaseNotice } from './components.js';
+import { get, post, setCsrf, cancelReads } from './api.js';
+import { poll, stopPolling, resumePolling, databaseNotice, refreshBlocked } from './components.js';
 import { setThemeUser, themeSelect, themeToggle } from './theme.js';
 import { icon } from './icons.js';
 import { renderSetup } from './views/setup.js';
@@ -17,18 +17,18 @@ const root = document.getElementById('app');
 
 const ROUTES = [
   [/^#\/?$/, () => tool.home], [/^#\/home$/, () => tool.home], [/^#\/analyze$/, () => tool.scan],
-  [/^#\/duplicates$/, () => tool.duplicates], [/^#\/metadata(?:\/(review))?$/, () => tool.metadata],
+  [/^#\/duplicates(?:\?.*)?$/, () => tool.duplicates], [/^#\/metadata(?:\/(review))?(?:\?.*)?$/, () => tool.metadata],
   [/^#\/metadata\/review\/(\d+)$/, () => review.item], [/^#\/organize$/, () => tool.organize], [/^#\/plans\/(\d+)$/, () => tool.plan],
-  [/^#\/report$/, () => tool.report], [/^#\/jobs(?:\?.*)?$/, () => tool.jobs], [/^#\/logs(?:\?.*)?$/, () => tool.logs], [/^#\/me$/, () => tool.me],
+  [/^#\/report(?:\?.*)?$/, () => tool.report], [/^#\/jobs(?:\?.*)?$/, () => tool.jobs], [/^#\/logs(?:\?.*)?$/, () => tool.logs], [/^#\/me$/, () => tool.me],
   [/^#\/admin\/users$/, () => admin.users], [/^#\/admin\/groups$/, () => admin.groups], [/^#\/admin\/settings$/, () => admin.settings],
   [/^#\/admin\/database$/, () => admin.database], [/^#\/admin\/transfer$/, () => transferView.transfer],
-  [/^#\/admin\/audit$/, () => admin.audit], [/^#\/admin\/security$/, () => admin.security], [/^#\/admin$/, () => admin.users],
+  [/^#\/admin\/security$/, () => admin.security], [/^#\/admin$/, () => admin.settings],
   [/^#\/security-activity(?:\?.*)?$/, () => (main, state) => tool.securityActivity(main, state)],
 ];
 
 const NAV = [
   ['#/home', 'nav.home', 'house'], ['#/analyze', 'nav.scan', 'folder-search'], ['#/duplicates', 'nav.duplicates', 'copy'], ['#/metadata', 'nav.metadata', 'file-text'],
-  ['#/organize', 'nav.organize', 'folder-tree'], ['#/report', 'nav.report', 'undo-2'], ['#/jobs', 'nav.jobs', 'activity'], ['#/logs', 'nav.logs', 'scroll-text'],
+  ['#/organize', 'nav.organize', 'folder-tree'], ['#/report', 'nav.report', 'undo-2'], ['#/jobs', 'nav.jobs', 'activity'],
 ];
 
 export function langSelect(onChange) {
@@ -62,6 +62,7 @@ let shell = null;
 let routeGeneration = 0;
 
 function clearSession() {
+  cancelReads();
   stopPolling();
   stopMetrics();
   if (state.view?.destroy) state.view.destroy();
@@ -94,22 +95,29 @@ async function renderShell() {
   });
   const main = h('main', { class: 'content', id: 'content', tabindex: '-1' });
   const header = h('header', { class: 'topbar' },
-    h('a', { class: 'brand', href: '#/home' }, h('img', { src: '/static/img/logo.svg', alt: '', class: 'logo' }), h('span', { class: 'brand-name' }, t('app.name'))),
+    brand('#/home'),
     toggle, metrics, h('div', { class: 'header-actions' }, themeToggle(), userMenu()));
   const nav = h('nav', { class: 'mainnav', 'aria-label': t('nav.label') },
     NAV.map(([href, key, name]) => h('a', { href, title: t(key), 'aria-label': t(key) }, icon(name), h('span', { class: 'nav-label' }, t(key)))));
   const databaseBanner = databaseNotice(state);
   databaseBanner.classList.add('content');
   databaseBanner.hidden = state.boot.db?.connected !== false;
-  shell = { header, nav, main, metrics, databaseBanner };
+  shell = { header, nav, main, metrics, databaseBanner, updateMetrics: dataView(metrics) };
   const security = state.boot.security_banner;
-  const securityBanner = security && (security.last || security.failed)
+  const securityBanner = security && !security.dismissed && (security.last || security.failed)
     ? h('div', { class: 'content notice' + (security.failed ? ' warn' : ''), role: 'status' },
       security.last ? h('p', {}, t('security.last_login', { date: fmt.date(security.last.ts), ip: security.last.ip })) : null,
       security.failed ? h('p', {}, t('security.failed_since', { count: security.failed }), ' ',
         h('a', { href: '#/security-activity?' + new URLSearchParams({
           event: 'LOGIN_FAILED', ...(security.since ? { since: security.since } : {}), until: security.until,
-        }) }, t('review.open'))) : null) : null;
+        }) }, t('security.review'))) : null,
+      h('button', { type: 'button', class: 'link banner-close', 'aria-label': t('common.close'), onclick: async () => {
+        try {
+          await post('/api/me/security-banner/dismiss');
+          security.dismissed = true;
+          securityBanner.remove();
+        } catch (e) { toast(e.message, 'error'); }
+      } }, '✕')) : null;
   mount(root, header, nav, databaseBanner, securityBanner, main);
   stopMetrics();
   resumePolling();
@@ -122,7 +130,7 @@ async function renderPasswordRequired() {
   const logoutButton = h('button', { type: 'button', class: 'btn small', onclick: logout },
     icon('log-out'), h('span', { class: 'nav-label' }, t('user.logout')));
   const header = h('header', { class: 'topbar' },
-    h('a', { class: 'brand', href: '#/me' }, h('img', { src: '/static/img/logo.svg', alt: '', class: 'logo' }), h('span', { class: 'brand-name' }, t('app.name'))),
+    brand('#/me'),
     h('div', { class: 'header-actions' }, themeToggle(), logoutButton));
   shell = { header, nav: null, main, metrics: null, passwordRequired: true };
   history.replaceState(null, '', '#/me');
@@ -138,13 +146,22 @@ function userMenu() {
       try { await post('/api/me/lang', { lang: code }); } catch (e) { toast(e.message, 'error'); }
     })),
     h('label', { class: 'menu-row' }, icon('sun-moon'), t('theme.label'), ' ', themeSelect()),
+    state.perms.manage_users ? h('a', { class: 'menu-row', href: '#/admin/settings' }, icon('sliders-horizontal'), h('span', { class: 'nav-label' }, t('nav.admin'))) : null,
     h('a', { class: 'menu-row', href: '#/security-activity' }, icon('shield'), h('span', { class: 'nav-label' }, t('security.activity'))),
-    state.perms.manage_users ? h('a', { class: 'menu-row', href: '#/admin/users' }, icon('shield'), h('span', { class: 'nav-label' }, t('nav.admin'))) : null,
+    h('a', { class: 'menu-row', href: '#/logs' }, icon('scroll-text'), h('span', { class: 'nav-label' }, t('nav.logs'))),
     h('a', { class: 'menu-row', href: '#/me' }, icon('key-round'), h('span', { class: 'nav-label' }, t('user.change_password'))),
     h('button', { type: 'button', class: 'menu-row link', onclick: logout }, icon('log-out'), h('span', { class: 'nav-label' }, t('user.logout'))));
   const btn = h('button', { type: 'button', class: 'btn user-btn', 'aria-haspopup': 'true', 'aria-expanded': 'false' }, u.username, ' ▾');
   btn.addEventListener('click', () => { panel.hidden = !panel.hidden; btn.setAttribute('aria-expanded', String(!panel.hidden)); });
   return h('div', { class: 'usermenu' }, btn, panel);
+}
+
+function brand(href) {
+  return h('a', { class: 'brand', href }, h('img', { src: '/static/img/logo.svg', alt: '', class: 'logo' }),
+    h('span', { class: 'brand-text' }, h('span', { class: 'brand-name' }, t('app.name')),
+      h('small', { class: 'brand-version', title: t('header.version_build', {
+        version: state.boot.version || '', date: state.boot.build_date || t('common.na'),
+      }) }, state.boot.version ? 'v' + state.boot.version : '')));
 }
 
 function closeUserMenu(restoreFocus = false) {
@@ -184,7 +201,7 @@ function vol(v) {
 let lastMetrics = null;
 async function refreshMetrics() {
   const m = await get('/api/sysinfo');
-  if (shell && document.activeElement && shell.header.contains(document.activeElement)) return;
+  if (shell && refreshBlocked(shell.header)) return;
   lastMetrics = m;
   state.boot.db = m.database;
   if (shell?.databaseBanner) shell.databaseBanner.hidden = m.database?.connected !== false;
@@ -205,7 +222,7 @@ function drawMetrics() {
     d.same_volume === null ? t('common.na') : (d.same_volume ? h('span', { class: 'ok' }, t('header.same_volume')) : h('span', { class: 'warn' }, t('header.different_volume'))),
     ' · ', t('header.indexed_size', { size: d.indexed_bytes === null || d.indexed_bytes === undefined ? t('common.na') : fmt.bytes(d.indexed_bytes) })));
   const db = m.database || {};
-  mount(shell.metrics,
+  shell.updateMetrics(m, () => [
     chip('header.host', m.host || t('common.na')),
     chip('header.os', [m.os, m.kernel, m.arch].map((x) => x || t('common.na')).join(' · ')),
     chip('header.cpu', t('header.cpu_value', { cores: m.cpu.cores ?? t('common.na'), pct: fmt.percent(m.cpu.percent) }) +
@@ -214,11 +231,10 @@ function drawMetrics() {
     chip('header.data', vol(m.volumes.data), level(m.volumes.data.level)),
     chip('header.state', vol(m.volumes.state), level(m.volumes.state.level)),
     chip('header.uptime', t('header.uptime_value', { system: fmt.duration(m.uptime.system), container: fmt.duration(m.uptime.container) })),
-    chip('header.version', m.version),
     chip('header.database', (db.type ? t('db.type.' + db.type) : t('common.na')) + ' · ' + (db.connected ? t('header.connected') : t('header.not_connected')) +
       (db.schema_version ? ' · ' + t('header.schema', { version: db.schema_version }) : ''), db.connected ? '' : 'crit'),
     h('a', { class: 'chip link', href: '#/jobs', title: t('header.jobs_running', { count: m.jobs_running }) }, h('span', { class: 'chip-label' }, t('header.jobs')), h('span', { class: 'chip-value' }, t('header.jobs_running', { count: m.jobs_running }))),
-    disks.length ? h('details', { class: 'chip disks' }, h('summary', {}, t('header.disks', { count: disks.length })), h('div', { class: 'disk-panel' }, disks)) : null);
+    disks.length ? h('details', { class: 'chip disks' }, h('summary', {}, t('header.disks', { count: disks.length })), h('div', { class: 'disk-panel' }, disks)) : null]);
 }
 
 export async function route() {
@@ -229,10 +245,15 @@ export async function route() {
   }
   const generation = ++routeGeneration;
   const activeShell = shell;
+  cancelReads();
   closeUserMenu();
   if (state.view && state.view.destroy) state.view.destroy();
   state.view = null;
   const hash = location.hash || '#/home';
+  if (hash.startsWith('#/admin/audit')) {
+    history.replaceState(null, '', hash.replace('#/admin/audit', '#/security-activity'));
+    return route();
+  }
   if (hash === '#/scan') {
     history.replaceState(null, '', '#/analyze');
     return route();
@@ -277,6 +298,8 @@ function highlightSection(hash) {
 }
 
 window.addEventListener('hashchange', route);
+window.addEventListener('pagehide', () => { stopPolling(); stopMetrics(); cancelReads(); state.view?.destroy?.(); });
+window.addEventListener('pageshow', (event) => { if (event.persisted) boot(); });
 window.addEventListener('po:unauthenticated', () => {
   if (!shell) return;
   clearSession();

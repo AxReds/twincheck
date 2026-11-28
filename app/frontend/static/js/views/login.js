@@ -9,8 +9,13 @@ export function renderLogin(root, state, reboot) {
     const user = h('input', { type: 'text', autocomplete: 'username', required: true });
     const pass = h('input', { type: 'password', autocomplete: 'current-password', required: true });
     const msg = h('p', { class: 'notice error', hidden: true, role: 'alert' });
+    let submitting = false;
     const form = h('form', { class: 'form', onsubmit: async (e) => {
       e.preventDefault();
+      if (submitting) return;
+      submitting = true;
+      const submit = form.querySelector('[type="submit"]');
+      submit.disabled = true;
       msg.hidden = true;
       try {
         await post('/api/login', { username: user.value, password: pass.value }, { allow401: true });
@@ -20,6 +25,9 @@ export function renderLogin(root, state, reboot) {
         msg.textContent = err.code === 'too_many_attempts' ? t('error.too_many_attempts', { seconds: err.params.retry_after }) : err.message;
         msg.hidden = false;
         if (err.code === 'network') toast(err.message, 'error');
+      } finally {
+        submitting = false;
+        if (submit.isConnected) submit.disabled = false;
       }
     } },
     field('login.username', user), field('login.password', pass), msg,

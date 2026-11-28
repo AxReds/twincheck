@@ -262,11 +262,12 @@ class ReviewPostponement(unittest.TestCase):
                                             (plan, skipped["file_id"]))
                         self.assertEqual((move["status"], move["note"]), ("skipped", "review_skipped"))
                         response = user.post(f"/api/plans/{old_plan}/confirm", {"confirm": True})
-                        self.assertEqual(response.status, 202, response.text)
-                        self.assertEqual(wait_job(inst.core, response.json()["job_id"])["status"], "completed")
+                        self.assertEqual(response.status, 409, response.text)
+                        self.assertEqual(response.json()["error"], "preview_stale")
                         old_move = db.query_one("SELECT status,note FROM plan_items WHERE plan_job_id=? AND file_id=?",
                                                 (old_plan, skipped["file_id"]))
-                        self.assertEqual((old_move["status"], old_move["note"]), ("skipped", "review_skipped"))
+                        self.assertEqual(old_move["status"], "planned", "a stale plan must not execute any item")
+                        self.assertTrue((inst.data / "lib" / skipped["file"]["name"]).exists())
                         self.assertEqual(user.post(f"/api/review/{duplicate_id}",
                                                    {"action": "save", "date": "2003-04-05T06:07:08"}).status, 200)
                         self.assertEqual(user.get(f"/api/review/{duplicate_id}").json()["status"], "decided")

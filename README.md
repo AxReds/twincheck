@@ -75,12 +75,12 @@ On a server with **Portainer** you do not need the source code: use the publishe
 2. **Setup** - open the web UI, enter the setup token from the log, choose the database (SQLite, or
    MariaDB with *Test connection*: the structure is created automatically), set the password of the
    fixed `admin` account, confirm. The wizard then locks forever.
-3. **Users and roles** - *Administration → Users*: create base users with their source folders under
+3. **Users and roles** - *Settings → Users*: create base users with their source folders under
    `/data` (and optional destination), group them, create administrators (admin only). New users must
    change their temporary password at first sign-in.
-   The fixed admin can assign his own source using *Administration → Users → admin →
-   Edit → Sources*. Administration is available only in the administrative user menu,
-   above Change password; empty Analyze and Organize pages link to source assignment
+   The fixed admin can assign his own source using *Settings → Users → admin →
+   Edit → Sources*. Settings is available only in the administrative user menu,
+   above Change Password; empty Analyze and Organize pages link to source assignment
    for admin roles. Base users get an instruction to ask an administrator instead.
 4. **Analyze** - on *Analyze*, pick a source and start *Analyze library*. This is the single
    entry point for reading the library: one resumable,
@@ -102,8 +102,8 @@ On a server with **Portainer** you do not need the source code: use the publishe
    effective date and rule. Metadata is not written by duplicate analysis.
 6. **Metadata** - one tab contains automatic completions and the review queue. One summary shows
    analysed/unreadable/dated/review counts, with technical population details in its information tooltip.
-   Filters and the list follow directly; **Start review** opens the first pending item.
-   Filter pending/decided/needs re-check/all.
+   Filters and the list follow directly; **Start review** opens the first item to review.
+   Filter All / To review / Decided, then filter by reason.
    Preview automatic completions only when fills exist, then confirm to write (original values
    are saved first). Zero fills is explained and does not mean there are no files to review.
    The latest selected-folder analysis counts files; the review queue spans all assigned folders
@@ -114,7 +114,7 @@ On a server with **Portainer** you do not need the source code: use the publishe
    writes the values you entered (only into missing fields).
    Choosing a date for organizing clears unsaved capture/creation date edits; that choice
    is stored only in the database and does not itself write date tags.
-   **Skip** means postpone: the item remains Pending with a skipped badge, emits `REVIEW_SKIPPED`
+   **Postpone** leaves the item To review with a grey timestamped note, emits `REVIEW_SKIPPED`
    and is not organized. A shared status keeps badges, filters, counts and Organize consistent
    across re-analysis and old item links; saved/kept/re-check choices are never silently changed.
    **Save**, **Accept** and **Keep stored date** stay on the item and display the result;
@@ -124,11 +124,11 @@ On a server with **Portainer** you do not need the source code: use the publishe
    library timezone. Ambiguous historical decisions stay unchanged in the needs re-check queue:
    accept the converted proposal, keep the stored date or choose another. Organize skips them until
    explicit confirmation, including when executing a previously prepared plan.
-9. **Report & Undo** - preview and execute the reversal of moves and/or metadata, read from
+9. **History & Undo** - preview and execute the reversal of moves and/or metadata, read from
    the manifest; *Verify* checks files and hashes against index and manifest; download the manifest CSV.
-10. **Change database** - *Administration → Database*: test, switch (jobs paused, old database
+10. **Change database** - *Settings → Database*: test, switch (jobs paused, old database
     untouched, reconciliation with the disk, rollback on failure), or go back to a previous one.
-11. **Export and migration** - *Administration → Export & migration* (admin): encrypted archive,
+11. **Export and migration** - *Settings → Export & Migration* (admin): encrypted archive,
     import into an empty database, or direct migration; preview, checkpoints, final verification,
     then optionally switch to the new database.
 12. **Admin password reset** - `docker compose exec app reset-admin-password` (or `--generate`,
@@ -146,21 +146,23 @@ CSV includes UTC `time_utc` and 24-hour `time_local` in the library timezone wit
 messages stay English.
 Base users see only their own scoped job/file/review events, never system/login events.
 Administrators see all events and can filter by User. Empty lists explain why nothing is shown.
-The admin User filter and that user's own view use the same scope, including legacy jobs.
+The admin User filter matches the User column, including events outside that user's library.
+Its note counts events excluded from the user's private view; filtered export uses the same rows.
 All roles see library-relative paths; admin CSV adds `path_container` for technical support.
 CSV files have descriptive, timestamped names rather than a generic export name.
 Normal users see only present event codes and no catalogue checkbox. Filters form the first
 row; naturally sized exports form the second. Security events are separate:
-**My security activity** in the user menu is a trial, backed by the encrypted instance
+**Security Log** in the user menu is a trial, backed by the encrypted instance
 audit store even without a working database. Sign-in banners show the previous retained
-sign-in and failed attempts since then. Admins keep **Administration → Audit log**.
+sign-in and failed attempts since then. Banners persist across pages until dismissed;
+dismissal lasts until the next sign-in. Admins use the same Security Log page with a User filter.
 
-The step guide is **1 Analyze → 2 Check (Duplicates · Metadata) → 3 Organize → 4 Report & Undo**.
+The step guide is **1 Analyze → 2 Check (Duplicates · Metadata) → 3 Organize → 4 History & Undo**.
 There is no separate Review menu tab; existing Scan and Review links redirect to their new locations.
 
 ### Instance settings
 
-The fixed admin sets these in **Administration → Settings**; other roles cannot edit them:
+The fixed admin sets these in **Settings → General**; other roles cannot edit them:
 
 | Setting | Description | Default | Required | Example |
 |---------|-------------|---------|----------|---------|
@@ -175,14 +177,24 @@ Review items, Logs, Duplicates and Jobs default to 50 rows per page and offer
 10 / 50 / 100 / All. The browser remembers each user's choice separately for each table.
 Loading All above 1,000 rows requires confirmation, including after returning to the page.
 
-### Upgrade to 1.0.1-rc.11
+### Upgrade to 1.0.1-rc.12
 
-From rc.10, no schema migration is required: schema remains 6 and an already-current
+From rc.11, no schema migration is required: schema remains 6 and an already-current
 database emits no `DB_MIGRATED`. User decisions are not changed.
-Deploy `ghcr.io/axreds/twincheck:1.0.1-rc.11` (or the moving `rc` alias).
+Deploy `ghcr.io/axreds/twincheck:1.0.1-rc.12` (or the moving `rc` alias) only after publication.
+
+The version is shown below the logo with a build-date tooltip. Diagnostics and Security Log
+are in the user menu; administrative Settings opens General. Filters stay in the page URL
+through F5; navigation links reset filters, while rows-per-page remains a per-user preference.
+Organize shows the last saved preview with Open, Recompute and Discard. Changed analysis,
+decisions, files, assignments or settings disable execution until recomputed; older previews
+also require recomputation. Unchanged polling data never replaces DOM nodes.
+History & Undo lists operations newest first and links moved-file results to their operation.
+Per-operation undo is deferred to #110; existing global undo previews and confirmations remain.
+History does not require a private analysis to inspect a manifest or undo operations.
 
 From an older version, stop the container and back up `/state` (and the operational MariaDB database, if used).
-After upgrading, an administrator must open **Administration → Database → Migrate schema**
+After upgrading, an administrator must open **Settings → Database → Migrate schema**
 and confirm the backup. Until the database is ready, every signed-in user sees
 **Database update required. Contact an administrator.** Administrators can follow the banner.
 Schema 6 returns only historical skip-only records to Pending, preserving the skipped marker

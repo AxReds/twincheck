@@ -1,5 +1,5 @@
 // Reusable UI pieces: job progress, polling, source picker, folder browser.
-import { h, button, badge, progress, mount, toast, instant, field, modal } from './dom.js';
+import { h, button, badge, progress, mount, toast, instant, field, modal, dataView } from './dom.js';
 import { t, fmt } from './i18n.js';
 import { get, post, ApiError } from './api.js';
 
@@ -147,6 +147,7 @@ export function tablePaging(userId, name, go) {
   let confirmed = false;
   let confirming = null;
   const range = h('div', { class: 'page-range' });
+  const updateRange = dataView(range);
   const controls = h('div', { class: 'pager' }, field('common.rows_per_page', select), range);
   const approve = async () => {
     if (choice !== 'all' || total === null || total <= 1000 || confirmed) return true;
@@ -177,7 +178,7 @@ export function tablePaging(userId, name, go) {
     render(count, offset) {
       total = count;
       controls.hidden = count === 0;
-      mount(range,
+      updateRange([count, offset, choice], () =>
         pager(count, offset, choice === 'all' ? Math.max(1, count) : Number(choice), go) ||
         h('span', {}, t('common.page_range', { from: count ? offset + 1 : 0, to: count, total: count })));
       return controls;
@@ -212,6 +213,9 @@ export function databaseNotice(state) {
 
 export function jobCard(job, onChange) {
   const actions = [];
+  if (job.status === 'completed' && ['organize_apply', 'dedupe_apply'].includes(job.kind) && job.result)
+    actions.push(h('a', { class: 'history-result', href: '#/report?operation=' + job.id },
+      t('report.moved_link', { count: job.result.moved || 0 })));
   if (job.status === 'running' || job.status === 'queued') actions.push(button('job.pause', () => act(job, 'pause', onChange)));
   if (['paused', 'interrupted', 'failed'].includes(job.status) && !['export', 'import', 'migrate'].includes(job.kind)) {
     actions.push(button('job.resume', () => act(job, 'resume', onChange), 'primary'));
@@ -253,6 +257,8 @@ async function act(job, action, onChange) {
 
 // Polls a function while the tab is visible; returns a stop function.
 export function refreshBlocked(container) {
+  const selection = window.getSelection();
+  if (container && selection && !selection.isCollapsed && container.contains(selection.anchorNode)) return true;
   return Boolean(container && (container.contains(document.activeElement) &&
     document.activeElement.matches('input, select, textarea, button, summary, [role="combobox"]') ||
     container.querySelector('details[open], [aria-expanded="true"]') ||
@@ -265,7 +271,10 @@ export function poll(fn, ms, container = null) {
   const tick = async () => {
     if (stopped || running) return;
     running = true;
-    if (!document.hidden && !refreshBlocked(container)) { try { await fn(); } catch (e) { /* keep polling */ } }
+    if (!document.hidden && !refreshBlocked(container)) {
+      try { await fn(); }
+      catch (e) { if (e.name !== 'AbortError' && e.status !== 401) toast(e.message || t('error.network'), 'error'); }
+    }
     running = false;
     if (!stopped) timer = setTimeout(tick, ms);
   };
@@ -279,16 +288,31 @@ export function poll(fn, ms, container = null) {
 
 export function jobList(container, query, opts = {}) {
   const box = h('div', { class: 'jobs' });
+  const update = dataView(box);
   container.appendChild(box);
   const refresh = async (automatic = false) => {
     const data = await get('/api/jobs?' + query);
     if (!box.isConnected || automatic && refreshBlocked(container)) return;
-    const scroll = window.scrollY;
-    mount(box, data.items.length ? data.items.map((j) => jobCard(j, refresh)) : h('p', { class: 'muted' }, t(opts.emptyKey || 'job.none')));
-    window.scrollTo(0, scroll);
+    update(data.items, () => data.items.length ? data.items.map((j) => jobCard(j, refresh)) : h('p', { class: 'muted' }, t(opts.emptyKey || 'job.none')));
     if (opts.onData) opts.onData(data.items);
   };
   return { refresh, stop: poll(() => refresh(true), opts.interval || 1500, container) };
+}
+
+export function pageFilters(defaults = {}) {
+  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  return {
+    get: (key) => params.get(key) ?? defaults[key] ?? '',
+    save(values) {
+      const params = new URLSearchParams(location.hash.split('?')[1] || '');
+      for (const [key, value] of Object.entries(values)) {
+        if (value === '' || value === null || value === defaults[key]) params.delete(key);
+        else params.set(key, value);
+      }
+      const query = params.toString();
+      history.replaceState(null, '', location.hash.split('?')[0] + (query ? '?' + query : ''));
+    },
+  };
 }
 
 export async function waitForJob(id, onUpdate) {

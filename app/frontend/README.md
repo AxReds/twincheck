@@ -25,7 +25,7 @@ locales/*.json             translations (see locales/README.md)
 * Paths, file names, metadata values, ExifTool tag names and log entries are shown as they are.
 * Insert text with `textContent` / `h()`; never `innerHTML`.
 
-Navigation, user-menu rows and Administration tabs use bundled Lucide inline SVG
+Navigation, user-menu rows and Settings tabs use bundled Lucide inline SVG
 icons. Geometry is constructed with `createElementNS`, not fetched at runtime.
 The [ISC/MIT notices](static/js/icons.LICENSE) ship with the app; both licenses
 are compatible with GPL-3.0. Icons inherit text color, are `aria-hidden` and
@@ -53,7 +53,7 @@ No inline script or CSP exception is used, including for login and logout.
 
 ## Header metrics
 
-Administration appears only in the administrative user menu, not the main
+Settings appears only in the administrative user menu, not the main
 navigation. Admin pages highlight that menu button as the current section;
 the internal admin navigation underlines its current page. Direct admin routes
 redirect base users Home without calling admin APIs.
@@ -85,7 +85,7 @@ authenticated session. Typed values and focus stay intact; a failed login does
 not restart polling. Polling resumes only after a successful login and bootstrap.
 
 The tool flow is guided by one compact four-step bar:
-Analyze → Review (Duplicates, Metadata, Review) → Organize → Report & Undo.
+Analyze → Review (Duplicates, Metadata, Review) → Organize → History & Undo.
 Only Scan exposes an analysis action. The other pages show the last analysis time,
 an empty/stale notice linking to Scan, and their read/action controls.
 Job-trigger buttons are disabled while a request or the resulting job is active.
@@ -125,19 +125,30 @@ choice still confirms before loading more than 1,000 rows. Sticky headers and pa
 remain independent of the selected size. Filter/action rows share bottom alignment;
 Logs filters occupy the first row, wrapping one per line on narrow screens.
 Natural-width, left-aligned CSV export buttons occupy the next row. Empty filtered exports
-are disabled and zero-result pagers hidden. Security guidance links to the instance activity
-page or administrative audit log, never the operational Logs.
+are disabled and zero-result pagers hidden. Security guidance is one link to Security Log,
+with role-scoped instance events, never security events in operational Diagnostics.
 Jobs polling refreshes only rows/cards, retaining the pagination controls. All automatic
 card/metrics refreshes pause while controls in their view have focus or a popup is open,
 including a focus change while a request is in flight; page scroll stays unchanged.
 
 Metadata shows one summary with an information tooltip, followed directly by filters,
-Start review and the queue, with rules collapsed below. Skipped items show muted timestamped
-pending text, shortened on narrow screens, not a decision. Review inputs use short examples
+Start review and the queue, with rules collapsed below. Postponed items show a muted timestamped
+still-to-review note in the always-visible Decision column, with no skipped badge.
+Review inputs use italic examples explicitly prefixed with "e.g."
 with date rules below the field. Fields/actions precede the preview in DOM/tab order:
 desktop is approximately 60% fields left, 40% sticky preview right; mobile shows a thumbnail
 and filename first and retains the fixed bottom action bar. Preview enlargement uses a
 native dialog; Escape closes it and restores focus.
+
+The signed-in version appears below the brand with a full version/build tooltip.
+The menu order is Language, Theme, Settings (administrative roles), Security Log,
+Diagnostics, Change Password and Log Out. Settings opens General; the separate audit
+subpage is redirected to Security Log. Filter URLs survive reload while navigation links
+reset them, independently of per-user rows-per-page preferences.
+Organize previews retain their job identity and explain why a saved plan became stale.
+History & Undo lists execution operations, with global undo retained until #110.
+Unchanged auto-refresh data is a DOM no-op; changed nodes reconcile in place. Navigation
+and pagehide abort outstanding reads and stop view timers.
 
 ## Replacing the logo
 

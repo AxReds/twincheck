@@ -4,6 +4,59 @@ All notable changes are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.1-rc.12] - 2026-11-28
+
+Pre-release only; publication requires green original CI jobs and the full owner-specified
+release gate. Only exact `1.0.1-rc.12` and `rc` image tags are authorized. Stable aliases,
+main and PR #27's open/draft state remain unchanged; tag `1` must remain absent.
+
+### Owner verification
+
+- Closed with `verified` after rc.11 owner verification: #83–#96, #78 and #57.
+  #59 and #60 remain open and untouched.
+
+### Fixed and improved
+
+- B32b (#97): admin User filter matches every effective event User, with a count of rows
+  hidden from that user's unchanged private scope; filtered CSV follows the admin rows.
+- B35 (#98): preview filter is no longer recreated on each poll. Identical responses are
+  DOM no-ops; changed responses reconcile nodes, preserving table scroll and native controls.
+- B36 (#99): History no longer gates global manifest/counts/undo on private analysis.
+  Analysis notices elsewhere distinguish never analyzed, legacy analysis jobs and disk changes.
+- B37 (#100): navigation/unload stops polling and aborts GETs; HTTP admission is bounded,
+  with explicit 503/Retry-After, and health bypasses the worker pool. The original intermittent
+  timeout has not been reproduced or assigned a confirmed root cause.
+- U41 (#101): saved Organize previews can be opened, recomputed or discarded without deleting
+  history. Input fingerprints disable stale previews at list, confirmation and execution.
+- U42 (#102): History & Undo, newest-first operation list and moved-file result links.
+  Global undo remains; per-operation undo is deferred to #110 for cross-type dependency and
+  metadata-restoration safety.
+- U43 (#103): version below the logo, with version/build timestamp tooltip for signed-in users.
+- U44 (#104): Diagnostics in the user menu; Settings opens General; one role-aware Security Log.
+- U45 (#105): page filters in URLs, reset by navigation; compact Jobs Show select. Existing
+  per-user rows-per-page preferences remain unchanged.
+- U46 (#106): All / To review / Decided, Postpone, no skipped filename/header badge,
+  always-visible Decision column, timestamped postponement note and corrected flagged counts.
+- U47 (#107): sign-in banners persist until dismissed and reset only on the next sign-in.
+- U39b (#108): italic, explicitly labelled examples cannot be mistaken for Proposal/Use values.
+- UI polish (#109): UTC-first suggestions, one search clear control, spaced preview buttons,
+  opaque sticky headers, job-specific empty results and double-submit prevention.
+
+### Upgrade
+
+Schema remains 6; no migration or `DB_MIGRATED` from rc.11. Existing user decisions are not
+changed. Older schemas retain administrator-confirmed migration with backup. Old saved
+previews without fingerprints must be recomputed before execution.
+
+### Validation
+
+- Full SQLite suite and the full suite with isolated MariaDB: 132 tests passed.
+- All ten locales complete; translation and parameter/document consistency checks passed.
+- Light/Dark × 1600/1280/900/375 px: 61 DOM/CSS scenarios per combination.
+- Native browser checks retain an actually open select across two refresh cycles, perform
+  30 real reloads/navigations per combination and require health/home below two seconds.
+- No new application dependency, environment parameter or schema migration.
+
 ## [1.0.1-rc.11] - 2026-11-27
 
 GitHub pre-release only, never latest. Publish only `1.0.1-rc.11` and the authorized

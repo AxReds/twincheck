@@ -29,6 +29,7 @@ COPY docker/bin/ /usr/local/bin/
 RUN chmod 0755 /usr/local/bin/twincheck-entrypoint /usr/local/bin/generate-key /usr/local/bin/reset-admin-password \
                 /usr/local/bin/twincheck-healthcheck \
     && chmod -R a+rX /opt/twincheck \
+    && sed -i "s/^BUILD_DATE = .*/BUILD_DATE = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"/" /opt/twincheck/app/backend/twincheck/__init__.py \
     && rm -f /opt/twincheck/app/frontend/locales/README.md
 
 ENV PYTHONPATH=/opt/twincheck/site:/opt/twincheck/app/backend \

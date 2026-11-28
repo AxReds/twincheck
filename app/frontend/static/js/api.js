@@ -3,6 +3,11 @@ import { t, has } from './i18n.js';
 
 let csrf = '';
 let authGeneration = 0;
+const reads = new Set();
+export function cancelReads() {
+  for (const controller of reads) controller.abort();
+  reads.clear();
+}
 export function setCsrf(v) { csrf = v || ''; authGeneration++; }
 
 export class ApiError extends Error {
@@ -29,10 +34,16 @@ export async function api(method, url, body, opts = {}) {
   let payload;
   if (body instanceof Blob) { payload = body; headers['Content-Type'] = 'application/octet-stream'; }
   else if (body !== undefined) { payload = JSON.stringify(body); headers['Content-Type'] = 'application/json'; }
-  const r = await fetch(url, { method, headers, body: payload, credentials: 'same-origin', cache: 'no-store' });
+  const controller = method === 'GET' ? new AbortController() : null;
+  if (controller) reads.add(controller);
+  let r, text;
+  try {
+    r = await fetch(url, { method, headers, body: payload, credentials: 'same-origin', cache: 'no-store', ...(controller ? { signal: controller.signal } : {}) });
+    if (opts.raw) r = new Response(await r.blob(), { status: r.status, statusText: r.statusText, headers: r.headers });
+    else text = await r.text();
+  } finally { if (controller) reads.delete(controller); }
   if (opts.raw) return r;
   let data = null;
-  const text = await r.text();
   if (generation !== authGeneration && !opts.allow401) throw new ApiError(401, 'unauthenticated');
   try { data = text ? JSON.parse(text) : null; } catch (e) { data = null; }
   if (!r.ok) {

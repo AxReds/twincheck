@@ -58,7 +58,7 @@ duplicates, metadata, reviews, plans, logs, exports, previews, report data and c
 
 ## Times and CSV
 
-The admin-only **Library timezone** setting in Administration → Settings is stored in the
+The admin-only **Library timezone** setting in Settings → General is stored in the
 encrypted vault. It accepts an IANA name, defaults to `TZ` when set, otherwise `UTC` with a
 visible recommendation to configure it; it is optional (example: `Europe/Rome`).
 Organizing dates are local wall-clock values in that timezone. File-system mtime proposals
@@ -146,7 +146,7 @@ independent.
 in item badges, filters, counts, Decision labels and Organize. Re-analysis preserves item ids and
 all explicit saved/kept/re-check choices. Historical duplicate metadata queue rows resolve to
 one canonical active record even through old links; stored history is not deleted.
-Skip stores `skipped_at`, leaves status pending, emits `REVIEW_SKIPPED` and blocks Organize both
+Postpone stores `skipped_at`, leaves the internal status pending, emits `REVIEW_SKIPPED` and blocks Organize both
 when previewing and when confirming an older plan. Skipped and needs re-check are subsets of
 pending, never decided. Explicit Save/Accept/Keep can stay on the item or use the corresponding
 next action. Newly confirmed re-checks store the explicit accepted/stored choice in decision JSON;
@@ -173,26 +173,27 @@ applied filters and role/User scope. Clear filters and an explained no-matches s
 columns documented above. Counted export controls explain the applied scope.
 Base users see only their own current-scope job/file/review events; system/authentication
 events, mismatched job/file ownership and out-of-scope paths are excluded. The admin User
-filter uses exactly that same visibility rule, including legacy scan jobs whose unused
-destination was the data root and job-owned events without a stored event owner. Admin roles see
+filter matches the effective event user (`owner_id`, then job owner, then actor), without
+applying that user's private path visibility. A note counts rows hidden from the private view.
+Legacy scan jobs still ignore their unused destination for private visibility. Admin roles see
 all users plus system events and get a User filter. Analyze shows only the latest three
 analysis jobs with a full-history link; completion messages spell out hashed/extracted versus
 reused values and unreadable/unknown counts, rather than describing reuse as zero items.
 
-rc.11 uses schema 6 unchanged: no schema migration or `DB_MIGRATED` is needed from rc.10.
+rc.12 uses schema 6 unchanged: no schema migration or `DB_MIGRATED` is needed from rc.11.
 Before upgrading an older schema, stop the container and back up `/state` and MariaDB if applicable.
-After upgrading an older schema, an administrator must run **Administration → Database → Migrate schema**.
+After upgrading an older schema, an administrator must run **Settings → Database → Migrate schema**.
 Every signed-in user sees the database-required banner while unavailable/outdated; admin roles
 can follow it directly to the migration action. Home uses the same explanation.
 
 ### Instance security activity (trial)
 
-The user menu's **My security activity** page reads only the caller's sign-ins, failures,
+The user menu's **Security Log** page reads only the caller's sign-ins, failures,
 throttling/lockouts, sign-outs, session expiry, password changes/resets and role/group
 membership changes from the encrypted vault. It works while the operational database is
 unavailable or switched; security events are not copied into per-database Logs.
 Unknown-account failures remain admin-only, even if an account with that name is later created.
-Administration → Audit log retains all instance audit events and adds a User filter.
+Security Log retains all instance audit events and adds a User filter.
 Both pages have event search, pagination and filtered/all CSV exports. Security CSV columns:
 `time_utc, time_local, event, user, source_ip, actor, message`.
 No password, token or key is included. Activity is bounded by the existing 10,000-entry audit
@@ -203,6 +204,27 @@ expired session is next used. The page is a trial and may later be replaced by a
 The server renders the theme preference into the initial HTML using the authenticated
 account, otherwise the non-secret `tc_theme` cookie. CSS handles Auto using the system
 preference before body content; no inline script or CSP relaxation is required.
+
+rc.12 uses one Security Log UI: administrators read the existing audit endpoint with a User
+filter, users read only their private endpoint. Banner dismissal is stored in the current
+in-memory sign-in session, persists across bootstrap/reload and resets on the next sign-in.
+
+Organize previews store input fingerprints in existing job JSON: assigned source/settings,
+latest analysis, review decisions, indexed files and on-disk directory/file identity.
+List, confirmation and first execution reject stale/discarded previews. Old previews without
+a fingerprint must be recomputed. Discard retains the job and plan items; no history is deleted.
+History operations are grouped from the existing manifest by execution job, action and owner.
+The History page's global scope is intentionally independent of the caller's private analysis.
+Per-operation undo is deferred to #110 because the existing move/metadata planners have no
+cross-type dependency graph or complete metadata expected-state guard.
+
+Unchanged polling responses do not touch DOM. Changed responses reconcile existing nodes,
+preserving scroll containers and native controls; updates pause during active text selection
+or menus. Navigation/pagehide aborts outstanding GET requests and stops view polling.
+The server admits at most 32 active non-health HTTP requests against its existing 16-worker
+pool; excess requests get explicit 503/Retry-After and a warning. Health bypasses the pool.
+No original rc.11 timeout root cause was reproduced; these bounds are safeguards, not proof
+that the owner's intermittent hang has been fixed.
 
 ## Operational database schema (version 6)
 
@@ -251,7 +273,7 @@ On **every** connection (first start, restart, database switch) the application:
    otherwise it shows the privileges needed);
 3. reuses an existing structure without touching data;
 4. if the schema is **older**, refuses to use it until the admin confirms the migration (after a
-   backup warning) in *Administration → Database*; then applies the missing steps in order;
+   backup warning) in *Settings → Database*; then applies the missing steps in order;
 5. if the schema is **newer** than the application, refuses to use it and explains why;
 6. takes the instance lock: only one container writes to a database (`flock` on
    `<db>.instance-lock` for SQLite, `GET_LOCK` on a dedicated connection for MariaDB; both vanish
@@ -262,7 +284,7 @@ To add a migration: append `MIGRATIONS[n+1]`, bump `CURRENT_VERSION`, add a test
 
 ## Database switch (admin and administrator)
 
-*Administration → Database*:
+*Settings → Database*:
 
 1. enter the new parameters, **Test connection**: shows whether the structure is absent (it will be
    created) or present, with `db_id`, schema version, indexed files, open jobs, last update;
@@ -280,7 +302,7 @@ To add a migration: append `MIGRATIONS[n+1]`, bump `CURRENT_VERSION`, add a test
 
 ## Export, import and migration (admin only)
 
-*Administration → Export & migration*. Format: see [`../docker/README.md`](../docker/README.md#migration-archive-format-tcarc).
+*Settings → Export & Migration*. Format: see [`../docker/README.md`](../docker/README.md#migration-archive-format-tcarc).
 
 * **Export:** choose a passphrase (≥ 12 characters), *Preview* (tables, rows, estimated size and
   time, warnings), confirm. The app enters maintenance mode (no job runs, writes blocked), reads a

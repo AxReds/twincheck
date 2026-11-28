@@ -83,7 +83,7 @@ class Rc11Data(unittest.TestCase):
         finally:
             inst.cleanup()
 
-    def test_legacy_scan_and_duplicate_events_share_one_user_scope(self):
+    def test_legacy_scope_stays_private_while_admin_matches_event_user(self):
         with tempfile.TemporaryDirectory() as tmp:
             for params in backends(tmp):
                 with self.subTest(backend=params["type"]), instance(params) as inst:
@@ -111,11 +111,13 @@ class Rc11Data(unittest.TestCase):
                     mine = user.get("/api/logs?limit=all").json()
                     filtered = admin.get(f"/api/logs?owner={uid}&limit=all").json()
                     self.assertEqual(mine["total"], 5)
-                    self.assertEqual(mine["items"], filtered["items"])
-                    self.assertEqual(mine["event_counts"], {code: count for code, count in filtered["event_counts"].items() if count})
+                    self.assertEqual(filtered["total"], 8)
+                    self.assertEqual(filtered["not_visible"], 3)
+                    self.assertTrue({row["id"] for row in mine["items"]} < {row["id"] for row in filtered["items"]})
+                    self.assertEqual(mine["event_counts"], {"JOB_QUEUED": 1, "JOB_STARTED": 1, "JOB_COMPLETED": 1, "DUP_GROUP": 2})
                     for client, query in ((user, ""), (admin, f"&owner={uid}")):
                         rows = list(csv.DictReader(io.StringIO(client.get("/api/logs.csv?scope=filtered" + query).text)))
-                        self.assertEqual(len(rows), mine["total"])
+                        self.assertEqual(len(rows), filtered["total"] if client is admin else mine["total"])
                         self.assertEqual({row["user"] for row in rows}, {"synthetic"})
                         for row in rows:
                             self.assertNotIn(str(inst.data), row["message"])
@@ -125,7 +127,8 @@ class Rc11Data(unittest.TestCase):
                         own = user.get("/api/logs?event=" + event).json()
                         selected = admin.get(f"/api/logs?owner={uid}&event={event}").json()
                         self.assertEqual(own["total"], count)
-                        self.assertEqual(own["items"], selected["items"])
+                        self.assertEqual(selected["total"], count + (1 if event == "JOB_STARTED" else 0))
+                        self.assertTrue({row["id"] for row in own["items"]} <= {row["id"] for row in selected["items"]})
 
     def test_html_theme_is_rendered_before_scripts_with_account_precedence(self):
         inst = Instance().start()

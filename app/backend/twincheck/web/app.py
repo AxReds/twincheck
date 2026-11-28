@@ -30,6 +30,7 @@ OPEN_PATHS = {"/api/login", "/api/logout", "/api/bootstrap", "/api/me", "/api/me
 class ASGIApp:
     def __init__(self, core):
         self.core = core
+        self.active_requests = 0
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "lifespan":
@@ -43,6 +44,22 @@ class ASGIApp:
                     return
         if scope["type"] != "http":
             return
+        bounded = scope["path"] not in ("/health", "/healthz")
+        if bounded and self.active_requests >= 32:
+            resp = JSONResponse({"error": "server_busy", "params": {}}, 503, headers={"retry-after": "1"})
+            resp.headers.update(SECURITY_HEADERS)
+            events.console("JOB_FAILED", level=30, job_id=0, kind="http", error="Request concurrency limit reached")
+            await resp.send(send, head_only=scope["method"] == "HEAD")
+            return
+        if bounded:
+            self.active_requests += 1
+        try:
+            await self.respond(scope, receive, send)
+        finally:
+            if bounded:
+                self.active_requests -= 1
+
+    async def respond(self, scope, receive, send):
         try:
             resp = await self.dispatch(scope, receive)
         except HTTPError as exc:
@@ -66,6 +83,8 @@ class ASGIApp:
             events.console("ACCESS_DENIED_NETWORK", level=30, ip=req.peer_ip)
             return Response("Forbidden", 403)
         req.client_ip = real_client_ip(req.peer_ip, req.headers.get("x-forwarded-for"), s.trusted_proxies)
+        if req.path in ("/health", "/healthz") and req.method in ("GET", "HEAD"):
+            return healthz(req)
         # 2. routing
         if not req.path.startswith("/api/") and req.path != "/healthz":
             return await self.static(req)
@@ -177,7 +196,8 @@ def bootstrap(req: Request):
     if data.get("settings", {}).get("show_version_on_login", True):
         out["login_version"] = VERSION
     if req.user:
-        out.update(user=common.user_public(req.user), csrf=req.session["csrf"], version=VERSION,
+        from .. import BUILD_DATE
+        out.update(user=common.user_public(req.user), csrf=req.session["csrf"], version=VERSION, build_date=BUILD_DATE,
                    security_banner=req.session.get("security_banner"),
                    maintenance=core.maintenance, db=core.db_status(),
                    permissions={p: access.can(req.user, p) for p in access.PERMISSIONS})
@@ -449,6 +469,14 @@ def security_activity_response(req: Request, admin: bool = False):
 @router.get("/api/me/security-activity", maintenance_ok=True)
 def security_activity(req: Request):
     return security_activity_response(req)
+
+
+@router.post("/api/me/security-banner/dismiss", maintenance_ok=True)
+def dismiss_security_banner(req: Request):
+    banner = req.session.get("security_banner")
+    if banner:
+        banner["dismissed"] = True
+    return JSONResponse({"ok": True})
 
 
 def security_csv_response(req: Request, admin: bool = False):

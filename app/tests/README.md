@@ -88,6 +88,22 @@ including five preceding failed logins. It checks the single change-password
 page, stopped polling, preserved values on wrong/weak passwords, in-place
 recovery and continued responsiveness for health checks and another user.
 
+rc.12 adds `test_rc12.py`: the exact 362-admin/357-private event fixture, explicit analysis
+reasons versus global History counts, reusable/stale/discarded previews, execution-level stale
+guards, scoped operation history with journaled global undo, per-sign-in banner dismissal,
+30 concurrent reload/navigation requests and health/home responses below two seconds.
+The browser fixture covers two Organize preview refresh cycles with a scrolled table and
+retained select, History/Settings/Security Log naming, URL filters, clear example placeholders,
+banner persistence/dismissal, timezone order, opaque headers, specific empty results and
+double-submit prevention. Run the existing Light/Dark × 1600/1280/900/375 px matrix.
+The rc.8/rc.9 old-plan tests now assert complete 409 stale-plan rejection, not partial execution;
+all original private scope, decision, date and no-overwrite assertions remain.
+`browser_live.mjs` exports `runLiveRegressions(page)` for a Playwright page signed in to an
+isolated synthetic application with a fresh, scrollable Organize preview. It uses a real
+native open select through two refresh cycles, performs 30 actual reloads/navigations,
+requires `/health` and `/` below two seconds, and verifies F5/default navigation filters.
+Run it at the same eight viewport/theme combinations; never point it at an owner's library.
+
 The rc.6 regressions cover stale per-user records outside current source scope,
 capture-date reading before keeper selection, the resumable five-stage library
 analysis, duplicate date columns, readable metadata summaries, persistent

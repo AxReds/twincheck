@@ -17,6 +17,7 @@ from ..services import access, review_state
 from ..services.dedupe import group_capture_date, group_members, keeper_decision, set_keeper
 from ..services.metadata import FIELDS, WRITABLE, date_candidate, field_table, mtime_proposal, parse_dt
 from ..services.scan import iter_dirs
+from ..services.moves import organize_snapshot
 from . import common
 from .app import router
 from .common import csv_disposition, disp, fail, is_admin, need_db, own_row, owner_filter, paging, table_paging, require, scoped_file, scoped_rows
@@ -134,7 +135,7 @@ def _job_public(req: Request, j: dict) -> dict:
                              "created_at", "started_at", "updated_at", "finished_at", "parent_job_id")}
     params = json.loads(j["params"] or "{}")
     out["params"] = {k: (disp(req, v) if k in ("root", "dest", "archive") and isinstance(v, str) else v)
-                     for k, v in params.items() if k not in ("roots", "token")}
+                     for k, v in params.items() if k not in ("roots", "token", "preview_snapshot")}
     out["result"] = json.loads(j["result"]) if j.get("result") else None
     u = common.app().user(j["owner_id"]) if j["owner_id"] else None
     out["owner"] = u["username"] if u else None
@@ -301,7 +302,12 @@ def library_status(req: Request):
                 changes["removed"] += 1
     incomplete = bool(active and active["status"] in ("paused", "interrupted"))
     stale = bool(any(changes.values()) or incomplete)
-    return JSONResponse({"exists": bool(latest), "empty": not bool(latest),
+    reason = "files_changed" if any(changes.values()) else "incomplete" if incomplete else None
+    if not latest:
+        legacy = db.query_one("SELECT id FROM jobs WHERE owner_id=? AND kind IN ('scan','metadata_analyze','dedupe_analyze') "
+                              "AND status='completed' LIMIT 1", (owner,))
+        reason = "older_version" if legacy else "never_analyzed"
+    return JSONResponse({"exists": bool(latest), "empty": not bool(latest), "reason": reason,
                          "stale": stale, "changes": changes, "incomplete": incomplete,
                          "analyzed_at": latest["finished_at"] if latest else None,
                          "active_job": ({k: active[k] for k in ("id", "status", "phase", "progress_done", "progress_total")}
@@ -471,6 +477,50 @@ def organize_plan(req: Request):
     return _submit(req, "organize_plan", _area_params(a))
 
 
+def _preview_state(j: dict) -> dict:
+    core = common.app()
+    params = json.loads(j["params"] or "{}")
+    if params.get("discarded_at"):
+        return {"stale": True, "reason": "discarded"}
+    if not params.get("preview_snapshot"):
+        return {"stale": True, "reason": "older_version"}
+    current = organize_snapshot(core, core.db, j["owner_id"], params)
+    previous = params["preview_snapshot"]
+    reason = next((key for key in ("scope", "analysis", "decisions", "files")
+                   if current[key] != previous.get(key)), None)
+    return {"stale": bool(reason), "reason": reason}
+
+
+@router.get("/api/organize/preview")
+def organize_preview(req: Request):
+    db = need_db()
+    for j in db.query("SELECT * FROM jobs WHERE owner_id=? AND kind='organize_plan' AND status='completed' "
+                      "ORDER BY id DESC", (req.user["id"],)):
+        params = json.loads(j["params"] or "{}")
+        if req.query.get("source_id") and params.get("source_id") != req.query["source_id"]:
+            continue
+        if not access.path_in_scope(common.app().settings.data_dir.as_posix(), req.user, params.get("root", "")):
+            continue
+        applied = db.query("SELECT result FROM jobs WHERE parent_job_id=? AND status='completed'", (j["id"],))
+        if params.get("discarded_at") or any(json.loads(row["result"] or "{}").get("moved", 0) > 0 for row in applied):
+            return JSONResponse({"preview": None})
+        count = int(db.scalar("SELECT COUNT(*) FROM plan_items WHERE plan_job_id=?", (j["id"],)) or 0)
+        return JSONResponse({"preview": {"id": j["id"], "date": j["finished_at"], "count": count, **_preview_state(j)}})
+    return JSONResponse({"preview": None})
+
+
+@router.post("/api/organize/preview/{id:int}/discard")
+def discard_preview(req: Request):
+    db = need_db()
+    j = own_row(req, db.query_one("SELECT * FROM jobs WHERE id=?", (req.path_params["id"],)))
+    if j["kind"] != "organize_plan" or j["owner_id"] != req.user["id"]:
+        fail(404, "not_found")
+    params = json.loads(j["params"] or "{}")
+    params["discarded_at"] = utcnow()
+    db.execute("UPDATE jobs SET params=? WHERE id=?", (json.dumps(params), j["id"]))
+    return JSONResponse({"ok": True})
+
+
 @router.post("/api/undo/{what}/plan")
 def undo_plan(req: Request):
     what = req.path_params["what"]
@@ -530,9 +580,12 @@ def plan(req: Request):
                     "dst": disp(req, it["dst"]), "status": it["status"], "note": it["note"], "companions": comps,
                     "fills": fills, "restore": restore, "renamed": p.get("renamed", False), "date": p.get("date")})
     applies = db.query("SELECT id, status FROM jobs WHERE parent_job_id=? ORDER BY id DESC", (j["id"],))
+    preview = _preview_state(j) if j["kind"] == "organize_plan" else None
     return JSONResponse({"job": _job_public(req, j), "items": out, "summary": summary, "apply_jobs": applies,
+                         "preview": preview,
                          "review_counts": _review_counts(_visible_reviews(req))[1],
-                         "can_confirm": j["status"] == "completed" and j["kind"] in APPLY_KIND})
+                         "can_confirm": j["status"] == "completed" and j["kind"] in APPLY_KIND
+                         and not (preview and preview["stale"])})
 
 
 @router.post("/api/plans/{id:int}/confirm")
@@ -543,6 +596,8 @@ def plan_confirm(req: Request):
         fail(409, "plan_not_ready")
     if not req.json().get("confirm"):
         fail(400, "confirmation_required")
+    if j["kind"] == "organize_plan" and _preview_state(j)["stale"]:
+        fail(409, "preview_stale")
     params = json.loads(j["params"] or "{}")
     if params.get("scope") == "global":
         require(req, "global_dedupe")
@@ -919,7 +974,20 @@ def report(req: Request):
             duplicate_groups += 1
             recoverable += g["size"] * (len(members) - 1)
     missing = sum(1 for f in files if not f["present"])
+    operations = {}
+    for m in manifest_rows:
+        if m["action"] not in ("move", "dup_move", "metadata"):
+            continue
+        key = (m["job_id"], m["action"], m["owner_id"])
+        if key not in operations:
+            user = common.app().user(m["owner_id"])
+            operations[key] = {"id": m["job_id"], "type": m["action"], "date": m["created_at"],
+                               "user": user["username"] if user else m["owner_id"], "count": 0, "undone": 0}
+        operations[key]["count"] += 1
+        operations[key]["undone"] += int(bool(m["undone_at"]))
     return JSONResponse({"files": by_status, "manifest": manifest, "review": review, "missing": int(missing or 0),
+                         "review_counts": _review_counts(_visible_reviews(req))[1],
+                         "operations": sorted(operations.values(), key=lambda op: (op["date"], op["id"]), reverse=True),
                          "duplicates": {"groups": duplicate_groups, "recoverable": recoverable}})
 
 
@@ -940,10 +1008,14 @@ def logs(req: Request):
     if is_admin(req):
         out["users"] = [{"id": user["id"], "username": user["username"]}
                         for user in common.app().vault.snapshot()["users"].values()]
+        if req.query.get("owner") and req.query["owner"] != "__system__":
+            visible_ids = {row["id"] for row in _log_rows(req, enforce_user_scope=True)}
+            out["not_visible"] = sum(row["id"] not in visible_ids for row in rows)
     return JSONResponse(out)
 
 
-def _log_rows(req: Request, include_event: bool = True, filtered: bool = True, export: bool = False) -> list[dict]:
+def _log_rows(req: Request, include_event: bool = True, filtered: bool = True, export: bool = False,
+              enforce_user_scope: bool = False) -> list[dict]:
     db = need_db()
     where, args = ["1=1"], []
     owner = owner_filter(req) if filtered else None if is_admin(req) else req.user["id"]
@@ -972,7 +1044,7 @@ def _log_rows(req: Request, include_event: bool = True, filtered: bool = True, e
                     f"j.owner_id AS job_owner,j.kind AS job_kind,j.params AS job_params "
                     f"FROM run_log r LEFT JOIN jobs j ON j.id=r.job_id WHERE {w} ORDER BY r.id DESC", args)
     subject = common.app().user(owner) if owner and owner != "__system__" else None
-    if owner:
+    if owner and (not is_admin(req) or enforce_user_scope):
         visible = []
         for r in rows:
             event_owner = r["owner_id"] or r["job_owner"] or r["actor"]

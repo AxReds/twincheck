@@ -8,9 +8,8 @@ import { icon } from '../icons.js';
 import { securityActivity } from './tool.js';
 
 export function adminNav(state, active) {
-  const items = [['users', 'admin.users', 'users-round'], ['groups', 'admin.groups', 'users-round'], ['settings', 'admin.settings', 'sliders-horizontal'], ['database', 'admin.database', 'database']];
+  const items = [['settings', 'admin.settings', 'sliders-horizontal'], ['users', 'admin.users', 'users-round'], ['groups', 'admin.groups', 'users-round'], ['database', 'admin.database', 'database']];
   if (state.perms.transfer_database) items.push(['transfer', 'admin.transfer', 'arrow-right-left']);
-  items.push(['audit', 'admin.audit', 'list-checks']);
   if (state.perms.security_settings) items.push(['security', 'admin.security', 'shield']);
   return [h('p', { class: 'notice warn http-warning', role: 'note' }, t('admin.http_warning')),
     h('nav', { class: 'subnav', 'aria-label': t('nav.admin') }, items.map(([k, label, name]) => h('a', { href: '#/admin/' + k, title: t(label), 'aria-label': t(label), 'aria-current': k === active ? 'page' : undefined }, icon(name), h('span', { class: 'nav-label' }, t(label)))))];
@@ -158,7 +157,7 @@ export async function settings(main, state) {
     value: s.library_timezone,
     searchKey: 'settings.timezone_search', emptyKey: 'settings.no_matching_timezone',
     options: [
-      ...[...new Set([s.library_timezone, Intl.DateTimeFormat().resolvedOptions().timeZone, 'UTC'])]
+      ...[...new Set(['UTC', s.library_timezone])]
         .map((name) => d.timezones.find((zone) => zone.name === name)).filter(Boolean)
         .map((zone) => ({ value: zone.name, label: `${zone.name} (UTC${zone.offset})`, section: 'common.suggested' })),
       ...d.timezones.map((zone) => ({ value: zone.name, label: `${zone.name} (UTC${zone.offset})`, section: 'settings.all_timezones' })),

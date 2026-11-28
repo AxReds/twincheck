@@ -33,6 +33,9 @@ h3 { font-size: 1.05rem; margin-block: 1rem 0.4rem; }
 .topbar { position: sticky; inset-block-start: 0; z-index: 20; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.5rem 0.75rem;
   padding-block: 0.4rem; padding-inline: 0.75rem; background: var(--topbar); color: var(--topbar-fg); }
 .brand { display: flex; align-items: center; gap: 0.5rem; color: var(--topbar-fg); text-decoration: none; font-weight: 700; flex: 0 0 auto; }
+.brand-text { display: flex; flex-direction: column; }
+.brand-version { color: var(--muted); font-size: 0.65rem; font-weight: 400; }
+.banner-close { float: inline-end; }
 .logo { inline-size: 32px; block-size: 32px; }
 .metrics { display: grid; grid-column: 2; grid-row: 1; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.35rem; min-inline-size: 0; align-items: center; }
 .metrics > .chip { display: inline-flex; flex-direction: column; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding-block: 0.15rem; padding-inline: 0.45rem;
@@ -107,6 +110,7 @@ input, select, textarea { font: inherit; color: var(--fg); background: var(--car
 .combo-popup.upward { inset-block-start: auto; inset-block-end: calc(100% + 3px); }
 .combo-search { display: flex; align-items: center; gap: 0.3rem; padding: 0.5rem; }
 .combo-search input { inline-size: 100%; min-inline-size: 0; }
+.combo-search input::-webkit-search-cancel-button { display: none; }
 .combo-list { max-block-size: min(16rem, 40vh); overflow: auto; background: var(--card); }
 .combo-option { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.25rem 0.5rem; min-block-size: 2rem; cursor: pointer; overflow-wrap: anywhere; }
 .combo-option.active, .combo-option:hover { background: var(--chip); }
@@ -138,7 +142,8 @@ input, select, textarea { font: inherit; color: var(--fg); background: var(--car
 .table-wrap { overflow: auto; max-block-size: min(65vh, 40rem); max-inline-size: 100%; min-inline-size: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
 table { border-collapse: collapse; inline-size: 100%; }
 th, td { text-align: start; padding-block: 0.4rem; padding-inline: 0.6rem; border-block-end: 1px solid var(--line); vertical-align: top; }
-thead th { position: sticky; inset-block-start: 0; z-index: 2; background: var(--bg); font-size: 0.85em; color: var(--muted); box-shadow: 0 1px var(--line); }
+thead { position: sticky; inset-block-start: 0; z-index: 2; background: var(--card); }
+thead th { position: sticky; inset-block-start: 0; z-index: 2; background: var(--card); font-size: 0.85em; color: var(--muted); box-shadow: 0 1px var(--line); }
 .event-code, .event-code code { white-space: nowrap; overflow-wrap: normal; }
 tr.is-missing th, tr.is-missing td { background: color-mix(in srgb, var(--warn) 12%, transparent); }
 .missing { color: var(--warn); font-weight: 600; }
@@ -168,13 +173,18 @@ tr.is-missing th, tr.is-missing td { background: color-mix(in srgb, var(--warn) 
 @media (max-width: 1000px) { .review { grid-template-columns: minmax(0, 1fr); } }
 .media { background: #000; border-radius: var(--radius); min-block-size: 12rem; display: grid; place-items: center; position: sticky; inset-block-start: 5rem; }
 .media img, .media video { max-inline-size: 100%; max-block-size: 75vh; display: block; }
+.media .btn, .preview-dialog .btn { margin-block: 0.75rem; }
+input::placeholder { font-style: italic; }
 .media p { color: #ccc; }
 .review-preview { position: sticky; inset-block-start: 5rem; min-inline-size: 0; }
 .review-preview .media { position: static; }
 .preview-dialog { padding: 1rem; max-inline-size: 95vw; max-block-size: 95vh; background: var(--card); color: var(--fg); border: 1px solid var(--line); border-radius: var(--radius); }
 .preview-dialog::backdrop { background: rgba(0,0,0,.8); }
 .preview-dialog img, .preview-dialog video { display: block; max-inline-size: 85vw; max-block-size: 80vh; }
-.date-input, .organizing-date { inline-size: 22ch; min-inline-size: 22ch; }
+.date-input, .organizing-date { inline-size: 28ch; min-inline-size: 28ch; }
+.review-side td input { min-inline-size: 22ch; }
+.review-side td input.date-input { min-inline-size: 28ch; }
+.operation-selected { background: color-mix(in srgb, var(--accent) 12%, var(--card)); }
 .skipped-short { display: none; }
 .review-side { display: grid; grid-template-columns: minmax(0, 1fr); min-inline-size: 0; gap: 0.75rem; }
 .review-controls { position: sticky; inset-block-start: 5rem; z-index: 5; background: var(--bg); padding: 0.5rem; border: 1px solid var(--line); border-radius: var(--radius); }

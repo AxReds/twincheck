@@ -45,7 +45,7 @@ application inside the container.
 | `TRUSTED_PROXIES` | CIDR list of your own reverse proxies. Only used to read the real client IP (`X-Forwarded-For`) for login rate limiting; never for `ALLOWED_NETWORKS`. | empty | no | `172.18.0.10/32` | App |
 | `HOST_LABEL` | Host name shown in the header (the real host name is not visible from the container). Empty = container name. | empty | no | `nas-living-room` | App |
 | `APP_LANG` | Language of console commands (`generate-key`, `reset-admin-password`) and initial default language of the instance (the admin can change the latter in the UI). Logs are always English. | `en` | no | `it` | App |
-| `TZ` | Initial IANA library timezone; Administration → Settings → Library timezone takes precedence and is stored in the vault. | empty (UTC, with admin notice) | no | `Europe/Rome` | App |
+| `TZ` | Initial IANA library timezone; Settings → General → Library timezone takes precedence and is stored in the vault. | empty (UTC, with admin notice) | no | `Europe/Rome` | App |
 | `DISK_WARN_FREE_PERCENT` | Free-space % under which a disk is shown in the warning colour. | `15` | no | `20` | App |
 | `DISK_CRIT_FREE_PERCENT` | Free-space % under which a disk is shown in the critical colour. | `5` | no | `3` | App |
 | `PUID` | UID the whole container runs as (`user:`). Must own the library and state folders. Never 0. | `1000` | no | `1026` | Compose |
@@ -71,7 +71,7 @@ volumes `/data` and `/state`, `/tmp` on tmpfs.
 
 The image includes IANA timezone data. Optional `TZ` (example: `Europe/Rome`) is passed by
 both Compose and the Portainer stack and supplies the default **Library timezone**.
-If unset, the default is `UTC` and Administration → Settings recommends configuring it.
+If unset, the default is `UTC` and Settings → General recommends configuring it.
 The fixed admin can override it in that page; the override is stored in `/state/vault.enc`,
 not `.env`, and audited as `SETTING_CHANGED`.
 The field is one accessible searchable select with a closed value/chevron and a popup
@@ -93,19 +93,19 @@ Parameters that exist only inside the image and are set by the Dockerfile (`DATA
 `STATE_DIR=/state`, `APP_PORT=80`, `EXIFTOOL_PATH`, `FFMPEG_PATH`) are documented in
 [`app/backend/README.md`](../app/backend/README.md); do not change them in a container deployment.
 
-## Upgrading to 1.0.1-rc.11
+## Upgrading to 1.0.1-rc.12
 
 Stop the container and back up `/state` and the operational MariaDB database if used.
-Deploy the exact candidate image `ghcr.io/axreds/twincheck:1.0.1-rc.11` (or the moving `rc`
-alias). From rc.10 no schema migration is needed: schema remains 6 and there is no
+Deploy the exact candidate image `ghcr.io/axreds/twincheck:1.0.1-rc.12` (or the moving `rc`
+alias) after publication. From rc.11 no schema migration is needed: schema remains 6 and there is no
 `DB_MIGRATED` event for an already-current database. Existing decisions remain unchanged.
-From older schemas, an administrator must run **Administration → Database → Migrate schema**
+From older schemas, an administrator must run **Settings → Database → Migrate schema**
 and confirm the backup. All signed-in users see **Database update required. Contact an
 administrator.** until the operational database is ready; admins can follow the banner.
 
 Schema 6 returns only historical skip-only records to Pending, preserving their skipped marker
 and timestamp. Chosen dates, Leave as it is and accepted/kept re-check decisions are unchanged.
-Skip now means postpone and blocks Organize at preview and confirmation. A shared review
+Postpone blocks Organize at preview and confirmation. A shared review
 status and canonical old links keep badges, filters and counts stable across Analyze library.
 Metadata distinguishes latest-run files from current all-folders review items/distinct files.
 
@@ -121,9 +121,17 @@ All above 1,000 rows requires confirmation before loading.
 Base users see only their own scoped jobs/files/decisions, never system/login events; admin roles
 see all events with a User filter. No new environment parameter or runtime network access is added.
 rc.11 keeps polling controls and focus intact, renders the theme into the initial HTML,
-uses descriptive timestamped CSV filenames and adds the trial My security activity page
+uses descriptive timestamped CSV filenames and adds the trial Security Log page
 and sign-in banner. Security activity lives in the existing encrypted instance vault,
 independently of the operational database. No existing user decisions are changed.
+
+rc.12 renames the report to History & Undo, moves Diagnostics to the user menu, and unifies
+Security Log for both roles. Administrative Settings opens General. Filters persist in URLs;
+sign-in banners persist until dismissed for that sign-in. Saved Organize previews are reusable,
+but changed inputs or old preview formats require recomputation before execution.
+The logo version tooltip uses the UTC build timestamp stamped during image construction.
+The existing global undo remains available; per-operation undo is tracked separately in #110.
+No environment parameter or schema change is added.
 
 ## The master key
 
@@ -138,7 +146,7 @@ independently of the operational database. No existing user decisions are change
   in `.env`, and uncomment the `secrets:` blocks in `docker-compose.yml`.
 * **Missing key:** Compose stops with `APP_MASTER_KEY missing in .env`. **Wrong key:** the container
   logs `VAULT_DECRYPT_FAILED` and exits without modifying anything.
-* **Rotation:** *Administration → Security → Rotate master key* (admin only). The app shows a new key
+* **Rotation:** *Settings → Security → Rotate master key* (admin only). The app shows a new key
   once, asks you to paste it back, re-encrypts the vault (keeping `vault.enc.pre-rotation`, encrypted
   with the old key, for rollback), then you replace `APP_MASTER_KEY` in `.env` and restart. If the
   rotation fails the vault is restored and the old key stays valid.
@@ -146,7 +154,7 @@ independently of the operational database. No existing user decisions are change
   **cannot be recovered**: there is no back door. Keep it in a password manager. Recovery: stop the
   container, move `state/vault.enc*` away, start again, complete the setup with the new token and
   recreate the accounts. The operational database keeps all the data; the admin reassigns the old
-  records to the recreated users in *Administration → Users → Owners without account*.
+  records to the recreated users in *Settings → Users → Owners without account*.
 
 ## Reset of the admin password (console only)
 
@@ -225,7 +233,7 @@ becomes useless once the wizard is completed (the wizard is then locked forever)
 
 ## MariaDB (optional external database)
 
-Configured in the web UI (setup wizard or *Administration → Database*): host, port (3306), database
+Configured in the web UI (setup wizard or *Settings → Database*): host, port (3306), database
 name, user, password, with *Test connection*. Credentials are stored in the encrypted vault; the
 password can come from a Docker secret instead (`MARIADB_PASSWORD_FILE`). Character set utf8mb4,
 InnoDB; paths use a binary collation (case-sensitive).
@@ -290,7 +298,7 @@ docker compose up -d
 ```
 
 If the new version has a newer database schema, the app asks the admin (after a backup warning) to
-confirm the migration in *Administration → Database*. A database with a schema newer than the
+confirm the migration in *Settings → Database*. A database with a schema newer than the
 application is refused.
 
 ## Plain HTTP and exposure

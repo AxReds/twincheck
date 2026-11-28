@@ -28,6 +28,9 @@ let sourceData = { sources: [], can_browse: true, scan_selection: null };
 let duplicateGroups = [];
 let analysisStatus = { exists: true, empty: false, stale: false, analyzed_at: '2026-11-24T20:00:00Z', active_job: null };
 let planKind = 'review_plan';
+let planItemsFixture = [];
+let savedPreviewFixture = null;
+let operationsFixture = [];
 let recheckFixture = false;
 let reviewStateFixture = null;
 let jobFixture = [];
@@ -106,14 +109,18 @@ window.fetch = async (url, opts = {}) => {
   }
   let data;
   if (path === '/api/locales') data = [{ code: 'en', name: 'English' }, { code: 'it', name: 'Italiano' }];
-  else if (path === '/api/bootstrap') data = { authenticated, user: authenticated ? user : null, permissions, db: metrics.database };
+  else if (path === '/api/bootstrap') data = { authenticated, user: authenticated ? user : null, permissions, db: metrics.database,
+    version: '1.0.1-rc.12', build_date: '2026-11-28' };
   else if (path === '/api/sysinfo') data = metrics;
   else if (path === '/api/me/theme') {
     user.theme = JSON.parse(opts.body).theme;
     if (interactive) localStorage.setItem('fixture_theme', user.theme);
     data = { ok: true, theme: user.theme };
   }
-  else if (path === '/api/report') data = { files: [], review: [], duplicates: {}, manifest: [] };
+  else if (path === '/api/me/security-banner/dismiss') data = { ok: true };
+  else if (path === '/api/report') data = { files: [], review: [], duplicates: {}, manifest: [], operations: operationsFixture };
+  else if (path === '/api/organize/preview') data = { preview: savedPreviewFixture };
+  else if (/^\/api\/organize\/preview\/\d+\/discard$/.test(path)) { savedPreviewFixture = null; data = { ok: true }; }
   else if (path === '/api/library/status') data = analysisStatus;
   else if (path === '/api/metadata/results') data = {
     analyzed_at: '2026-11-24T20:00:00Z', summary: { analysed: 54, fills: 0, review: 50 }, review_pending: 50,
@@ -131,7 +138,8 @@ window.fetch = async (url, opts = {}) => {
     data = { job_id: 1, existing: false };
   }
   else if (path === '/api/plans/1') data = {
-    job: { id: 1, kind: planKind, status: 'completed' }, summary: [], items: [], apply_jobs: [], can_confirm: false,
+    job: { id: 1, kind: planKind, status: 'completed' }, summary: planItemsFixture.length ? [{ kind: 'organize', status: 'planned', n: planItemsFixture.length }] : [],
+    items: planItemsFixture, apply_jobs: [], can_confirm: false,
   };
   else if (reviewStateFixture && /^\/api\/review\/\d+$/.test(path) && opts.method === 'POST') {
     const row = reviewStateFixture.find((r) => r.id === Number(path.split('/').at(-1)));
@@ -176,13 +184,13 @@ window.fetch = async (url, opts = {}) => {
   else if (path === '/api/admin/users/test-admin' && opts.method === 'PATCH') data = { ok: true };
   else if (path === '/api/admin/archives') data = { exports: [], imports: [] };
   else if (path === '/api/jobs') data = { items: jobFixture.slice(0, Number(new URL(String(url), location.href).searchParams.get('limit') || 50)), total: jobFixture.length };
-  else if (path === '/api/me/security-activity') {
+  else if (path === '/api/me/security-activity' || path === '/api/admin/audit') {
     const rows = ['LOGIN_OK', 'LOGIN_FAILED'].map((event) => ({
       ts: '2026-11-24T20:00:00Z', user: 'admin', actor: 'admin', ip: '127.0.0.1', event, message: 'Synthetic security activity',
     }));
     const q = new URL(String(url), location.href).searchParams;
     const items = rows.filter((row) => !q.get('event') || row.event === q.get('event'));
-    data = { items, total: items.length, all_total: 2, event_counts: { LOGIN_OK: 1, LOGIN_FAILED: 1 }, users: [] };
+    data = { items, total: items.length, all_total: 2, event_counts: { LOGIN_OK: 1, LOGIN_FAILED: 1 }, users: ['admin', 'synthetic'] };
   }
   else if (path === '/api/logs' || path === '/api/admin/audit' || path === '/api/me/security-activity') data = { items: [{
     ts: '2026-11-24T20:00:00Z', level: 'INFO', event: 'REVIEW_DECIDED',
@@ -228,7 +236,7 @@ window.fetch = async (url, opts = {}) => {
   requests.push({ url: String(url), body: opts.body && JSON.parse(opts.body), at: performance.now() });
   return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
 };
-location.hash = '#/home';
+if (!interactive) location.hash = '#/home';
 if (requiredPassword) user.must_change_password = true;
 window.fixtureRequests = requests;
 window.fixtureUser = user;
@@ -475,8 +483,8 @@ await test('B8: admin can discover Administration and edit own source assignment
     assert(link, hash + ' has no actionable source-assignment link');
   }
   assert(!document.querySelector('.mainnav a[href="#/admin/users"]'), 'Administration must not be in main navigation');
-  const menuLink = document.querySelector('.menu-panel a[href="#/admin/users"]');
-  assert(menuLink && menuLink.nextElementSibling.getAttribute('href') === '#/me', 'Administration must be above Change password in the user menu');
+  const menuLink = document.querySelector('.menu-panel a[href="#/admin/settings"]');
+  assert(menuLink && menuLink.nextElementSibling.getAttribute('href') === '#/security-activity', 'Settings must precede Security Log in the user menu');
   await go('#/admin/users');
   assert(document.querySelector('.user-btn.active'), 'Administration does not highlight the user menu button');
   assert(document.querySelectorAll('.active').length === 1, 'admin pages highlight more than one element');
@@ -570,7 +578,7 @@ await test('B9: duplicate groups explain shared dates, unknown dates and keeper 
 await test('U10/U11/U38: metadata has one readable summary, explained populations and immediate review', async () => {
   await go('#/metadata');
   assert(document.querySelector('main .summary').textContent.includes(t('meta.compact_summary', {
-    analysed: 54, unreadable: 0, reliable: 4, review_files: 50, pending: 50, decided: 0 })),
+    analysed: 54, unreadable: 0, reliable: 4, review_files: 50, total: 50, pending: 50, decided: 0 })),
     'metadata result is not human-readable');
   assert(document.querySelector('.analysis-population [role="note"]').title.includes('54'), 'population detail is not explained in the tooltip');
   assert(document.querySelector('.start-review').getAttribute('href') === '#/metadata/review/1', 'Start review does not open first pending item');
@@ -616,10 +624,10 @@ await test('U14/B24: Review is inside Metadata, with one entry and complete stat
   assert(!document.querySelector('main .review-entry') && document.querySelectorAll('main .start-review').length === 1, 'direct review entry is duplicated');
   assert(document.querySelector('.mainnav a.active[href="#/metadata"]'), 'Metadata tab is not highlighted');
   const options = [...document.querySelector('.review-queue select').options].map((el) => el.value);
-  assert(['pending', 'decided', 'needs_recheck', 'all'].every((s) => options.includes(s)), 'review status filter is incomplete');
+  assert(options.join(',') === 'all,pending,decided', 'review status filter must show All / To review / Decided');
   assert(!document.querySelector('.automatic-fills'), 'automatic preview shown despite zero fills');
   assert(document.querySelector('.analysis-population .summary').textContent.includes(t('meta.compact_summary', {
-    analysed: 54, unreadable: 0, reliable: 4, review_files: 50, pending: 50, decided: 0 })),
+    analysed: 54, unreadable: 0, reliable: 4, review_files: 50, total: 50, pending: 50, decided: 0 })),
     'live review summary is inconsistent');
   await go('#/review/1');
   assert(location.hash === '#/metadata/review/1', 'review item legacy route does not redirect');
@@ -643,7 +651,7 @@ await test('U16: 24-hour inputs, Use copies proposal, sticky controls precede fi
   const table = document.querySelector('.review-side .table-wrap');
   assert(controls && table && (controls.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING), 'controls are not above the field table');
   assert(!document.querySelector('input[type="datetime-local"]'), 'locale-dependent AM/PM input remains');
-  assert(document.querySelector('.organizing-date').placeholder === '2007-08-26 20:36:42' &&
+  assert(document.querySelector('.organizing-date').placeholder === 'e.g. 2007-08-26 20:36:42' &&
     controls.textContent.includes(t('review.date_format')), 'short date example or full format hint missing');
   [...document.querySelectorAll('main button')].find((el) => el.textContent === t('review.use_proposal')).click();
   assert(document.querySelector('input.date-input').value === '2020-01-02 03:04:05', 'Use does not copy 24-hour proposal');
@@ -698,10 +706,11 @@ await test('B28/B30: re-analysis retains skip and decisions in badge, filters an
     await post('/api/library/analyze', { source_id: 'synthetic' });
     await post('/api/library/analyze', { source_id: 'synthetic' });
     await go('#/metadata/review/1');
-    assert(document.querySelector('.review-head').textContent.includes(t('review.status.skipped')), 'skipped item badge reset');
+    assert(document.querySelector('.review-head .muted').textContent.includes(t('review.postponed_on', { date: fmt.date('2026-01-15T20:51:02Z') })) &&
+      !document.querySelector('.review-head').textContent.includes(t('review.status.skipped')), 'postponement note is missing or a skipped badge remains');
     await go('#/metadata/review/2');
     assert(document.querySelector('.review-head').textContent.includes(t('review.status.decided')), 'decided item badge reset');
-    await go('#/metadata/review');
+    await go('#/metadata/review?status=pending');
     assert(document.querySelector('main').textContent.includes('synthetic-1.jpg') &&
       !document.querySelector('main').textContent.includes('synthetic-2.jpg'), 'pending list disagrees with badges');
     const summary = document.querySelector('main .summary').textContent;
@@ -716,7 +725,7 @@ await test('B28/B30: re-analysis retains skip and decisions in badge, filters an
     const skipped = [...document.querySelectorAll('tbody tr')].find((row) => row.textContent.includes('synthetic-1.jpg'));
     assert(skipped.querySelector('.badge') && skipped.querySelector('.review-decision .muted') &&
       !skipped.querySelector('.review-decision').textContent.includes(t('review.decision.date')), 'skipped pending item appears as a decision');
-    assert(skipped.querySelector('.skipped-full').textContent === t('review.postponed_on', { date: fmt.date('2026-01-15T20:51:02Z').slice(0, 16) }),
+    assert(skipped.querySelector('.review-decision .muted').textContent === t('review.postponed_on', { date: fmt.date('2026-01-15T20:51:02Z') }),
       'visible postponement text is missing or not 24-hour');
     assert(document.documentElement.scrollWidth <= innerWidth, 'review status overflows viewport');
   } finally { reviewStateFixture = null; await go('#/home'); }
@@ -888,7 +897,7 @@ await test('U24: only administrative roles get the User log filter', async () =>
     }
   } finally { app.state.user.role = old; await go('#/home'); }
 });
-await test('U28/U32: consistent Report & Undo and singular/plural count wording', async () => {
+await test('U28/U32/U42: consistent History & Undo and singular/plural count wording', async () => {
   const { setLanguage } = await import('../frontend/static/js/i18n.js');
   for (const lang of ['en', 'it']) {
     await setLanguage(lang);
@@ -903,7 +912,7 @@ await test('U28/U32: consistent Report & Undo and singular/plural count wording'
   const text = t('job.library_result', { found: 1, changed: 0, unchanged: 1, hashed: 0 });
   assert(text.includes('(reused)') && !text.includes('skipped') && !text.includes('1 files'), 'reuse or singular wording is wrong');
   await go('#/report');
-  assert(document.querySelector('main h1').textContent === 'Report & Undo', 'report page title is inconsistent');
+  assert(document.querySelector('main h1').textContent === 'History & Undo', 'history page title is inconsistent');
   await go('#/home');
 });
 await test('U29: rows per page paginate all four tables and persist per table and user', async () => {
@@ -1344,7 +1353,7 @@ await test('U9: offline menu icons retain visible labels, accessible names and c
     await go('#/admin/users');
     document.querySelector('.user-btn').click();
     const links = [...document.querySelectorAll('.mainnav a, .subnav a, .menu-panel a, .menu-panel button')];
-    assert(document.querySelectorAll('.subnav a').length === 7, 'administration tabs missing');
+    assert(document.querySelectorAll('.subnav a').length === 6, 'Settings subpages missing or obsolete Audit tab remains');
     for (const link of links) {
       const svg = link.querySelector('svg.nav-icon');
       const label = link.querySelector('.nav-label');
@@ -1469,6 +1478,155 @@ await test('U35: last sign-in and failed-attempt banners work without an operati
     await go('#/security-activity?event=LOGIN_FAILED');
     assert(document.querySelector('main tbody tr')?.textContent.includes('LOGIN_FAILED') && document.querySelector('.back-link'), 'security page depends on the database or lacks Back');
   } finally { app.state.boot.db = oldDb; app.state.boot.security_banner = oldBanner; window.dispatchEvent(new CustomEvent('po:password-changed')); await sleep(); await go('#/home'); }
+});
+await test('B35: Organize preview keeps table scroll and select identity across two refresh cycles', async () => {
+  planKind = 'organize_plan';
+  planItemsFixture = Array.from({ length: 100 }, (_, n) => ({
+    id: n + 1, kind: 'organize', src: 'synthetic/file-' + n + '.jpg', dst: 'synthetic/2001/02/03/file-' + n + '.jpg',
+    status: 'planned', companions: [], fills: {}, restore: [],
+  }));
+  try {
+    await go('#/plans/1');
+    const wrap = document.querySelector('main .table-wrap');
+    const filter = document.querySelector('main select');
+    wrap.scrollTop = 200;
+    const scroll = wrap.scrollTop;
+    assert(scroll > 0, 'preview fixture is not scrollable');
+    filter.focus();
+    const before = requests.filter((r) => r.url.startsWith('/api/plans/1')).length;
+    await new Promise((resolve) => setTimeout(resolve, 8300));
+    assert(requests.filter((r) => r.url.startsWith('/api/plans/1')).length >= before + 2, 'two refresh cycles did not occur');
+    assert(document.querySelector('main .table-wrap') === wrap && wrap.scrollTop === scroll, 'preview table was replaced or scrolled');
+    assert(document.querySelector('main select') === filter && document.activeElement === filter, 'select was replaced or lost focus');
+    planItemsFixture[0].note = 'file_changed';
+    await new Promise((resolve) => setTimeout(resolve, 4200));
+    assert(document.querySelector('main .table-wrap') === wrap && wrap.scrollTop === scroll &&
+      wrap.querySelector('tbody tr').textContent.includes(t('plan.note.file_changed')), 'changed preview data did not update in place: ' + JSON.stringify({
+        same: document.querySelector('main .table-wrap') === wrap, before: scroll, after: wrap.scrollTop,
+        text: wrap.querySelector('tbody tr').textContent,
+      }));
+  } finally { planItemsFixture = []; planKind = 'review_plan'; await go('#/home'); }
+});
+await test('B36: History does not gate global counts or undo on the admin private analysis', async () => {
+  const previous = analysisStatus;
+  analysisStatus = { exists: false, empty: true, reason: 'never_analyzed' };
+  try {
+    await go('#/report');
+    assert(!document.querySelector('main .notice.warn'), 'History shows an unrelated analysis-required banner');
+    assert([...document.querySelectorAll('main button')].some((button) => button.textContent === t('report.undo_moves')), 'global undo was hidden');
+  } finally { analysisStatus = previous; await go('#/home'); }
+});
+await test('U41/U42: reusable previews explain staleness and History lists linked operations', async () => {
+  savedPreviewFixture = { id: 73, date: '2026-11-27T20:00:00Z', count: 38, stale: true, reason: 'decisions' };
+  operationsFixture = [{ id: 74, type: 'move', date: '2026-11-27T20:00:00Z', count: 38, user: 'synthetic', undone: 0 }];
+  try {
+    await go('#/organize');
+    const banner = document.querySelector('.organize-preview-banner');
+    assert(banner.textContent.includes(t('org.last_preview', { id: 73, date: fmt.date(savedPreviewFixture.date), count: 38 })), 'saved preview missing');
+    assert(banner.textContent.includes(t('org.stale.decisions')) && banner.querySelector('a[href="#/plans/73"]'), 'preview reason or open link missing');
+    await go('#/report?operation=74');
+    assert(document.querySelector('#operation-74.operation-selected')?.textContent.includes('synthetic'), 'linked operation is not highlighted');
+    const { jobCard } = await import('../frontend/static/js/components.js');
+    const card = jobCard({ id: 74, kind: 'organize_apply', status: 'completed', result: { moved: 38 } });
+    assert(card.querySelector('a[href="#/report?operation=74"]').textContent === t('report.moved_link', { count: 38 }), 'completion link missing');
+  } finally { savedPreviewFixture = null; operationsFixture = []; await go('#/home'); }
+});
+await test('U43/U44: version under logo and role-aware menu naming/order replace old navigation', async () => {
+  assert(document.querySelector('.brand-version').textContent === 'v1.0.1-rc.12' &&
+    document.querySelector('.brand-version').title.includes('2026-11-28'), 'authenticated version or build tooltip missing');
+  assert(![...document.querySelectorAll('.metrics .chip-label')].some((node) => node.textContent === t('header.version')), 'Version box remains');
+  assert(!document.querySelector('.mainnav a[href="#/logs"]'), 'Diagnostics remains in main navigation');
+  const menu = [...document.querySelectorAll('.menu-panel a')].map((node) => node.getAttribute('href'));
+  assert(menu.join(',') === '#/admin/settings,#/security-activity,#/logs,#/me', 'user menu links/order mismatch');
+  await go('#/admin');
+  assert(document.querySelector('main h2').textContent === t('admin.settings'), 'Settings does not default to General');
+  assert(!document.querySelector('.subnav a[href="#/admin/audit"]'), 'separate Audit log subpage remains');
+  await go('#/security-activity');
+  assert(document.querySelector('main h1').textContent === t('security.activity') && document.querySelector('.log-filters select'),
+    'admin Security Log lacks unified name or User filter');
+  await go('#/home');
+});
+await test('U45: Jobs Metadata and Diagnostics filters survive route reconstruction but navigation resets them', async () => {
+  await go('#/jobs');
+  let select = document.querySelector('main select');
+  select.value = 'completed'; select.dispatchEvent(new Event('change')); await sleep();
+  assert(location.hash.includes('status=completed'), 'Jobs filter not in URL');
+  await app.route(); await sleep();
+  assert(document.querySelector('main select').value === 'completed', 'Jobs URL filter not restored');
+  await go('#/jobs');
+  assert(document.querySelector('main select').value === 'open', 'Jobs navigation did not reset filters');
+  await go('#/metadata?status=decided&kind=no_date');
+  assert(document.querySelector('.review-queue select').value === 'decided', 'Metadata URL status not restored');
+  await go('#/logs?job_id=99&level=WARNING&event=FILE_UNREADABLE');
+  assert(document.querySelector('.log-job-filter').value === '99', 'Diagnostics URL job not restored');
+  await go('#/home');
+});
+await test('U46/U39b: flagged counts exclude decisions from To review and examples are clearly hints', async () => {
+  const { reviewCounts } = await import('../frontend/static/js/views/review.js');
+  assert(reviewCounts({ total: 53, pending: 52, decided: 1 }) === '53 flagged · 52 to review · 1 decided', 'review counts are misleading');
+  await go('#/metadata');
+  assert([...document.querySelector('.review-queue select').options].map((option) => option.textContent).join('/') === 'All/To review/Decided', 'review status labels differ');
+  assert(document.querySelector('thead').textContent.includes(t('review.col_decision')), 'Decision column missing in default filter');
+  await go('#/metadata/review/1');
+  for (const input of document.querySelectorAll('.review-side input')) {
+    assert(input.placeholder.startsWith('e.g. ') && getComputedStyle(input, '::placeholder').fontStyle === 'italic' && input.value === '',
+      'example looks like a proposed value');
+  }
+  assert(document.querySelector('.proposal .badge') && [...document.querySelectorAll('.proposal button')].some((button) => button.textContent === t('review.use_proposal')),
+    'real proposal lost its badge/Use action');
+  await go('#/home');
+});
+await test('U47: sign-in banners persist across pages and dismissal lasts until next sign-in', async () => {
+  const previous = app.state.boot.security_banner;
+  try {
+    app.state.boot.security_banner = { last: { ts: '2026-11-24T20:00:00Z', ip: '127.0.0.1' }, failed: 2,
+      since: '2026-11-24T20:00:00Z', until: '2026-11-25T20:00:00Z' };
+    window.dispatchEvent(new CustomEvent('po:password-changed')); await sleep(); await sleep();
+    const banner = document.querySelector('#app > .notice .banner-close').parentElement;
+    for (const hash of ['#/jobs', '#/metadata', '#/home']) {
+      await go(hash);
+      assert(banner.isConnected && banner.querySelector('a').textContent === t('security.review'), 'sign-in banner disappeared or Review label wrong');
+    }
+    banner.querySelector('.banner-close').click(); await sleep();
+    assert(!banner.isConnected && app.state.boot.security_banner.dismissed, 'banner dismissal not retained');
+    window.dispatchEvent(new CustomEvent('po:password-changed')); await sleep(); await sleep();
+    assert(!document.querySelector('.banner-close'), 'dismissed banner returned after shell rebuild');
+  } finally { app.state.boot.security_banner = previous; window.dispatchEvent(new CustomEvent('po:password-changed')); await sleep(); await go('#/home'); }
+});
+await test('UI polish: timezone suggestions start UTC and preview buttons have a real gap', async () => {
+  await go('#/admin/settings');
+  document.querySelector('.combobox .combo-trigger').click();
+  const suggestions = [...document.querySelectorAll('.combo-list [role="option"]')];
+  assert(suggestions[0].textContent.startsWith('UTC') && suggestions[1].textContent.startsWith('Europe/Rome'), 'timezone suggestion order is wrong');
+  document.querySelector('.combo-search input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await go('#/logs');
+  const header = document.querySelector('thead th');
+  assert(getComputedStyle(header).backgroundColor !== 'rgba(0, 0, 0, 0)', 'sticky header is transparent');
+  emptyLogs = true;
+  await go('#/logs?job_id=99');
+  assert(document.querySelector('.empty-state').textContent.includes(t('logs.no_job_events', { id: 99 })), 'specific empty filter is not explained');
+  emptyLogs = false; await go('#/home');
+});
+await test('UI polish: sign-in ignores a second submit while the first is in flight', async () => {
+  const { renderLogin } = await import('../frontend/static/js/views/login.js');
+  const root = document.createElement('div');
+  document.body.appendChild(root);
+  let submitted = 0, release;
+  const original = window.fetch;
+  window.fetch = async (url, opts) => {
+    if (url === '/api/login') { submitted++; await new Promise((resolve) => { release = resolve; }); return new Response('{}'); }
+    return original(url, opts);
+  };
+  try {
+    renderLogin(root, app.state, async () => {});
+    const form = root.querySelector('form');
+    form.querySelector('[type="text"]').value = 'synthetic';
+    form.querySelector('[type="password"]').value = 'synthetic-only';
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    assert(submitted === 1 && form.querySelector('[type="submit"]').disabled, 'double submit was accepted');
+    release(); await sleep();
+  } finally { window.fetch = original; root.remove(); await go('#/home'); }
 });
 if (app.state.view?.destroy) app.state.view.destroy();
 if (app.state.stopMetrics) app.state.stopMetrics();

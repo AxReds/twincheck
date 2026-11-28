@@ -2,7 +2,7 @@
 import { h, mount, button, field, table, toast, badge } from '../dom.js';
 import { t, fmt } from '../i18n.js';
 import { get, post } from '../api.js';
-import { tablePaging, waitForJob, poll, stepGuide, analysisSummary } from '../components.js';
+import { tablePaging, waitForJob, poll, stepGuide, analysisSummary, pageFilters } from '../components.js';
 
 const KINDS = ['', 'meta_conflict', 'no_date', 'date_utc', 'move_conflict', 'verify_mismatch', 'reconcile_missing', 'reconcile_modified', 'reconcile_new', 'reconcile_moved'];
 const previewRequests = new Map();
@@ -21,8 +21,11 @@ function requestPreview(id) {
 
 export async function list(main, state, options = {}) {
   let offset = 0;
-  const status = h('select', {}, ['pending', 'decided', 'needs_recheck', 'all'].map((s) => h('option', { value: s }, t('review.status.' + s))));
+  const filters = pageFilters({ status: 'pending' });
+  const status = h('select', {}, ['all', 'pending', 'decided'].map((s) => h('option', { value: s }, t('review.status.' + s))));
   const kind = h('select', {}, KINDS.map((k) => h('option', { value: k }, k ? t('review.kind.' + k) : t('review.all_kinds'))));
+  status.value = filters.get('status');
+  kind.value = filters.get('kind');
   const box = h('div', {});
   const flowStatus = await get('/api/library/status');
   const notice = flowStatus.exists
@@ -44,27 +47,22 @@ export async function list(main, state, options = {}) {
     start.hidden = !first.items.length;
     if (first.items.length) start.href = '#/metadata/review/' + first.items[0].id;
     if (!options.embedded) mount(population, analysisSummary(d.population));
-    const showDecision = ['decided', 'all'].includes(status.value);
     mount(box, d.items.length ? table(['review.col_kind', 'review.col_file', 'review.col_folder', 'review.col_date',
-      ...(showDecision ? ['review.col_decision'] : []), ''],
+      'review.col_decision', ''],
       d.items.map((r) => h('tr', {}, h('td', {}, badge(t('review.kind.' + r.kind), 'warn')),
-        h('td', {}, r.file ? h('code', {}, r.file.name) : h('code', {}, r.details.path || ''),
-          r.status === 'skipped' ? [' ', badge(t('review.status.skipped'), 'warn')] : null),
+        h('td', {}, r.file ? h('code', {}, r.file.name) : h('code', {}, r.details.path || '')),
         h('td', {}, r.file ? h('code', {}, r.file.folder) : ''),
         h('td', {}, r.file ? fmt.localDate(r.file.chosen_date) : ''),
-        showDecision ? h('td', { class: 'review-decision' }, r.status === 'skipped' && r.skipped_at ? [
-          h('span', { class: 'muted skipped-full' }, t('review.postponed_on', { date: fmt.date(r.skipped_at, r.library_timezone).slice(0, 16) })),
-          h('span', { class: 'muted skipped-short', title: t('review.postponed_on', { date: fmt.date(r.skipped_at, r.library_timezone).slice(0, 16) }) },
-            t('review.skipped_compact', { date: fmt.date(r.skipped_at, r.library_timezone).slice(8, 10) + '/' +
-              fmt.date(r.skipped_at, r.library_timezone).slice(5, 7) + ' ' + fmt.date(r.skipped_at, r.library_timezone).slice(11, 16) })),
-        ] : r.decision_kind ? [
+        h('td', { class: 'review-decision' }, r.status === 'skipped' && r.skipped_at ?
+          h('span', { class: 'muted' }, t('review.postponed_on', { date: fmt.date(r.skipped_at) })) : r.decision_kind ? [
           t('review.decision.' + r.decision_kind), r.decision?.date ? ' · ' + fmt.localDate(r.decision.date) : '',
-        ] : '\u2014') : null,
+        ] : '\u2014'),
         h('td', {}, h('a', { class: 'btn small', href: '#/metadata/review/' + r.id }, t('review.open')))))) : h('p', { class: 'muted' }, t('review.empty')),
     pagination.render(d.total, offset));
   };
-  status.addEventListener('change', () => { offset = 0; load(); });
-  kind.addEventListener('change', () => { offset = 0; load(); });
+  const changeFilters = () => { filters.save({ status: status.value, kind: kind.value }); offset = 0; load(); };
+  status.addEventListener('change', changeFilters);
+  kind.addEventListener('change', changeFilters);
   mount(main, options.embedded ? null : [
     h('h1', { class: 'sr-only' }, t('review.title')), stepGuide(2, flowStatus), h('p', { class: 'intro' }, t('review.intro')), notice, counts],
     population, h('div', { class: 'filters' }, field('review.filter_status', status), field('review.filter_kind', kind), start), box,
@@ -228,7 +226,9 @@ export async function item(main, state, [id]) {
   const media = f ? mediaView(Number(id), f) : null;
   mount(main,
     h('div', { class: 'review-head' }, h('a', { class: 'back-link', href: '#/metadata/review' }, '← ',
-      t('common.back_to', { page: t('nav.metadata') })), ' ', badge(t('review.kind.' + r.kind), 'warn'), ' ', badge(t('review.status.' + r.status), '')),
+      t('common.back_to', { page: t('nav.metadata') })), ' ', badge(t('review.kind.' + r.kind), 'warn'), ' ',
+      r.status === 'skipped' ? null : badge(t('review.status.' + r.status), ''),
+      r.status === 'skipped' && r.skipped_at ? h('span', { class: 'muted' }, t('review.postponed_on', { date: fmt.date(r.skipped_at) })) : null),
     h('div', { class: 'review' },
       h('div', { class: 'review-side' },
         r.recheck_reason ? h('div', { class: 'notice warn recheck-notice' },
